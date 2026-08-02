@@ -1,0 +1,27 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Utilisateur extends Model
+{
+    use HasFactory;
+
+    public const ROLE_MANAGER = 'manager';
+    public const ROLE_MENAGE = 'menage';
+    public const ROLE_MAINTENANCE = 'maintenance';
+
+    protected $fillable = [
+        'nom',
+        'role',
+        'telephone',
+    ];
+
+    public function missionMenages(): HasMany
+    {
+        return $this->hasMany(MissionMenage::class, 'agent_id');
+    }
+}
