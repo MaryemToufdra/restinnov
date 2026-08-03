@@ -9,6 +9,16 @@ interface VoyageurFieldsetProps {
   onRemove: () => void
 }
 
+const TYPE_LABELS: Record<Voyageur['type'], string> = {
+  adulte: 'Adulte',
+  enfant: 'Enfant',
+}
+
+const TYPE_STYLES: Record<Voyageur['type'], string> = {
+  adulte: 'bg-indigo-100 text-indigo-800',
+  enfant: 'bg-amber-100 text-amber-800',
+}
+
 export function VoyageurFieldset({
   voyageur,
   index,
@@ -30,7 +40,12 @@ export function VoyageurFieldset({
         </button>
       )}
 
-      <p className="mb-2 text-sm font-medium text-gray-700">Voyageur {index + 1}</p>
+      <div className="mb-2 flex items-center gap-2">
+        <p className="text-sm font-medium text-gray-700">Voyageur {index + 1}</p>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_STYLES[voyageur.type]}`}>
+          {TYPE_LABELS[voyageur.type]}
+        </span>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -62,15 +77,17 @@ export function VoyageurFieldset({
         </div>
       </div>
 
-      <label className="mt-2 flex items-center gap-2 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          checked={voyageur.est_principal}
-          onChange={onSetPrincipal}
-          className="h-4 w-4 rounded border-gray-300"
-        />
-        Voyageur principal
-      </label>
+      {voyageur.type === 'adulte' && (
+        <label className="mt-2 flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={voyageur.est_principal}
+            onChange={onSetPrincipal}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          Voyageur principal
+        </label>
+      )}
     </div>
   )
 }

@@ -59,11 +59,14 @@ export interface MissionMenage {
   produits?: ProduitCatalogue[]
 }
 
+export type VoyageurType = 'adulte' | 'enfant'
+
 export interface Voyageur {
   id?: number
   nom: string
   numero_passeport: string | null
   est_principal: boolean
+  type: VoyageurType
 }
 
 export interface FraisMaintenance {

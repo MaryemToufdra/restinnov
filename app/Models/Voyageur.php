@@ -10,11 +10,15 @@ class Voyageur extends Model
 {
     use HasFactory;
 
+    public const TYPE_ADULTE = 'adulte';
+    public const TYPE_ENFANT = 'enfant';
+
     protected $fillable = [
         'sejour_id',
         'nom',
         'numero_passeport',
         'est_principal',
+        'type',
     ];
 
     protected $casts = [
