@@ -2,11 +2,23 @@ export type SejourStatut = 'a_venir' | 'en_cours' | 'termine'
 
 export type MissionStatut = 'a_faire' | 'en_cours' | 'conforme' | 'non_conforme'
 
+export type PlateformeOrigine = 'airbnb' | 'direct' | 'autre'
+
+export interface ChecklistModele {
+  id: number
+  nom: string
+}
+
 export interface Appartement {
   id: number
   nom: string
   adresse: string
   statut: string
+  photo_principale: string | null
+  checklist_modele_id: number | null
+  agent_habituel_id: number | null
+  checklist_modele?: ChecklistModele | null
+  agent_habituel?: Agent | null
 }
 
 export interface Agent {
@@ -24,6 +36,13 @@ export interface MissionMenage {
   agent: Agent | null
 }
 
+export interface Voyageur {
+  id?: number
+  nom: string
+  numero_passeport: string | null
+  est_principal: boolean
+}
+
 export interface Sejour {
   id: number
   appartement_id: number
@@ -31,6 +50,9 @@ export interface Sejour {
   date_depart: string
   nom_voyageur: string
   statut: SejourStatut
+  plateforme_origine: PlateformeOrigine
+  montant_mad: string | number | null
   appartement?: Appartement
   mission_menage?: MissionMenage | null
+  voyageurs?: Voyageur[]
 }

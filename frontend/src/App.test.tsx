@@ -4,7 +4,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import type { Sejour } from './types'
 
-const appartement = { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'disponible' }
+const appartement = {
+  id: 1,
+  nom: 'Loft Bastille',
+  adresse: '12 rue de la Roquette',
+  statut: 'disponible',
+  photo_principale: null,
+  checklist_modele_id: null,
+  agent_habituel_id: null,
+}
 
 function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
   return {
@@ -14,8 +22,11 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
     date_depart: '2026-08-05',
     nom_voyageur: 'Jean Dupont',
     statut: 'a_venir',
+    plateforme_origine: 'airbnb',
+    montant_mad: 0,
     appartement,
     mission_menage: null,
+    voyageurs: [{ nom: 'Jean Dupont', numero_passeport: null, est_principal: true }],
     ...overrides,
   }
 }
@@ -33,6 +44,14 @@ function mockFetch(handlers: {
 
     if (url.endsWith('/api/appartements') && method === 'GET') {
       return new Response(JSON.stringify([appartement]), { status: 200 })
+    }
+
+    if (url.endsWith('/api/checklist-modeles') && method === 'GET') {
+      return new Response(JSON.stringify([]), { status: 200 })
+    }
+
+    if (url.includes('/api/utilisateurs') && method === 'GET') {
+      return new Response(JSON.stringify([]), { status: 200 })
     }
 
     if (url.endsWith('/api/sejours') && method === 'GET') {
@@ -87,10 +106,22 @@ describe('App', () => {
     await user.selectOptions(select, '1')
     await user.type(screen.getByLabelText(/Date d'arrivée/i), '2026-08-01')
     await user.type(screen.getByLabelText(/Date de départ/i), '2026-08-05')
-    await user.type(screen.getByLabelText(/Nom du voyageur/i), 'Marie Curie')
-    await user.click(screen.getByRole('button', { name: /créer le séjour/i }))
+    await user.type(screen.getByLabelText('Nom'), 'Marie Curie')
+    await user.click(screen.getByRole('button', { name: /enregistrer le séjour/i }))
 
     expect(await screen.findByText('Marie Curie')).toBeInTheDocument()
+  })
+
+  it('permet de basculer vers le formulaire Nouvel appartement', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
+
+    expect(screen.getByLabelText(/nom du bien/i)).toBeInTheDocument()
+    expect(screen.getByText('Disponible')).toBeInTheDocument()
   })
 
   it('confirme le checkout et affiche la mission de ménage avec l’agent assigné', async () => {

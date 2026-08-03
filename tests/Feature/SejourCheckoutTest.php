@@ -25,7 +25,9 @@ class SejourCheckoutTest extends TestCase
             'appartement_id' => $appartement->id,
             'date_arrivee' => '2026-08-01',
             'date_depart' => '2026-08-05',
-            'nom_voyageur' => 'Jean Dupont',
+            'voyageurs' => [
+                ['nom' => 'Jean Dupont', 'numero_passeport' => null, 'est_principal' => true],
+            ],
         ]);
 
         $response->assertCreated();
@@ -33,6 +35,12 @@ class SejourCheckoutTest extends TestCase
             'appartement_id' => $appartement->id,
             'nom_voyageur' => 'Jean Dupont',
             'statut' => 'a_venir',
+            'plateforme_origine' => 'airbnb',
+            'montant_mad' => 0,
+        ]);
+        $this->assertDatabaseHas('voyageurs', [
+            'nom' => 'Jean Dupont',
+            'est_principal' => true,
         ]);
     }
 
