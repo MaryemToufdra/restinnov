@@ -1,0 +1,76 @@
+import type { Voyageur } from '../types'
+
+interface VoyageurFieldsetProps {
+  voyageur: Voyageur
+  index: number
+  canRemove: boolean
+  onChange: (patch: Partial<Voyageur>) => void
+  onSetPrincipal: () => void
+  onRemove: () => void
+}
+
+export function VoyageurFieldset({
+  voyageur,
+  index,
+  canRemove,
+  onChange,
+  onSetPrincipal,
+  onRemove,
+}: VoyageurFieldsetProps) {
+  return (
+    <div className="relative rounded-md border border-gray-200 p-3">
+      {canRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Retirer le voyageur ${index + 1}`}
+          className="absolute right-2 top-2 text-gray-400 hover:text-red-600"
+        >
+          ✕
+        </button>
+      )}
+
+      <p className="mb-2 text-sm font-medium text-gray-700">Voyageur {index + 1}</p>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`voyageur_nom_${index}`} className="block text-xs font-medium text-gray-600">
+            Nom
+          </label>
+          <input
+            id={`voyageur_nom_${index}`}
+            type="text"
+            required
+            value={voyageur.nom}
+            onChange={(e) => onChange({ nom: e.target.value })}
+            placeholder="Nom du voyageur"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label htmlFor={`voyageur_passeport_${index}`} className="block text-xs font-medium text-gray-600">
+            Numéro de passeport
+          </label>
+          <input
+            id={`voyageur_passeport_${index}`}
+            type="text"
+            value={voyageur.numero_passeport ?? ''}
+            onChange={(e) => onChange({ numero_passeport: e.target.value })}
+            placeholder="Optionnel"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      <label className="mt-2 flex items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={voyageur.est_principal}
+          onChange={onSetPrincipal}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        Voyageur principal
+      </label>
+    </div>
+  )
+}

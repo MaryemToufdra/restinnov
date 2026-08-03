@@ -8,6 +8,7 @@ use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class SejourController extends Controller
 {
@@ -16,7 +17,7 @@ class SejourController extends Controller
      */
     public function index(): JsonResponse
     {
-        $sejours = Sejour::with(['appartement', 'missionMenage.agent'])
+        $sejours = Sejour::with(['appartement', 'missionMenage.agent', 'voyageurs'])
             ->latest()
             ->get();
 
@@ -24,21 +25,60 @@ class SejourController extends Controller
     }
 
     /**
-     * Store a newly created sejour.
+     * Store a newly created sejour along with its voyageurs.
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'appartement_id' => ['required', 'exists:appartements,id'],
             'date_arrivee' => ['required', 'date'],
-            'date_depart' => ['required', 'date', 'after_or_equal:date_arrivee'],
-            'nom_voyageur' => ['required', 'string', 'max:255'],
+            'date_depart' => ['required', 'date', 'after:date_arrivee'],
+            'plateforme_origine' => ['sometimes', 'in:airbnb,direct,autre'],
+            'montant_mad' => ['nullable', 'numeric', 'min:0'],
             'statut' => ['sometimes', 'in:a_venir,en_cours,termine'],
+            'voyageurs' => ['required', 'array', 'min:1'],
+            'voyageurs.*.nom' => ['required', 'string', 'max:255'],
+            'voyageurs.*.numero_passeport' => ['nullable', 'string', 'max:255'],
+            'voyageurs.*.est_principal' => ['required', 'boolean'],
         ]);
 
-        $sejour = Sejour::create($validated);
+        $validator->after(function ($validator) use ($request) {
+            $voyageurs = $request->input('voyageurs', []);
+            $principaux = collect($voyageurs)->filter(fn ($v) => filter_var($v['est_principal'] ?? false, FILTER_VALIDATE_BOOLEAN));
 
-        return response()->json($sejour->load('appartement'), 201);
+            if ($principaux->count() !== 1) {
+                $validator->errors()->add('voyageurs', 'Exactement un voyageur doit être désigné comme voyageur principal.');
+            }
+        });
+
+        $validated = $validator->validate();
+
+        $sejour = DB::transaction(function () use ($validated) {
+            $principal = collect($validated['voyageurs'])
+                ->first(fn ($v) => filter_var($v['est_principal'], FILTER_VALIDATE_BOOLEAN));
+
+            $sejour = Sejour::create([
+                'appartement_id' => $validated['appartement_id'],
+                'date_arrivee' => $validated['date_arrivee'],
+                'date_depart' => $validated['date_depart'],
+                'nom_voyageur' => $principal['nom'],
+                'statut' => $validated['statut'] ?? Sejour::STATUT_A_VENIR,
+                'plateforme_origine' => $validated['plateforme_origine'] ?? Sejour::PLATEFORME_AIRBNB,
+                'montant_mad' => $validated['montant_mad'] ?? 0,
+            ]);
+
+            foreach ($validated['voyageurs'] as $voyageur) {
+                $sejour->voyageurs()->create([
+                    'nom' => $voyageur['nom'],
+                    'numero_passeport' => $voyageur['numero_passeport'] ?? null,
+                    'est_principal' => filter_var($voyageur['est_principal'], FILTER_VALIDATE_BOOLEAN),
+                ]);
+            }
+
+            return $sejour;
+        });
+
+        return response()->json($sejour->load(['appartement', 'voyageurs']), 201);
     }
 
     /**
