@@ -129,4 +129,51 @@ class SejourCheckoutTest extends TestCase
         $response->assertStatus(422);
         $this->assertDatabaseCount('mission_menages', 0);
     }
+
+    public function test_it_lists_sejours_with_appartement_and_mission_menage(): void
+    {
+        $appartement = Appartement::create([
+            'nom' => 'Loft Bastille',
+            'adresse' => '12 rue de la Roquette, Paris',
+            'statut' => 'disponible',
+        ]);
+
+        $agent = Utilisateur::create(['nom' => 'Fatima Z.', 'role' => 'menage']);
+
+        $sejour = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-08-01',
+            'date_depart' => '2026-08-05',
+            'nom_voyageur' => 'Jean Dupont',
+            'statut' => 'termine',
+        ]);
+        MissionMenage::create([
+            'sejour_id' => $sejour->id,
+            'agent_id' => $agent->id,
+            'statut' => 'a_faire',
+        ]);
+
+        $response = $this->getJson('/api/sejours');
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.nom_voyageur', 'Jean Dupont');
+        $response->assertJsonPath('0.appartement.nom', 'Loft Bastille');
+        $response->assertJsonPath('0.mission_menage.agent.nom', 'Fatima Z.');
+    }
+
+    public function test_it_lists_appartements(): void
+    {
+        Appartement::create([
+            'nom' => 'Loft Bastille',
+            'adresse' => '12 rue de la Roquette, Paris',
+            'statut' => 'disponible',
+        ]);
+
+        $response = $this->getJson('/api/appartements');
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.nom', 'Loft Bastille');
+    }
 }
