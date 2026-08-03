@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { NouveauSejourForm } from './NouveauSejourForm'
@@ -99,7 +99,7 @@ describe('NouveauSejourForm', () => {
     expect(screen.getByRole('button', { name: 'Airbnb' })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('propose Booking comme 4e plateforme d\'origine', async () => {
+  it('propose Booking comme plateforme d\'origine', async () => {
     const user = userEvent.setup()
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
 
@@ -107,6 +107,17 @@ describe('NouveauSejourForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Booking' }))
     expect(screen.getByRole('button', { name: 'Booking' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('affiche les pilules de plateforme dans l\'ordre Airbnb, Booking, Direct, Autre', () => {
+    render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    const group = screen.getByRole('group', { name: /Plateforme d'origine/i })
+    const labels = within(group)
+      .getAllByRole('button')
+      .map((button) => button.textContent)
+
+    expect(labels).toEqual(['Airbnb', 'Booking', 'Direct', 'Autre'])
   })
 
   it('calcule le nombre de nuits et le montant par nuit en temps réel', async () => {

@@ -11,9 +11,9 @@ interface NouveauSejourFormProps {
 
 const PLATEFORMES: { value: PlateformeOrigine; label: string }[] = [
   { value: 'airbnb', label: 'Airbnb' },
+  { value: 'booking', label: 'Booking' },
   { value: 'direct', label: 'Direct' },
   { value: 'autre', label: 'Autre' },
-  { value: 'booking', label: 'Booking' },
 ]
 
 function computeNombreNuits(dateArrivee: string, dateDepart: string): number | null {
