@@ -51,4 +51,9 @@ class Sejour extends Model
     {
         return $this->hasMany(Voyageur::class);
     }
+
+    public function fraisMaintenance(): HasMany
+    {
+        return $this->hasMany(FraisMaintenance::class);
+    }
 }

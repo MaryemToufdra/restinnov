@@ -4,6 +4,8 @@ export type MissionStatut = 'a_faire' | 'en_cours' | 'conforme' | 'non_conforme'
 
 export type PlateformeOrigine = 'airbnb' | 'direct' | 'autre' | 'booking'
 
+export type ProduitSignaleStatut = 'en_attente' | 'valide' | 'rejete'
+
 export interface ChecklistModele {
   id: number
   nom: string
@@ -29,12 +31,32 @@ export interface Agent {
   adresse?: string | null
 }
 
+export interface ProduitCatalogue {
+  id: number
+  nom: string
+  prix: string | number
+  actif: boolean
+}
+
+export interface ProduitMenageSignale {
+  id: number
+  mission_menage_id: number
+  photo_url: string
+  note: string | null
+  statut: ProduitSignaleStatut
+  produit_catalogue_id: number | null
+  produit_catalogue?: ProduitCatalogue | null
+  mission_menage?: MissionMenage & { sejour?: Sejour }
+}
+
 export interface MissionMenage {
   id: number
   sejour_id: number
   agent_id: number | null
   statut: MissionStatut
   agent: Agent | null
+  frais_forfait: string | number
+  produits?: ProduitCatalogue[]
 }
 
 export interface Voyageur {
@@ -42,6 +64,13 @@ export interface Voyageur {
   nom: string
   numero_passeport: string | null
   est_principal: boolean
+}
+
+export interface FraisMaintenance {
+  id: number
+  sejour_id: number
+  description: string
+  prix: string | number
 }
 
 export interface Sejour {
@@ -56,4 +85,5 @@ export interface Sejour {
   appartement?: Appartement
   mission_menage?: MissionMenage | null
   voyageurs?: Voyageur[]
+  frais_maintenance?: FraisMaintenance[]
 }

@@ -64,6 +64,14 @@ function mockFetch(handlers: {
       return new Response(JSON.stringify(created), { status: 201 })
     }
 
+    if (url.endsWith('/api/produits-catalogue') && method === 'GET') {
+      return new Response(JSON.stringify([]), { status: 200 })
+    }
+
+    if (url.includes('/api/produits-signales') && method === 'GET') {
+      return new Response(JSON.stringify([]), { status: 200 })
+    }
+
     if (url.endsWith('/api/sejours') && method === 'GET') {
       return new Response(JSON.stringify(sejours), { status: 200 })
     }
@@ -134,6 +142,44 @@ describe('App', () => {
     expect(screen.getByText('Disponible')).toBeInTheDocument()
   })
 
+  it('affiche le catalogue et les produits signalés en attente sous l\'onglet "Catalogue ménage"', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockFetch({ sejours: [] }) as ReturnType<typeof vi.fn>
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /catalogue ménage/i }))
+
+    expect(await screen.findByText(/catalogue de produits de ménage/i)).toBeInTheDocument()
+    expect(screen.getByText(/produits signalés en attente/i)).toBeInTheDocument()
+  })
+
+  it('affiche la section "Frais de ménage" avec le forfait pré-rempli sur un séjour checkouté', async () => {
+    globalThis.fetch = mockFetch({
+      sejours: [
+        sejourFixture({
+          statut: 'termine',
+          mission_menage: {
+            id: 1,
+            sejour_id: 1,
+            agent_id: 1,
+            statut: 'a_faire',
+            agent: { id: 1, nom: 'Fatima Z.', role: 'menage', telephone: null },
+            frais_forfait: 80,
+            produits: [],
+          },
+        }),
+      ],
+    }) as typeof fetch
+
+    render(<App />)
+
+    expect(await screen.findByText('Frais de ménage')).toBeInTheDocument()
+    expect(screen.getByLabelText(/forfait femme de ménage/i)).toHaveValue(80)
+    expect(screen.getByTestId(/total-frais-menage-1/)).toHaveTextContent('80.00 MAD')
+  })
+
   it('un agent créé apparaît immédiatement dans la liste "agent habituel" sans recharger la page', async () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({
@@ -188,6 +234,8 @@ describe('App', () => {
           agent_id: 5,
           statut: 'a_faire',
           agent: { id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null },
+          frais_forfait: 80,
+          produits: [],
         },
       }),
     }) as typeof fetch
@@ -215,6 +263,8 @@ describe('App', () => {
           agent_id: null,
           statut: 'a_faire',
           agent: null,
+          frais_forfait: 80,
+          produits: [],
         },
       }),
     }) as typeof fetch
