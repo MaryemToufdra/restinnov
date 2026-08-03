@@ -99,6 +99,40 @@ describe('NouveauSejourForm', () => {
     expect(screen.getByRole('button', { name: 'Airbnb' })).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('propose Booking comme 4e plateforme d\'origine', async () => {
+    const user = userEvent.setup()
+    render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Booking' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Booking' }))
+    expect(screen.getByRole('button', { name: 'Booking' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('calcule le nombre de nuits et le montant par nuit en temps réel', async () => {
+    const user = userEvent.setup()
+    render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    expect(screen.queryByTestId('nombre-nuits')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('montant-par-nuit')).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(/Date d'arrivée/i), '2026-08-01')
+    await user.type(screen.getByLabelText(/Date de départ/i), '2026-08-06')
+
+    expect(screen.getByTestId('nombre-nuits')).toHaveTextContent('5 nuits')
+
+    await user.clear(screen.getByLabelText(/Montant du séjour/i))
+    await user.type(screen.getByLabelText(/Montant du séjour/i), '1000')
+
+    expect(screen.getByTestId('montant-par-nuit')).toHaveTextContent('200.00 MAD / nuit')
+
+    await user.clear(screen.getByLabelText(/Date de départ/i))
+    await user.type(screen.getByLabelText(/Date de départ/i), '2026-08-09')
+
+    expect(screen.getByTestId('nombre-nuits')).toHaveTextContent('8 nuits')
+    expect(screen.getByTestId('montant-par-nuit')).toHaveTextContent('125.00 MAD / nuit')
+  })
+
   it('soumet le formulaire avec le payload attendu', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)

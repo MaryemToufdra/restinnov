@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appartement;
 use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class UtilisateurController extends Controller
 {
@@ -23,7 +25,8 @@ class UtilisateurController extends Controller
     }
 
     /**
-     * Store a newly created utilisateur (agent account).
+     * Store a newly created utilisateur (agent account), optionally assigning
+     * it as the agent_habituel of a set of existing appartements.
      */
     public function store(Request $request): JsonResponse
     {
@@ -31,9 +34,25 @@ class UtilisateurController extends Controller
             'nom' => ['required', 'string', 'max:255'],
             'role' => ['required', 'in:menage,maintenance,manager'],
             'telephone' => ['nullable', 'string', 'max:255'],
+            'adresse' => ['nullable', 'string', 'max:255'],
+            'appartement_ids' => ['sometimes', 'array'],
+            'appartement_ids.*' => ['integer', 'exists:appartements,id'],
         ]);
 
-        $utilisateur = Utilisateur::create($validated);
+        $appartementIds = $validated['appartement_ids'] ?? [];
+        unset($validated['appartement_ids']);
+
+        $utilisateur = DB::transaction(function () use ($validated, $appartementIds) {
+            $utilisateur = Utilisateur::create($validated);
+
+            if (! empty($appartementIds)) {
+                Appartement::whereIn('id', $appartementIds)->update([
+                    'agent_habituel_id' => $utilisateur->id,
+                ]);
+            }
+
+            return $utilisateur;
+        });
 
         return response()->json($utilisateur, 201);
     }

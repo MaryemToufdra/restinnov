@@ -130,7 +130,7 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
 
-    expect(screen.getByLabelText(/nom du bien/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/nom d'appartement/i)).toBeInTheDocument()
     expect(screen.getByText('Disponible')).toBeInTheDocument()
   })
 
@@ -143,7 +143,7 @@ describe('App', () => {
 
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: /nouveau compte agent/i }))
+    await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
     await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
     await user.click(screen.getByRole('button', { name: /créer le compte/i }))
 
@@ -151,6 +151,29 @@ describe('App', () => {
 
     const select = screen.getByRole('combobox', { name: /agent de ménage habituel/i })
     expect(await within(select).findByRole('option', { name: 'Fatima Zahra' })).toBeInTheDocument()
+  })
+
+  it('un appartement coché affiche immédiatement le nouvel agent comme agent habituel dans le formulaire agent', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [],
+      onCreateUtilisateur: () => ({ id: 42, nom: 'Fatima Zahra', role: 'menage', telephone: null }),
+    }) as typeof fetch
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
+    expect(await screen.findByRole('checkbox', { name: /Loft Bastille/i })).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
+    await user.click(screen.getByRole('checkbox', { name: /Loft Bastille/i }))
+    await user.click(screen.getByRole('button', { name: /créer le compte/i }))
+
+    // switching tabs and back re-mounts the form with the current appartements state
+    await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
+    await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
+
+    expect(await screen.findByText(/actuellement : Fatima Zahra/i)).toBeInTheDocument()
   })
 
   it('confirme le checkout et affiche la mission de ménage avec l’agent assigné', async () => {

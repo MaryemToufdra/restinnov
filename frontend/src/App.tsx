@@ -76,6 +76,17 @@ function App() {
     if (agent.role === 'menage') {
       setAgentsMenage((current) => [...current, agent].sort((a, b) => a.nom.localeCompare(b.nom)))
     }
+
+    const assignedIds = input.appartement_ids ?? []
+    if (assignedIds.length > 0) {
+      setAppartements((current) =>
+        current.map((appartement) =>
+          assignedIds.includes(appartement.id)
+            ? { ...appartement, agent_habituel_id: agent.id, agent_habituel: agent }
+            : appartement,
+        ),
+      )
+    }
   }
 
   const handleCheckout = async (id: number) => {
@@ -124,7 +135,7 @@ function App() {
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Nouveau compte agent
+          Nouvel agent de ménage
         </button>
       </div>
 
@@ -140,7 +151,9 @@ function App() {
             onCreateChecklistModele={handleCreateChecklistModele}
           />
         )}
-        {activeTab === 'agent' && <NouvelAgentForm onSubmit={handleCreateUtilisateur} />}
+        {activeTab === 'agent' && (
+          <NouvelAgentForm appartements={appartements} onSubmit={handleCreateUtilisateur} />
+        )}
       </div>
 
       <div className="mt-8">

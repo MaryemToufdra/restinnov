@@ -23,6 +23,8 @@ export interface NewUtilisateurInput {
   nom: string
   role: 'menage' | 'maintenance'
   telephone: string | null
+  adresse?: string | null
+  appartement_ids?: number[]
 }
 
 export class ApiError extends Error {

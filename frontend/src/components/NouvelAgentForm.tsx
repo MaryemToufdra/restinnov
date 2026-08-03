@@ -1,23 +1,33 @@
 import { useState, type FormEvent } from 'react'
 import type { NewUtilisateurInput } from '../api'
+import type { Appartement } from '../types'
 
 interface NouvelAgentFormProps {
+  appartements: Appartement[]
   onSubmit: (input: NewUtilisateurInput) => Promise<void>
   onCancel?: () => void
 }
 
-export function NouvelAgentForm({ onSubmit, onCancel }: NouvelAgentFormProps) {
+export function NouvelAgentForm({ appartements, onSubmit, onCancel }: NouvelAgentFormProps) {
   const [nom, setNom] = useState('')
-  const [role, setRole] = useState<'menage' | 'maintenance'>('menage')
   const [telephone, setTelephone] = useState('')
+  const [adresse, setAdresse] = useState('')
+  const [appartementIds, setAppartementIds] = useState<number[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const resetForm = () => {
     setNom('')
-    setRole('menage')
     setTelephone('')
+    setAdresse('')
+    setAppartementIds([])
     setError(null)
+  }
+
+  const toggleAppartement = (id: number) => {
+    setAppartementIds((current) =>
+      current.includes(id) ? current.filter((a) => a !== id) : [...current, id],
+    )
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -33,8 +43,10 @@ export function NouvelAgentForm({ onSubmit, onCancel }: NouvelAgentFormProps) {
     try {
       await onSubmit({
         nom,
-        role,
+        role: 'menage',
         telephone: telephone.trim() ? telephone : null,
+        adresse: adresse.trim() ? adresse : null,
+        appartement_ids: appartementIds,
       })
       resetForm()
     } catch (err) {
@@ -46,7 +58,7 @@ export function NouvelAgentForm({ onSubmit, onCancel }: NouvelAgentFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">Nouveau compte agent</h2>
+      <h2 className="text-lg font-semibold text-gray-900">Nouvel agent de ménage</h2>
 
       <div>
         <label htmlFor="agent_nom" className="block text-sm font-medium text-gray-700">
@@ -64,21 +76,6 @@ export function NouvelAgentForm({ onSubmit, onCancel }: NouvelAgentFormProps) {
       </div>
 
       <div>
-        <label htmlFor="agent_role" className="block text-sm font-medium text-gray-700">
-          Rôle
-        </label>
-        <select
-          id="agent_role"
-          value={role}
-          onChange={(e) => setRole(e.target.value as 'menage' | 'maintenance')}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="menage">Agent de ménage</option>
-          <option value="maintenance">Agent de maintenance</option>
-        </select>
-      </div>
-
-      <div>
         <label htmlFor="agent_telephone" className="block text-sm font-medium text-gray-700">
           Téléphone
         </label>
@@ -90,6 +87,46 @@ export function NouvelAgentForm({ onSubmit, onCancel }: NouvelAgentFormProps) {
           placeholder="Optionnel"
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         />
+      </div>
+
+      <div>
+        <label htmlFor="agent_adresse" className="block text-sm font-medium text-gray-700">
+          Adresse
+        </label>
+        <input
+          id="agent_adresse"
+          type="text"
+          value={adresse}
+          onChange={(e) => setAdresse(e.target.value)}
+          placeholder="Optionnel"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <span className="block text-sm font-medium text-gray-700">Appartements assignés</span>
+        {appartements.length === 0 ? (
+          <p className="mt-1 text-sm text-gray-500">Aucun appartement disponible pour le moment.</p>
+        ) : (
+          <div className="mt-2 space-y-2">
+            {appartements.map((appartement) => (
+              <label key={appartement.id} className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={appartementIds.includes(appartement.id)}
+                  onChange={() => toggleAppartement(appartement.id)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                {appartement.nom}
+                {appartement.agent_habituel && (
+                  <span className="text-xs text-gray-500">
+                    (actuellement : {appartement.agent_habituel.nom})
+                  </span>
+                )}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

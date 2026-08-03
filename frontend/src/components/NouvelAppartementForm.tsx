@@ -104,7 +104,7 @@ export function NouvelAppartementForm({
 
       <div>
         <label htmlFor="appartement_nom" className="block text-sm font-medium text-gray-700">
-          Nom du bien
+          Nom d'appartement
         </label>
         <input
           id="appartement_nom"

@@ -150,4 +150,26 @@ class SejourVoyageursTest extends TestCase
             'montant_mad' => 0,
         ]);
     }
+
+    public function test_it_accepts_booking_as_plateforme_origine(): void
+    {
+        $appartement = $this->appartement();
+
+        $response = $this->postJson('/api/sejours', [
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-08-01',
+            'date_depart' => '2026-08-05',
+            'plateforme_origine' => 'booking',
+            'voyageurs' => [
+                ['nom' => 'Jean Dupont', 'est_principal' => true],
+            ],
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('plateforme_origine', 'booking');
+        $this->assertDatabaseHas('sejours', [
+            'appartement_id' => $appartement->id,
+            'plateforme_origine' => 'booking',
+        ]);
+    }
 }

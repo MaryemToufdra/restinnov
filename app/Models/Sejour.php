@@ -19,6 +19,7 @@ class Sejour extends Model
     public const PLATEFORME_AIRBNB = 'airbnb';
     public const PLATEFORME_DIRECT = 'direct';
     public const PLATEFORME_AUTRE = 'autre';
+    public const PLATEFORME_BOOKING = 'booking';
 
     protected $fillable = [
         'appartement_id',

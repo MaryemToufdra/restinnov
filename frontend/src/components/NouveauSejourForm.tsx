@@ -13,7 +13,16 @@ const PLATEFORMES: { value: PlateformeOrigine; label: string }[] = [
   { value: 'airbnb', label: 'Airbnb' },
   { value: 'direct', label: 'Direct' },
   { value: 'autre', label: 'Autre' },
+  { value: 'booking', label: 'Booking' },
 ]
+
+function computeNombreNuits(dateArrivee: string, dateDepart: string): number | null {
+  if (!dateArrivee || !dateDepart) return null
+  const start = new Date(dateArrivee)
+  const end = new Date(dateDepart)
+  const nights = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  return nights > 0 ? nights : null
+}
 
 function defaultVoyageurs(): Voyageur[] {
   return [{ nom: '', numero_passeport: '', est_principal: true }]
@@ -62,6 +71,9 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
       return next
     })
   }
+
+  const nombreNuits = computeNombreNuits(dateArrivee, dateDepart)
+  const montantParNuit = nombreNuits ? (Number(montantMad) || 0) / nombreNuits : null
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -169,6 +181,12 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
         </div>
       </div>
 
+      {nombreNuits !== null && (
+        <p className="text-sm text-gray-600" data-testid="nombre-nuits">
+          {nombreNuits} {nombreNuits > 1 ? 'nuits' : 'nuit'}
+        </p>
+      )}
+
       <div>
         <span className="block text-sm font-medium text-gray-700">Nombre de voyageurs</span>
         <div className="mt-1 flex items-center gap-3">
@@ -229,6 +247,11 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
           onChange={(e) => setMontantMad(e.target.value)}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         />
+        {montantParNuit !== null && (
+          <p className="mt-1 text-sm text-gray-600" data-testid="montant-par-nuit">
+            Soit {montantParNuit.toFixed(2)} MAD / nuit
+          </p>
+        )}
       </div>
 
       <div>
