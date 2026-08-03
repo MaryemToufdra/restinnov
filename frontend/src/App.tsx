@@ -4,19 +4,22 @@ import {
   createAppartement,
   createChecklistModele,
   createSejour,
+  createUtilisateur,
   fetchAppartements,
   fetchChecklistModeles,
   fetchSejours,
   fetchUtilisateurs,
   type NewAppartementInput,
   type NewSejourInput,
+  type NewUtilisateurInput,
 } from './api'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
+import { NouvelAgentForm } from './components/NouvelAgentForm'
 import { NouvelAppartementForm } from './components/NouvelAppartementForm'
 import { SejourCard } from './components/SejourCard'
 import type { Agent, Appartement, ChecklistModele, Sejour } from './types'
 
-type Tab = 'sejour' | 'appartement'
+type Tab = 'sejour' | 'appartement' | 'agent'
 
 function App() {
   const [appartements, setAppartements] = useState<Appartement[]>([])
@@ -68,6 +71,13 @@ function App() {
     return modele
   }
 
+  const handleCreateUtilisateur = async (input: NewUtilisateurInput) => {
+    const agent = await createUtilisateur(input)
+    if (agent.role === 'menage') {
+      setAgentsMenage((current) => [...current, agent].sort((a, b) => a.nom.localeCompare(b.nom)))
+    }
+  }
+
   const handleCheckout = async (id: number) => {
     const { sejour: updated, mission_menage } = await checkoutSejour(id)
     setSejours((current) =>
@@ -79,7 +89,7 @@ function App() {
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900">Séjours & ménage</h1>
       <p className="mt-1 text-sm text-gray-600">
-        Créez un appartement ou un séjour, puis confirmez le checkout pour générer automatiquement une mission de ménage.
+        Créez un appartement, un séjour ou un compte agent, puis confirmez le checkout pour générer automatiquement une mission de ménage.
       </p>
 
       <div className="mt-6 flex gap-2 border-b border-gray-200">
@@ -105,12 +115,24 @@ function App() {
         >
           Nouvel appartement
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('agent')}
+          className={`border-b-2 px-3 py-2 text-sm font-medium ${
+            activeTab === 'agent'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Nouveau compte agent
+        </button>
       </div>
 
       <div className="mt-6">
-        {activeTab === 'sejour' ? (
+        {activeTab === 'sejour' && (
           <NouveauSejourForm appartements={appartements} onSubmit={handleCreateSejour} />
-        ) : (
+        )}
+        {activeTab === 'appartement' && (
           <NouvelAppartementForm
             checklistModeles={checklistModeles}
             agentsMenage={agentsMenage}
@@ -118,6 +140,7 @@ function App() {
             onCreateChecklistModele={handleCreateChecklistModele}
           />
         )}
+        {activeTab === 'agent' && <NouvelAgentForm onSubmit={handleCreateUtilisateur} />}
       </div>
 
       <div className="mt-8">

@@ -34,9 +34,12 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
 function mockFetch(handlers: {
   onCreate?: () => Sejour
   onCheckout?: () => { sejour: Sejour; mission_menage: Sejour['mission_menage'] }
+  onCreateUtilisateur?: () => unknown
   sejours?: Sejour[]
+  agentsMenage?: unknown[]
 }) {
   const sejours = handlers.sejours ?? []
+  let agentsMenage = handlers.agentsMenage ?? []
 
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
@@ -51,7 +54,14 @@ function mockFetch(handlers: {
     }
 
     if (url.includes('/api/utilisateurs') && method === 'GET') {
-      return new Response(JSON.stringify([]), { status: 200 })
+      return new Response(JSON.stringify(agentsMenage), { status: 200 })
+    }
+
+    if (url.endsWith('/api/utilisateurs') && method === 'POST') {
+      const created =
+        handlers.onCreateUtilisateur?.() ?? { id: 42, nom: 'Fatima Zahra', role: 'menage', telephone: null }
+      agentsMenage = [...agentsMenage, created]
+      return new Response(JSON.stringify(created), { status: 201 })
     }
 
     if (url.endsWith('/api/sejours') && method === 'GET') {
@@ -122,6 +132,25 @@ describe('App', () => {
 
     expect(screen.getByLabelText(/nom du bien/i)).toBeInTheDocument()
     expect(screen.getByText('Disponible')).toBeInTheDocument()
+  })
+
+  it('un agent créé apparaît immédiatement dans la liste "agent habituel" sans recharger la page', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [],
+      onCreateUtilisateur: () => ({ id: 42, nom: 'Fatima Zahra', role: 'menage', telephone: null }),
+    }) as typeof fetch
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /nouveau compte agent/i }))
+    await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
+    await user.click(screen.getByRole('button', { name: /créer le compte/i }))
+
+    await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
+
+    const select = screen.getByRole('combobox', { name: /agent de ménage habituel/i })
+    expect(await within(select).findByRole('option', { name: 'Fatima Zahra' })).toBeInTheDocument()
   })
 
   it('confirme le checkout et affiche la mission de ménage avec l’agent assigné', async () => {

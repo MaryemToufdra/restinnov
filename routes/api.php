@@ -13,6 +13,7 @@ Route::get('/checklist-modeles', [ChecklistModeleController::class, 'index']);
 Route::post('/checklist-modeles', [ChecklistModeleController::class, 'store']);
 
 Route::get('/utilisateurs', [UtilisateurController::class, 'index']);
+Route::post('/utilisateurs', [UtilisateurController::class, 'store']);
 
 Route::get('/sejours', [SejourController::class, 'index']);
 Route::post('/sejours', [SejourController::class, 'store']);

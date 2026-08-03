@@ -21,4 +21,20 @@ class UtilisateurController extends Controller
 
         return response()->json($query->get());
     }
+
+    /**
+     * Store a newly created utilisateur (agent account).
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'nom' => ['required', 'string', 'max:255'],
+            'role' => ['required', 'in:menage,maintenance,manager'],
+            'telephone' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $utilisateur = Utilisateur::create($validated);
+
+        return response()->json($utilisateur, 201);
+    }
 }

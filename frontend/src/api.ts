@@ -19,6 +19,12 @@ export interface NewAppartementInput {
   agent_habituel_id: number | null
 }
 
+export interface NewUtilisateurInput {
+  nom: string
+  role: 'menage' | 'maintenance'
+  telephone: string | null
+}
+
 export class ApiError extends Error {
   readonly errors?: Record<string, string[]>
 
@@ -91,6 +97,19 @@ export async function fetchUtilisateurs(role?: string): Promise<Agent[]> {
 
   const response = await fetch(url, {
     headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function createUtilisateur(input: NewUtilisateurInput): Promise<Agent> {
+  const response = await fetch(`${API_BASE_URL}/api/utilisateurs`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
   })
 
   return parseJsonOrThrow(response)
