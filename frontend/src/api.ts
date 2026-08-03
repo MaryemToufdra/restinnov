@@ -1,6 +1,21 @@
-import type { Agent, Appartement, ChecklistModele, PlateformeOrigine, Sejour, Voyageur } from './types'
+import type {
+  Agent,
+  Appartement,
+  ChecklistModele,
+  FraisMaintenance,
+  MissionMenage,
+  PlateformeOrigine,
+  ProduitCatalogue,
+  ProduitMenageSignale,
+  Sejour,
+  Voyageur,
+} from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+
+export function resolveStorageUrl(path: string): string {
+  return `${API_BASE_URL}/storage/${path}`
+}
 
 export interface NewSejourInput {
   appartement_id: number
@@ -25,6 +40,31 @@ export interface NewUtilisateurInput {
   telephone: string | null
   adresse?: string | null
   appartement_ids?: number[]
+}
+
+export interface NewProduitCatalogueInput {
+  nom: string
+  prix: number
+}
+
+export interface UpdateMissionMenageProduitsInput {
+  frais_forfait: number
+  produit_ids: number[]
+}
+
+export interface SignalerProduitInput {
+  photo: File
+  note?: string | null
+}
+
+export interface ValiderProduitSignaleInput {
+  nom: string
+  prix: number
+}
+
+export interface NewFraisMaintenanceInput {
+  description: string
+  prix: number
 }
 
 export class ApiError extends Error {
@@ -148,4 +188,122 @@ export async function checkoutSejour(id: number): Promise<{
   })
 
   return parseJsonOrThrow(response)
+}
+
+export async function fetchProduitsCatalogue(): Promise<ProduitCatalogue[]> {
+  const response = await fetch(`${API_BASE_URL}/api/produits-catalogue`, {
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function createProduitCatalogue(input: NewProduitCatalogueInput): Promise<ProduitCatalogue> {
+  const response = await fetch(`${API_BASE_URL}/api/produits-catalogue`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function updateMissionMenageProduits(
+  missionMenageId: number,
+  input: UpdateMissionMenageProduitsInput,
+): Promise<MissionMenage> {
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/produits`, {
+    method: 'PATCH',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function signalerProduit(
+  missionMenageId: number,
+  input: SignalerProduitInput,
+): Promise<ProduitMenageSignale> {
+  const formData = new FormData()
+  formData.append('photo', input.photo)
+  if (input.note) formData.append('note', input.note)
+
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/produits-signales`, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    body: formData,
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchProduitsSignales(statut?: string): Promise<ProduitMenageSignale[]> {
+  const url = new URL(`${API_BASE_URL}/api/produits-signales`)
+  if (statut) url.searchParams.set('statut', statut)
+
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function validerProduitSignale(
+  id: number,
+  input: ValiderProduitSignaleInput,
+): Promise<ProduitMenageSignale> {
+  const response = await fetch(`${API_BASE_URL}/api/produits-signales/${id}/valider`, {
+    method: 'PATCH',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function rejeterProduitSignale(id: number): Promise<ProduitMenageSignale> {
+  const response = await fetch(`${API_BASE_URL}/api/produits-signales/${id}/rejeter`, {
+    method: 'PATCH',
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function createFraisMaintenance(
+  sejourId: number,
+  input: NewFraisMaintenanceInput,
+): Promise<FraisMaintenance> {
+  const response = await fetch(`${API_BASE_URL}/api/sejours/${sejourId}/frais-maintenance`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function deleteFraisMaintenance(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/frais-maintenance/${id}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  })
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new ApiError(data?.message ?? 'Une erreur est survenue.', data?.errors)
+  }
 }

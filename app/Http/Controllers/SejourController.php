@@ -17,7 +17,7 @@ class SejourController extends Controller
      */
     public function index(): JsonResponse
     {
-        $sejours = Sejour::with(['appartement', 'missionMenage.agent', 'voyageurs'])
+        $sejours = Sejour::with(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'voyageurs', 'fraisMaintenance'])
             ->latest()
             ->get();
 
@@ -117,7 +117,7 @@ class SejourController extends Controller
 
         return response()->json([
             'sejour' => $sejour->fresh(),
-            'mission_menage' => $mission->fresh('agent'),
+            'mission_menage' => $mission->fresh(['agent', 'produits']),
         ]);
     }
 }

@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MissionMenage extends Model
 {
@@ -19,6 +21,11 @@ class MissionMenage extends Model
         'sejour_id',
         'agent_id',
         'statut',
+        'frais_forfait',
+    ];
+
+    protected $casts = [
+        'frais_forfait' => 'decimal:2',
     ];
 
     public function sejour(): BelongsTo
@@ -29,5 +36,20 @@ class MissionMenage extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(Utilisateur::class, 'agent_id');
+    }
+
+    public function produits(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            ProduitMenageCatalogue::class,
+            'mission_menage_produits',
+            'mission_menage_id',
+            'produit_catalogue_id',
+        );
+    }
+
+    public function produitsSignales(): HasMany
+    {
+        return $this->hasMany(ProduitMenageSignale::class);
     }
 }

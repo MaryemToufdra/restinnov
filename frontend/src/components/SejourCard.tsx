@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import type { Sejour } from '../types'
+import type { ProduitCatalogue, Sejour } from '../types'
+import { FraisMaintenanceSection } from './FraisMaintenanceSection'
+import { FraisMenageSection } from './FraisMenageSection'
 
 const STATUT_LABELS: Record<Sejour['statut'], string> = {
   a_venir: 'À venir',
@@ -15,10 +17,23 @@ const STATUT_STYLES: Record<Sejour['statut'], string> = {
 
 interface SejourCardProps {
   sejour: Sejour
+  catalogue: ProduitCatalogue[]
   onCheckout: (id: number) => Promise<void>
+  onUpdateMissionProduits: (missionMenageId: number, input: { frais_forfait: number; produit_ids: number[] }) => Promise<void>
+  onSignalerProduit: (missionMenageId: number, input: { photo: File; note?: string | null }) => Promise<void>
+  onAddFraisMaintenance: (sejourId: number, input: { description: string; prix: number }) => Promise<void>
+  onDeleteFraisMaintenance: (id: number) => Promise<void>
 }
 
-export function SejourCard({ sejour, onCheckout }: SejourCardProps) {
+export function SejourCard({
+  sejour,
+  catalogue,
+  onCheckout,
+  onUpdateMissionProduits,
+  onSignalerProduit,
+  onAddFraisMaintenance,
+  onDeleteFraisMaintenance,
+}: SejourCardProps) {
   const [checkingOut, setCheckingOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,6 +89,22 @@ export function SejourCard({ sejour, onCheckout }: SejourCardProps) {
           {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
       )}
+
+      {sejour.statut === 'termine' && sejour.mission_menage && (
+        <FraisMenageSection
+          missionMenage={sejour.mission_menage}
+          catalogue={catalogue}
+          onUpdateProduits={onUpdateMissionProduits}
+          onSignalerProduit={onSignalerProduit}
+        />
+      )}
+
+      <FraisMaintenanceSection
+        sejourId={sejour.id}
+        fraisMaintenance={sejour.frais_maintenance ?? []}
+        onAdd={onAddFraisMaintenance}
+        onDelete={onDeleteFraisMaintenance}
+      />
     </li>
   )
 }
