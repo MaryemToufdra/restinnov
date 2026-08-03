@@ -88,7 +88,7 @@ describe('NouvelAppartementForm', () => {
       />,
     )
 
-    await user.type(screen.getByLabelText(/nom du bien/i), 'Zenith 3ème étage')
+    await user.type(screen.getByLabelText(/nom d'appartement/i), 'Zenith 3ème étage')
     await user.type(screen.getByLabelText(/adresse complète/i), '10 avenue Hassan II')
     const photo = makeFile()
     await user.upload(screen.getByLabelText('Photo principale', { selector: 'input' }), photo)

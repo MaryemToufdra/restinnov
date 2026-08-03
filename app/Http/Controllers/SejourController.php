@@ -33,7 +33,7 @@ class SejourController extends Controller
             'appartement_id' => ['required', 'exists:appartements,id'],
             'date_arrivee' => ['required', 'date'],
             'date_depart' => ['required', 'date', 'after:date_arrivee'],
-            'plateforme_origine' => ['sometimes', 'in:airbnb,direct,autre'],
+            'plateforme_origine' => ['sometimes', 'in:airbnb,direct,autre,booking'],
             'montant_mad' => ['nullable', 'numeric', 'min:0'],
             'statut' => ['sometimes', 'in:a_venir,en_cours,termine'],
             'voyageurs' => ['required', 'array', 'min:1'],

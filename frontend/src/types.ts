@@ -2,7 +2,7 @@ export type SejourStatut = 'a_venir' | 'en_cours' | 'termine'
 
 export type MissionStatut = 'a_faire' | 'en_cours' | 'conforme' | 'non_conforme'
 
-export type PlateformeOrigine = 'airbnb' | 'direct' | 'autre'
+export type PlateformeOrigine = 'airbnb' | 'direct' | 'autre' | 'booking'
 
 export interface ChecklistModele {
   id: number
@@ -26,6 +26,7 @@ export interface Agent {
   nom: string
   role: string
   telephone: string | null
+  adresse?: string | null
 }
 
 export interface MissionMenage {

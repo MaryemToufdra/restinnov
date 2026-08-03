@@ -18,10 +18,16 @@ class Utilisateur extends Model
         'nom',
         'role',
         'telephone',
+        'adresse',
     ];
 
     public function missionMenages(): HasMany
     {
         return $this->hasMany(MissionMenage::class, 'agent_id');
+    }
+
+    public function appartementsHabituels(): HasMany
+    {
+        return $this->hasMany(Appartement::class, 'agent_habituel_id');
     }
 }
