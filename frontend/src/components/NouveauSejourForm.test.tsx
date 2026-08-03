@@ -24,46 +24,94 @@ async function fillMinimalForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('NouveauSejourForm', () => {
-  it('affiche un seul voyageur par défaut, principal et la plateforme Airbnb sélectionnée', () => {
+  it('affiche un adulte principal par défaut, aucun enfant, et la plateforme Airbnb sélectionnée', () => {
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
 
-    expect(screen.getByTestId('nombre-voyageurs')).toHaveTextContent('1')
+    expect(screen.getByTestId('nombre-adultes')).toHaveTextContent('1')
+    expect(screen.getByTestId('nombre-enfants')).toHaveTextContent('0')
+    expect(screen.getByTestId('resume-voyageurs')).toHaveTextContent('1 voyageurs (1 adultes, 0 enfants)')
     expect(screen.getByRole('button', { name: 'Airbnb' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Direct' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('checkbox')).toBeChecked()
+    expect(screen.getByText('Adulte')).toBeInTheDocument()
     expect(screen.queryByLabelText(/Retirer le voyageur/i)).not.toBeInTheDocument()
   })
 
-  it('ajoute un bloc voyageur avec le bouton "+ Ajouter un voyageur" et le compteur', async () => {
+  it('le compteur Adultes ajoute/retire des blocs voyageur de type adulte', async () => {
     const user = userEvent.setup()
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: /ajouter un voyageur/i }))
-    expect(screen.getByTestId('nombre-voyageurs')).toHaveTextContent('2')
-    expect(screen.getAllByText(/^Voyageur \d$/)).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: /augmenter le nombre d'adultes/i }))
+    expect(screen.getByTestId('nombre-adultes')).toHaveTextContent('2')
+    expect(screen.getByTestId('resume-voyageurs')).toHaveTextContent('2 voyageurs (2 adultes, 0 enfants)')
+    expect(screen.getAllByText('Adulte')).toHaveLength(2)
 
-    await user.click(screen.getByRole('button', { name: /augmenter le nombre de voyageurs/i }))
-    expect(screen.getByTestId('nombre-voyageurs')).toHaveTextContent('3')
-    expect(screen.getAllByText(/^Voyageur \d$/)).toHaveLength(3)
+    await user.click(screen.getByRole('button', { name: /diminuer le nombre d'adultes/i }))
+    expect(screen.getByTestId('nombre-adultes')).toHaveTextContent('1')
   })
 
-  it('retire un voyageur via la croix, sauf s\'il n\'en reste qu\'un seul', async () => {
+  it('le compteur Enfants ajoute/retire des blocs voyageur de type enfant, minimum 0', async () => {
     const user = userEvent.setup()
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: /ajouter un voyageur/i }))
-    expect(screen.getByTestId('nombre-voyageurs')).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: /diminuer le nombre d'enfants/i })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: /augmenter le nombre d'enfants/i }))
+    expect(screen.getByTestId('nombre-enfants')).toHaveTextContent('1')
+    expect(screen.getByTestId('resume-voyageurs')).toHaveTextContent('2 voyageurs (1 adultes, 1 enfants)')
+    expect(screen.getByText('Enfant')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /diminuer le nombre d'enfants/i }))
+    expect(screen.getByTestId('nombre-enfants')).toHaveTextContent('0')
+    expect(screen.queryByText('Enfant')).not.toBeInTheDocument()
+  })
+
+  it('le compteur Adultes ne descend jamais sous 1', async () => {
+    const user = userEvent.setup()
+    render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: /diminuer le nombre d'adultes/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /diminuer le nombre d'adultes/i }))
+    expect(screen.getByTestId('nombre-adultes')).toHaveTextContent('1')
+  })
+
+  it('n\'affiche pas la case "Voyageur principal" sur les blocs enfant', async () => {
+    const user = userEvent.setup()
+    render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /augmenter le nombre d'enfants/i }))
+
+    const enfantBlock = screen.getByText('Voyageur 2').closest('div.relative') as HTMLElement
+    expect(within(enfantBlock).queryByText(/voyageur principal/i)).not.toBeInTheDocument()
+    expect(within(enfantBlock).queryByRole('checkbox')).not.toBeInTheDocument()
+
+    // only the adulte's checkbox exists
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+  })
+
+  it('retire un voyageur via la croix, un enfant peut être retiré même si seul restant', async () => {
+    const user = userEvent.setup()
+    render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /augmenter le nombre d'enfants/i }))
+    expect(screen.getByTestId('nombre-enfants')).toHaveTextContent('1')
 
     await user.click(screen.getByLabelText('Retirer le voyageur 2'))
-    expect(screen.getByTestId('nombre-voyageurs')).toHaveTextContent('1')
+    expect(screen.getByTestId('nombre-enfants')).toHaveTextContent('0')
     expect(screen.queryByLabelText(/Retirer le voyageur/i)).not.toBeInTheDocument()
   })
 
-  it('réassigne le voyageur principal si celui-ci est retiré', async () => {
+  it('la croix n\'est pas proposée sur le seul bloc adulte restant', async () => {
+    render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    expect(screen.queryByLabelText('Retirer le voyageur 1')).not.toBeInTheDocument()
+  })
+
+  it('réassigne le voyageur principal à un autre adulte si celui-ci est retiré', async () => {
     const user = userEvent.setup()
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: /ajouter un voyageur/i }))
+    await user.click(screen.getByRole('button', { name: /augmenter le nombre d'adultes/i }))
     const checkboxes = screen.getAllByRole('checkbox')
     expect(checkboxes[0]).toBeChecked()
     expect(checkboxes[1]).not.toBeChecked()
@@ -79,7 +127,7 @@ describe('NouveauSejourForm', () => {
     const user = userEvent.setup()
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: /ajouter un voyageur/i }))
+    await user.click(screen.getByRole('button', { name: /augmenter le nombre d'adultes/i }))
     const checkboxes = screen.getAllByRole('checkbox')
 
     await user.click(checkboxes[1])
@@ -144,15 +192,19 @@ describe('NouveauSejourForm', () => {
     expect(screen.getByTestId('montant-par-nuit')).toHaveTextContent('125.00 MAD / nuit')
   })
 
-  it('soumet le formulaire avec le payload attendu', async () => {
+  it('soumet le formulaire avec le payload attendu, type inclus pour chaque voyageur', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     render(<NouveauSejourForm appartements={appartements} onSubmit={onSubmit} />)
 
     await fillMinimalForm(user)
+    await user.click(screen.getByRole('button', { name: /augmenter le nombre d'enfants/i }))
     await user.click(screen.getByRole('button', { name: 'Direct' }))
     await user.clear(screen.getByLabelText(/Montant du séjour/i))
     await user.type(screen.getByLabelText(/Montant du séjour/i), '1500')
+
+    const nomInputs = screen.getAllByLabelText('Nom')
+    await user.type(nomInputs[1], 'Petit Dupont')
 
     await user.click(screen.getByRole('button', { name: /enregistrer le séjour/i }))
 
@@ -162,7 +214,10 @@ describe('NouveauSejourForm', () => {
       date_depart: '2026-08-05',
       plateforme_origine: 'direct',
       montant_mad: 1500,
-      voyageurs: [{ nom: 'Jean Dupont', numero_passeport: null, est_principal: true }],
+      voyageurs: [
+        { nom: 'Jean Dupont', numero_passeport: null, est_principal: true, type: 'adulte' },
+        { nom: 'Petit Dupont', numero_passeport: null, est_principal: false, type: 'enfant' },
+      ],
     })
   })
 
@@ -186,12 +241,13 @@ describe('NouveauSejourForm', () => {
     const user = userEvent.setup()
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: /ajouter un voyageur/i }))
+    await user.click(screen.getByRole('button', { name: /augmenter le nombre d'enfants/i }))
     await user.type(screen.getByLabelText(/Date d'arrivée/i), '2026-08-01')
 
     await user.click(screen.getByRole('button', { name: /annuler/i }))
 
-    expect(screen.getByTestId('nombre-voyageurs')).toHaveTextContent('1')
+    expect(screen.getByTestId('nombre-adultes')).toHaveTextContent('1')
+    expect(screen.getByTestId('nombre-enfants')).toHaveTextContent('0')
     expect(screen.getByLabelText(/Date d'arrivée/i)).toHaveValue('')
   })
 })

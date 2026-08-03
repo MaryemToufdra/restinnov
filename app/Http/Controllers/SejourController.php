@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MissionMenage;
 use App\Models\Sejour;
 use App\Models\Utilisateur;
+use App\Models\Voyageur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,14 +41,25 @@ class SejourController extends Controller
             'voyageurs.*.nom' => ['required', 'string', 'max:255'],
             'voyageurs.*.numero_passeport' => ['nullable', 'string', 'max:255'],
             'voyageurs.*.est_principal' => ['required', 'boolean'],
+            'voyageurs.*.type' => ['sometimes', 'in:adulte,enfant'],
         ]);
 
         $validator->after(function ($validator) use ($request) {
-            $voyageurs = $request->input('voyageurs', []);
-            $principaux = collect($voyageurs)->filter(fn ($v) => filter_var($v['est_principal'] ?? false, FILTER_VALIDATE_BOOLEAN));
+            $voyageurs = collect($request->input('voyageurs', []))->map(fn ($v) => [
+                'est_principal' => filter_var($v['est_principal'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'type' => $v['type'] ?? Voyageur::TYPE_ADULTE,
+            ]);
+
+            $principaux = $voyageurs->filter(fn ($v) => $v['est_principal']);
 
             if ($principaux->count() !== 1) {
                 $validator->errors()->add('voyageurs', 'Exactement un voyageur doit être désigné comme voyageur principal.');
+            } elseif ($principaux->first()['type'] !== Voyageur::TYPE_ADULTE) {
+                $validator->errors()->add('voyageurs', 'Le voyageur principal doit être de type adulte.');
+            }
+
+            if ($voyageurs->where('type', Voyageur::TYPE_ADULTE)->isEmpty()) {
+                $validator->errors()->add('voyageurs', 'Le séjour doit comporter au moins un voyageur adulte.');
             }
         });
 
@@ -72,6 +84,7 @@ class SejourController extends Controller
                     'nom' => $voyageur['nom'],
                     'numero_passeport' => $voyageur['numero_passeport'] ?? null,
                     'est_principal' => filter_var($voyageur['est_principal'], FILTER_VALIDATE_BOOLEAN),
+                    'type' => $voyageur['type'] ?? Voyageur::TYPE_ADULTE,
                 ]);
             }
 

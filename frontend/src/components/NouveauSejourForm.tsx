@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { NewSejourInput } from '../api'
-import type { Appartement, PlateformeOrigine, Voyageur } from '../types'
+import type { Appartement, PlateformeOrigine, Voyageur, VoyageurType } from '../types'
 import { VoyageurFieldset } from './VoyageurFieldset'
 
 interface NouveauSejourFormProps {
@@ -25,7 +25,20 @@ function computeNombreNuits(dateArrivee: string, dateDepart: string): number | n
 }
 
 function defaultVoyageurs(): Voyageur[] {
-  return [{ nom: '', numero_passeport: '', est_principal: true }]
+  return [{ nom: '', numero_passeport: '', est_principal: true, type: 'adulte' }]
+}
+
+/** Removes the voyageur at `index`, reassigning "principal" to the first remaining adulte if needed. */
+function removeAtIndex(list: Voyageur[], index: number): Voyageur[] {
+  const removed = list[index]
+  const next = list.filter((_, i) => i !== index)
+  if (removed.est_principal) {
+    const firstAdulteIndex = next.findIndex((v) => v.type === 'adulte')
+    if (firstAdulteIndex !== -1) {
+      next[firstAdulteIndex] = { ...next[firstAdulteIndex], est_principal: true }
+    }
+  }
+  return next
 }
 
 export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauSejourFormProps) {
@@ -56,21 +69,37 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
     setVoyageurs((current) => current.map((v, i) => ({ ...v, est_principal: i === index })))
   }
 
-  const addVoyageur = () => {
-    setVoyageurs((current) => [...current, { nom: '', numero_passeport: '', est_principal: false }])
+  const addVoyageur = (type: VoyageurType) => {
+    setVoyageurs((current) => [...current, { nom: '', numero_passeport: '', est_principal: false, type }])
   }
 
   const removeVoyageur = (index: number) => {
     setVoyageurs((current) => {
-      if (current.length <= 1) return current
-      const removed = current[index]
-      const next = current.filter((_, i) => i !== index)
-      if (removed.est_principal && next.length > 0) {
-        next[0] = { ...next[0], est_principal: true }
+      const voyageur = current[index]
+      if (voyageur.type === 'adulte' && current.filter((v) => v.type === 'adulte').length <= 1) {
+        return current
       }
-      return next
+      return removeAtIndex(current, index)
     })
   }
+
+  const removeLastOfType = (type: VoyageurType) => {
+    setVoyageurs((current) => {
+      let lastIndex = -1
+      for (let i = current.length - 1; i >= 0; i -= 1) {
+        if (current[i].type === type) {
+          lastIndex = i
+          break
+        }
+      }
+      if (lastIndex === -1) return current
+      if (type === 'adulte' && current.filter((v) => v.type === 'adulte').length <= 1) return current
+      return removeAtIndex(current, lastIndex)
+    })
+  }
+
+  const adultesCount = voyageurs.filter((v) => v.type === 'adulte').length
+  const enfantsCount = voyageurs.filter((v) => v.type === 'enfant').length
 
   const nombreNuits = computeNombreNuits(dateArrivee, dateDepart)
   const montantParNuit = nombreNuits ? (Number(montantMad) || 0) / nombreNuits : null
@@ -107,6 +136,7 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
           nom: v.nom,
           numero_passeport: v.numero_passeport?.trim() ? v.numero_passeport : null,
           est_principal: v.est_principal,
+          type: v.type,
         })),
       })
       resetForm()
@@ -187,29 +217,57 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
         </p>
       )}
 
-      <div>
-        <span className="block text-sm font-medium text-gray-700">Nombre de voyageurs</span>
-        <div className="mt-1 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => removeVoyageur(voyageurs.length - 1)}
-            disabled={voyageurs.length <= 1}
-            aria-label="Diminuer le nombre de voyageurs"
-            className="h-8 w-8 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            −
-          </button>
-          <span className="w-6 text-center text-sm font-medium" data-testid="nombre-voyageurs">
-            {voyageurs.length}
-          </span>
-          <button
-            type="button"
-            onClick={addVoyageur}
-            aria-label="Augmenter le nombre de voyageurs"
-            className="h-8 w-8 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            +
-          </button>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <span className="block text-sm font-medium text-gray-700">Adultes</span>
+          <div className="mt-1 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => removeLastOfType('adulte')}
+              disabled={adultesCount <= 1}
+              aria-label="Diminuer le nombre d'adultes"
+              className="h-8 w-8 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              −
+            </button>
+            <span className="w-6 text-center text-sm font-medium" data-testid="nombre-adultes">
+              {adultesCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => addVoyageur('adulte')}
+              aria-label="Augmenter le nombre d'adultes"
+              className="h-8 w-8 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <span className="block text-sm font-medium text-gray-700">Enfants</span>
+          <div className="mt-1 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => removeLastOfType('enfant')}
+              disabled={enfantsCount <= 0}
+              aria-label="Diminuer le nombre d'enfants"
+              className="h-8 w-8 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              −
+            </button>
+            <span className="w-6 text-center text-sm font-medium" data-testid="nombre-enfants">
+              {enfantsCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => addVoyageur('enfant')}
+              aria-label="Augmenter le nombre d'enfants"
+              className="h-8 w-8 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
 
@@ -255,27 +313,23 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
       </div>
 
       <div>
-        <span className="block text-sm font-medium text-gray-700">Voyageurs</span>
+        <p className="text-sm text-gray-600" data-testid="resume-voyageurs">
+          {adultesCount + enfantsCount} voyageurs ({adultesCount} adultes, {enfantsCount} enfants)
+        </p>
+        <span className="mt-2 block text-sm font-medium text-gray-700">Voyageurs</span>
         <div className="mt-2 space-y-3">
           {voyageurs.map((voyageur, index) => (
             <VoyageurFieldset
               key={index}
               voyageur={voyageur}
               index={index}
-              canRemove={voyageurs.length > 1}
+              canRemove={voyageur.type === 'enfant' || adultesCount > 1}
               onChange={(patch) => updateVoyageur(index, patch)}
               onSetPrincipal={() => setPrincipal(index)}
               onRemove={() => removeVoyageur(index)}
             />
           ))}
         </div>
-        <button
-          type="button"
-          onClick={addVoyageur}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
-        >
-          + Ajouter un voyageur
-        </button>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
