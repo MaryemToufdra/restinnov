@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('mission_menage_id')->constrained('mission_menages')->cascadeOnDelete();
             $table->foreignId('produit_catalogue_id')->constrained('produits_menage_catalogue')->cascadeOnDelete();
             $table->timestamps();
-            $table->unique(['mission_menage_id', 'produit_catalogue_id']);
+            $table->unique(['mission_menage_id', 'produit_catalogue_id'], 'mmp_mission_produit_unique');
         });
     }
 
