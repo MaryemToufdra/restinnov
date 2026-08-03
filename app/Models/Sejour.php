@@ -24,8 +24,8 @@ class Sejour extends Model
     ];
 
     protected $casts = [
-        'date_arrivee' => 'date',
-        'date_depart' => 'date',
+        'date_arrivee' => 'date:Y-m-d',
+        'date_depart' => 'date:Y-m-d',
     ];
 
     public function appartement(): BelongsTo

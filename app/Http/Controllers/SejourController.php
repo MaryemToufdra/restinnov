@@ -12,6 +12,18 @@ use Illuminate\Support\Facades\DB;
 class SejourController extends Controller
 {
     /**
+     * Display a listing of sejours.
+     */
+    public function index(): JsonResponse
+    {
+        $sejours = Sejour::with(['appartement', 'missionMenage.agent'])
+            ->latest()
+            ->get();
+
+        return response()->json($sejours);
+    }
+
+    /**
      * Store a newly created sejour.
      */
     public function store(Request $request): JsonResponse
@@ -26,7 +38,7 @@ class SejourController extends Controller
 
         $sejour = Sejour::create($validated);
 
-        return response()->json($sejour, 201);
+        return response()->json($sejour->load('appartement'), 201);
     }
 
     /**
