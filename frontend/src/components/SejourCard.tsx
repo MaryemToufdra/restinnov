@@ -91,20 +91,21 @@ export function SejourCard({
       )}
 
       {sejour.statut === 'termine' && sejour.mission_menage && (
-        <FraisMenageSection
-          missionMenage={sejour.mission_menage}
-          catalogue={catalogue}
-          onUpdateProduits={onUpdateMissionProduits}
-          onSignalerProduit={onSignalerProduit}
-        />
+        <>
+          <FraisMenageSection
+            missionMenage={sejour.mission_menage}
+            catalogue={catalogue}
+            onUpdateProduits={onUpdateMissionProduits}
+            onSignalerProduit={onSignalerProduit}
+          />
+          <FraisMaintenanceSection
+            sejourId={sejour.id}
+            fraisMaintenance={sejour.frais_maintenance ?? []}
+            onAdd={onAddFraisMaintenance}
+            onDelete={onDeleteFraisMaintenance}
+          />
+        </>
       )}
-
-      <FraisMaintenanceSection
-        sejourId={sejour.id}
-        fraisMaintenance={sejour.frais_maintenance ?? []}
-        onAdd={onAddFraisMaintenance}
-        onDelete={onDeleteFraisMaintenance}
-      />
     </li>
   )
 }

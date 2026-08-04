@@ -180,6 +180,42 @@ describe('App', () => {
     expect(screen.getByTestId(/total-frais-menage-1/)).toHaveTextContent('80.00 MAD')
   })
 
+  it('n\'affiche ni "Frais de ménage" ni "Frais de maintenance" tant que le checkout n\'est pas confirmé', async () => {
+    globalThis.fetch = mockFetch({
+      sejours: [sejourFixture({ statut: 'a_venir', mission_menage: null })],
+    }) as typeof fetch
+
+    render(<App />)
+
+    await screen.findByRole('listitem')
+    expect(screen.queryByText('Frais de ménage')).not.toBeInTheDocument()
+    expect(screen.queryByText('Frais de maintenance')).not.toBeInTheDocument()
+  })
+
+  it('affiche "Frais de maintenance" seulement une fois le checkout confirmé, comme "Frais de ménage"', async () => {
+    globalThis.fetch = mockFetch({
+      sejours: [
+        sejourFixture({
+          statut: 'termine',
+          mission_menage: {
+            id: 1,
+            sejour_id: 1,
+            agent_id: 1,
+            statut: 'a_faire',
+            agent: { id: 1, nom: 'Fatima Z.', role: 'menage', telephone: null },
+            frais_forfait: 80,
+            produits: [],
+          },
+        }),
+      ],
+    }) as typeof fetch
+
+    render(<App />)
+
+    expect(await screen.findByText('Frais de maintenance')).toBeInTheDocument()
+    expect(screen.getByTestId(/total-frais-maintenance-1/)).toHaveTextContent('0.00 MAD')
+  })
+
   it('un agent créé apparaît immédiatement dans la liste "agent habituel" sans recharger la page', async () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({
