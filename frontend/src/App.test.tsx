@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import type { Sejour } from './types'
+import type { DashboardData, Sejour } from './types'
 
 const appartement = {
   id: 1,
@@ -31,15 +31,29 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
   }
 }
 
+function dashboardFixture(overrides: Partial<DashboardData> = {}): DashboardData {
+  return {
+    revenus_totaux: 1800,
+    frais_menage_totaux: 100,
+    frais_maintenance_totaux: 350,
+    resultat_net: 1350,
+    appartements: [{ id: 1, nom: 'Loft Bastille', statut: 'disponible' }],
+    sejours_par_statut: { a_venir: 1, en_cours: 0, termine: 2 },
+    ...overrides,
+  }
+}
+
 function mockFetch(handlers: {
   onCreate?: () => Sejour
   onCheckout?: () => { sejour: Sejour; mission_menage: Sejour['mission_menage'] }
   onCreateUtilisateur?: () => unknown
   sejours?: Sejour[]
   agentsMenage?: unknown[]
+  dashboard?: DashboardData
 }) {
   const sejours = handlers.sejours ?? []
   let agentsMenage = handlers.agentsMenage ?? []
+  const dashboard = handlers.dashboard ?? dashboardFixture()
 
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
@@ -70,6 +84,10 @@ function mockFetch(handlers: {
 
     if (url.includes('/api/produits-signales') && method === 'GET') {
       return new Response(JSON.stringify([]), { status: 200 })
+    }
+
+    if (url.endsWith('/api/dashboard') && method === 'GET') {
+      return new Response(JSON.stringify(dashboard), { status: 200 })
     }
 
     if (url.endsWith('/api/sejours') && method === 'GET') {
@@ -252,6 +270,7 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
     await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
+    await user.type(screen.getByLabelText(/mot de passe/i), 'secret123')
     await user.click(screen.getByRole('button', { name: /créer le compte/i }))
 
     await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
@@ -273,6 +292,7 @@ describe('App', () => {
     expect(await screen.findByRole('checkbox', { name: /Loft Bastille/i })).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
+    await user.type(screen.getByLabelText(/mot de passe/i), 'secret123')
     await user.click(screen.getByRole('checkbox', { name: /Loft Bastille/i }))
     await user.click(screen.getByRole('button', { name: /créer le compte/i }))
 
@@ -336,5 +356,56 @@ describe('App', () => {
     await user.click(button)
 
     expect(await screen.findByText('non assigné')).toBeInTheDocument()
+  })
+
+  it('affiche les agrégats du dashboard en basculant sur l\'onglet "Dashboard"', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [],
+      dashboard: dashboardFixture(),
+    }) as typeof fetch
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /dashboard/i }))
+
+    expect(await screen.findByTestId('dashboard-revenus-totaux')).toHaveTextContent('1800.00 MAD')
+    expect(screen.getByTestId('dashboard-frais-menage-totaux')).toHaveTextContent('100.00 MAD')
+    expect(screen.getByTestId('dashboard-frais-maintenance-totaux')).toHaveTextContent('350.00 MAD')
+    expect(screen.getByTestId('dashboard-resultat-net')).toHaveTextContent('1350.00 MAD')
+    expect(screen.getByText('Loft Bastille')).toBeInTheDocument()
+    expect(screen.getByText('Disponible')).toBeInTheDocument()
+  })
+
+  it('permet de créer un agent de maintenance avec mot de passe, sans champ appartements assignés', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [],
+      onCreateUtilisateur: () => ({ id: 7, nom: 'Karim Benali', role: 'maintenance', telephone: null }),
+    }) as typeof fetch
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /nouvel agent de maintenance/i }))
+
+    expect(screen.getByRole('heading', { name: 'Nouvel agent de maintenance' })).toBeInTheDocument()
+    expect(screen.queryByText(/appartements assignés/i)).not.toBeInTheDocument()
+
+    const passwordInput = screen.getByLabelText(/mot de passe/i)
+    expect(passwordInput).toHaveAttribute('type', 'text')
+
+    await user.type(screen.getByLabelText('Nom'), 'Karim Benali')
+    await user.type(passwordInput, 'motdepasse123')
+    await user.click(screen.getByRole('button', { name: /créer le compte/i }))
+
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/utilisateurs'),
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"role":"maintenance"'),
+        }),
+      ),
+    )
   })
 })

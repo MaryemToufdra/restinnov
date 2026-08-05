@@ -10,6 +10,7 @@ import {
   deleteFraisMaintenance,
   fetchAppartements,
   fetchChecklistModeles,
+  fetchDashboard,
   fetchProduitsCatalogue,
   fetchProduitsSignales,
   fetchSejours,
@@ -28,14 +29,24 @@ import {
   type ValiderProduitSignaleInput,
 } from './api'
 import { CatalogueProduitsSection } from './components/CatalogueProduitsSection'
+import { DashboardSection } from './components/DashboardSection'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
 import { NouvelAgentForm } from './components/NouvelAgentForm'
+import { NouvelAgentMaintenanceForm } from './components/NouvelAgentMaintenanceForm'
 import { NouvelAppartementForm } from './components/NouvelAppartementForm'
 import { ProduitsSignalesSection } from './components/ProduitsSignalesSection'
 import { SejourCard } from './components/SejourCard'
-import type { Agent, Appartement, ChecklistModele, ProduitCatalogue, ProduitMenageSignale, Sejour } from './types'
+import type {
+  Agent,
+  Appartement,
+  ChecklistModele,
+  DashboardData,
+  ProduitCatalogue,
+  ProduitMenageSignale,
+  Sejour,
+} from './types'
 
-type Tab = 'sejour' | 'appartement' | 'agent' | 'catalogue'
+type Tab = 'sejour' | 'appartement' | 'agent' | 'agent-maintenance' | 'catalogue' | 'dashboard'
 
 function App() {
   const [appartements, setAppartements] = useState<Appartement[]>([])
@@ -47,6 +58,9 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('sejour')
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState<string | null>(null)
 
   const loadData = async () => {
     setLoadError(null)
@@ -82,6 +96,30 @@ function App() {
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return
+
+    let cancelled = false
+    setDashboardError(null)
+    setDashboardLoading(true)
+    fetchDashboard()
+      .then((data) => {
+        if (!cancelled) setDashboardData(data)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDashboardError(err instanceof Error ? err.message : 'Impossible de charger le dashboard.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDashboardLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab])
 
   const handleCreateSejour = async (input: NewSejourInput) => {
     const sejour = await createSejour(input)
@@ -202,50 +240,29 @@ function App() {
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2 border-b border-gray-200">
-        <button
-          type="button"
-          onClick={() => setActiveTab('sejour')}
-          className={`border-b-2 px-3 py-2 text-sm font-medium ${
-            activeTab === 'sejour'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Nouveau séjour
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('appartement')}
-          className={`border-b-2 px-3 py-2 text-sm font-medium ${
-            activeTab === 'appartement'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Nouvel appartement
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('agent')}
-          className={`border-b-2 px-3 py-2 text-sm font-medium ${
-            activeTab === 'agent'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Nouvel agent de ménage
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('catalogue')}
-          className={`border-b-2 px-3 py-2 text-sm font-medium ${
-            activeTab === 'catalogue'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Catalogue ménage
-        </button>
+        {(
+          [
+            ['sejour', 'Nouveau séjour'],
+            ['appartement', 'Nouvel appartement'],
+            ['agent', 'Nouvel agent de ménage'],
+            ['agent-maintenance', 'Nouvel agent de maintenance'],
+            ['catalogue', 'Catalogue ménage'],
+            ['dashboard', 'Dashboard'],
+          ] as [Tab, string][]
+        ).map(([tab, label]) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`border-b-2 px-3 py-2 text-sm font-medium ${
+              activeTab === tab
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="mt-6 space-y-6">
@@ -263,6 +280,9 @@ function App() {
         {activeTab === 'agent' && (
           <NouvelAgentForm appartements={appartements} onSubmit={handleCreateUtilisateur} />
         )}
+        {activeTab === 'agent-maintenance' && (
+          <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
+        )}
         {activeTab === 'catalogue' && (
           <>
             <CatalogueProduitsSection catalogue={produitsCatalogue} onCreate={handleCreateProduitCatalogue} />
@@ -272,6 +292,9 @@ function App() {
               onRejeter={handleRejeterProduitSignale}
             />
           </>
+        )}
+        {activeTab === 'dashboard' && (
+          <DashboardSection data={dashboardData} loading={dashboardLoading} error={dashboardError} />
         )}
       </div>
 

@@ -7,6 +7,7 @@ use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class UtilisateurController extends Controller
 {
@@ -35,12 +36,17 @@ class UtilisateurController extends Controller
             'role' => ['required', 'in:menage,maintenance,manager'],
             'telephone' => ['nullable', 'string', 'max:255'],
             'adresse' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'min:6'],
             'appartement_ids' => ['sometimes', 'array'],
             'appartement_ids.*' => ['integer', 'exists:appartements,id'],
         ]);
 
         $appartementIds = $validated['appartement_ids'] ?? [];
         unset($validated['appartement_ids']);
+
+        if (isset($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+        }
 
         $utilisateur = DB::transaction(function () use ($validated, $appartementIds) {
             $utilisateur = Utilisateur::create($validated);
