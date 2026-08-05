@@ -142,6 +142,31 @@ describe('App', () => {
     expect(screen.getByText('Disponible')).toBeInTheDocument()
   })
 
+  it('masque la liste des séjours quand un autre onglet que "Nouveau séjour" est actif', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [sejourFixture()] }) as typeof fetch
+
+    render(<App />)
+
+    await screen.findByRole('listitem')
+    expect(screen.getByRole('heading', { name: 'Séjours' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
+    expect(screen.queryByRole('heading', { name: 'Séjours' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
+    expect(screen.queryByText('Jean Dupont')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
+    expect(screen.queryByRole('heading', { name: 'Séjours' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /catalogue ménage/i }))
+    expect(screen.queryByRole('heading', { name: 'Séjours' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /nouveau séjour/i }))
+    expect(await screen.findByRole('heading', { name: 'Séjours' })).toBeInTheDocument()
+    expect(screen.getByRole('listitem')).toBeInTheDocument()
+  })
+
   it('affiche le catalogue et les produits signalés en attente sous l\'onglet "Catalogue ménage"', async () => {
     const user = userEvent.setup()
     const fetchMock = mockFetch({ sejours: [] }) as ReturnType<typeof vi.fn>
