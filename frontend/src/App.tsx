@@ -275,30 +275,32 @@ function App() {
         )}
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-gray-900">Séjours</h2>
+      {activeTab === 'sejour' && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-gray-900">Séjours</h2>
 
-        {loading && <p className="mt-2 text-sm text-gray-500">Chargement...</p>}
-        {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
-        {!loading && !loadError && sejours.length === 0 && (
-          <p className="mt-2 text-sm text-gray-500">Aucun séjour pour le moment.</p>
-        )}
+          {loading && <p className="mt-2 text-sm text-gray-500">Chargement...</p>}
+          {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
+          {!loading && !loadError && sejours.length === 0 && (
+            <p className="mt-2 text-sm text-gray-500">Aucun séjour pour le moment.</p>
+          )}
 
-        <ul className="mt-3 space-y-3">
-          {sejours.map((sejour) => (
-            <SejourCard
-              key={sejour.id}
-              sejour={sejour}
-              catalogue={produitsCatalogue}
-              onCheckout={handleCheckout}
-              onUpdateMissionProduits={handleUpdateMissionProduits}
-              onSignalerProduit={handleSignalerProduit}
-              onAddFraisMaintenance={handleAddFraisMaintenance}
-              onDeleteFraisMaintenance={handleDeleteFraisMaintenance}
-            />
-          ))}
-        </ul>
-      </div>
+          <ul className="mt-3 space-y-3">
+            {sejours.map((sejour) => (
+              <SejourCard
+                key={sejour.id}
+                sejour={sejour}
+                catalogue={produitsCatalogue}
+                onCheckout={handleCheckout}
+                onUpdateMissionProduits={handleUpdateMissionProduits}
+                onSignalerProduit={handleSignalerProduit}
+                onAddFraisMaintenance={handleAddFraisMaintenance}
+                onDeleteFraisMaintenance={handleDeleteFraisMaintenance}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
