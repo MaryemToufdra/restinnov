@@ -37,7 +37,9 @@ function dashboardFixture(overrides: Partial<DashboardData> = {}): DashboardData
     frais_menage_totaux: 100,
     frais_maintenance_totaux: 350,
     resultat_net: 1350,
-    appartements: [{ id: 1, nom: 'Loft Bastille', statut: 'disponible' }],
+    appartements: [
+      { id: 1, nom: 'Loft Bastille', statut: 'disponible', sejours_count: 2, dernier_sejour: '2026-03-05' },
+    ],
     sejours_par_statut: { a_venir: 1, en_cours: 0, termine: 2 },
     ...overrides,
   }
@@ -111,17 +113,53 @@ function mockFetch(handlers: {
   })
 }
 
+function openSection(user: ReturnType<typeof userEvent.setup>, label: string) {
+  return user.click(screen.getByRole('button', { name: label }))
+}
+
 describe('App', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('affiche la liste des séjours existants', async () => {
-    globalThis.fetch = mockFetch({ sejours: [sejourFixture()] }) as typeof fetch
+  it('affiche le menu latéral avec toutes les sections, Dashboard actif par défaut', async () => {
+    globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
 
     render(<App />)
 
-    const item = await screen.findByRole('listitem')
+    for (const label of ['Dashboard', 'Séjours', 'Appartements', 'Agent de ménage', 'Agent de maintenance', 'Catalogue ménage']) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+    }
+
+    expect(await screen.findByTestId('dashboard-revenus-totaux')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Dashboard', level: 2 })).toBeInTheDocument()
+  })
+
+  it('met en évidence la section active dans le menu', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
+
+    render(<App />)
+
+    const dashboardButton = screen.getByRole('button', { name: 'Dashboard' })
+    expect(dashboardButton.className).toMatch(/bg-indigo-50/)
+
+    await openSection(user, 'Appartements')
+
+    const appartementsButton = screen.getByRole('button', { name: 'Appartements' })
+    expect(appartementsButton.className).toMatch(/bg-indigo-50/)
+    expect(dashboardButton.className).not.toMatch(/bg-indigo-50/)
+  })
+
+  it('affiche la liste des séjours existants sous la section Séjours', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [sejourFixture()] }) as typeof fetch
+
+    render(<App />)
+    await openSection(user, 'Séjours')
+
+    const list = await screen.findByRole('list', { name: /liste des séjours/i })
+    const item = within(list).getByRole('listitem')
     expect(within(item).getByText('Jean Dupont')).toBeInTheDocument()
     expect(within(item).getByText('Loft Bastille')).toBeInTheDocument()
     expect(within(item).getByText('À venir')).toBeInTheDocument()
@@ -135,6 +173,7 @@ describe('App', () => {
     }) as typeof fetch
 
     render(<App />)
+    await openSection(user, 'Séjours')
 
     const select = await screen.findByRole('combobox', { name: /Appartement/i })
     await waitFor(() => expect(within(select).getAllByRole('option')).toHaveLength(2))
@@ -148,57 +187,57 @@ describe('App', () => {
     expect(await screen.findByText('Marie Curie')).toBeInTheDocument()
   })
 
-  it('permet de basculer vers le formulaire Nouvel appartement', async () => {
+  it('permet de basculer vers la section Appartements', async () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
 
     render(<App />)
-
-    await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
+    await openSection(user, 'Appartements')
 
     expect(screen.getByLabelText(/nom d'appartement/i)).toBeInTheDocument()
     expect(screen.getByText('Disponible')).toBeInTheDocument()
   })
 
-  it('masque la liste des séjours quand un autre onglet que "Nouveau séjour" est actif', async () => {
+  it('masque la liste des séjours quand une autre section que "Séjours" est active', async () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({ sejours: [sejourFixture()] }) as typeof fetch
 
     render(<App />)
+    await openSection(user, 'Séjours')
 
-    await screen.findByRole('listitem')
-    expect(screen.getByRole('heading', { name: 'Séjours' })).toBeInTheDocument()
+    await screen.findByRole('list', { name: /liste des séjours/i })
+    expect(screen.getByRole('heading', { name: 'Séjours', level: 2 })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
-    expect(screen.queryByRole('heading', { name: 'Séjours' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
+    await openSection(user, 'Appartements')
+    expect(screen.queryByRole('heading', { name: 'Séjours', level: 2 })).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: /liste des séjours/i })).not.toBeInTheDocument()
     expect(screen.queryByText('Jean Dupont')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
-    expect(screen.queryByRole('heading', { name: 'Séjours' })).not.toBeInTheDocument()
+    await openSection(user, 'Agent de ménage')
+    expect(screen.queryByRole('heading', { name: 'Séjours', level: 2 })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /catalogue ménage/i }))
-    expect(screen.queryByRole('heading', { name: 'Séjours' })).not.toBeInTheDocument()
+    await openSection(user, 'Catalogue ménage')
+    expect(screen.queryByRole('heading', { name: 'Séjours', level: 2 })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /nouveau séjour/i }))
-    expect(await screen.findByRole('heading', { name: 'Séjours' })).toBeInTheDocument()
-    expect(screen.getByRole('listitem')).toBeInTheDocument()
+    await openSection(user, 'Séjours')
+    expect(await screen.findByRole('heading', { name: 'Séjours', level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: /liste des séjours/i })).toBeInTheDocument()
   })
 
-  it('affiche le catalogue et les produits signalés en attente sous l\'onglet "Catalogue ménage"', async () => {
+  it('affiche le catalogue et les produits signalés en attente sous la section "Catalogue ménage"', async () => {
     const user = userEvent.setup()
     const fetchMock = mockFetch({ sejours: [] }) as ReturnType<typeof vi.fn>
     globalThis.fetch = fetchMock as typeof fetch
 
     render(<App />)
-
-    await user.click(screen.getByRole('button', { name: /catalogue ménage/i }))
+    await openSection(user, 'Catalogue ménage')
 
     expect(await screen.findByText(/catalogue de produits de ménage/i)).toBeInTheDocument()
     expect(screen.getByText(/produits signalés en attente/i)).toBeInTheDocument()
   })
 
   it('affiche la section "Frais de ménage" avec le forfait pré-rempli sur un séjour checkouté', async () => {
+    const user = userEvent.setup()
     globalThis.fetch = mockFetch({
       sejours: [
         sejourFixture({
@@ -217,6 +256,7 @@ describe('App', () => {
     }) as typeof fetch
 
     render(<App />)
+    await openSection(user, 'Séjours')
 
     expect(await screen.findByText('Frais de ménage')).toBeInTheDocument()
     expect(screen.getByLabelText(/forfait femme de ménage/i)).toHaveValue(80)
@@ -224,18 +264,21 @@ describe('App', () => {
   })
 
   it('n\'affiche ni "Frais de ménage" ni "Frais de maintenance" tant que le checkout n\'est pas confirmé', async () => {
+    const user = userEvent.setup()
     globalThis.fetch = mockFetch({
       sejours: [sejourFixture({ statut: 'a_venir', mission_menage: null })],
     }) as typeof fetch
 
     render(<App />)
+    await openSection(user, 'Séjours')
 
-    await screen.findByRole('listitem')
+    await screen.findByRole('list', { name: /liste des séjours/i })
     expect(screen.queryByText('Frais de ménage')).not.toBeInTheDocument()
     expect(screen.queryByText('Frais de maintenance')).not.toBeInTheDocument()
   })
 
   it('affiche "Frais de maintenance" seulement une fois le checkout confirmé, comme "Frais de ménage"', async () => {
+    const user = userEvent.setup()
     globalThis.fetch = mockFetch({
       sejours: [
         sejourFixture({
@@ -254,6 +297,7 @@ describe('App', () => {
     }) as typeof fetch
 
     render(<App />)
+    await openSection(user, 'Séjours')
 
     expect(await screen.findByText('Frais de maintenance')).toBeInTheDocument()
     expect(screen.getByTestId(/total-frais-maintenance-1/)).toHaveTextContent('0.00 MAD')
@@ -268,12 +312,12 @@ describe('App', () => {
 
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
+    await openSection(user, 'Agent de ménage')
     await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
     await user.type(screen.getByLabelText(/mot de passe/i), 'secret123')
     await user.click(screen.getByRole('button', { name: /créer le compte/i }))
 
-    await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
+    await openSection(user, 'Appartements')
 
     const select = screen.getByRole('combobox', { name: /agent de ménage habituel/i })
     expect(await within(select).findByRole('option', { name: 'Fatima Zahra' })).toBeInTheDocument()
@@ -288,7 +332,7 @@ describe('App', () => {
 
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
+    await openSection(user, 'Agent de ménage')
     expect(await screen.findByRole('checkbox', { name: /Loft Bastille/i })).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
@@ -296,9 +340,9 @@ describe('App', () => {
     await user.click(screen.getByRole('checkbox', { name: /Loft Bastille/i }))
     await user.click(screen.getByRole('button', { name: /créer le compte/i }))
 
-    // switching tabs and back re-mounts the form with the current appartements state
-    await user.click(screen.getByRole('button', { name: /nouvel appartement/i }))
-    await user.click(screen.getByRole('button', { name: /nouvel agent de ménage/i }))
+    // switching sections and back re-mounts the form with the current appartements state
+    await openSection(user, 'Appartements')
+    await openSection(user, 'Agent de ménage')
 
     expect(await screen.findByText(/actuellement : Fatima Zahra/i)).toBeInTheDocument()
   })
@@ -322,6 +366,7 @@ describe('App', () => {
     }) as typeof fetch
 
     render(<App />)
+    await openSection(user, 'Séjours')
 
     const button = await screen.findByRole('button', { name: /confirmer le checkout/i })
     await user.click(button)
@@ -351,6 +396,7 @@ describe('App', () => {
     }) as typeof fetch
 
     render(<App />)
+    await openSection(user, 'Séjours')
 
     const button = await screen.findByRole('button', { name: /confirmer le checkout/i })
     await user.click(button)
@@ -358,8 +404,7 @@ describe('App', () => {
     expect(await screen.findByText('non assigné')).toBeInTheDocument()
   })
 
-  it('affiche les agrégats du dashboard en basculant sur l\'onglet "Dashboard"', async () => {
-    const user = userEvent.setup()
+  it('affiche les agrégats du dashboard dès le chargement (écran d\'accueil)', async () => {
     globalThis.fetch = mockFetch({
       sejours: [],
       dashboard: dashboardFixture(),
@@ -367,14 +412,24 @@ describe('App', () => {
 
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: /dashboard/i }))
-
     expect(await screen.findByTestId('dashboard-revenus-totaux')).toHaveTextContent('1800.00 MAD')
     expect(screen.getByTestId('dashboard-frais-menage-totaux')).toHaveTextContent('100.00 MAD')
     expect(screen.getByTestId('dashboard-frais-maintenance-totaux')).toHaveTextContent('350.00 MAD')
     expect(screen.getByTestId('dashboard-resultat-net')).toHaveTextContent('1350.00 MAD')
     expect(screen.getByText('Loft Bastille')).toBeInTheDocument()
     expect(screen.getByText('Disponible')).toBeInTheDocument()
+  })
+
+  it('bascule vers la section Appartements au clic sur une ligne du tableau du dashboard', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [], dashboard: dashboardFixture() }) as typeof fetch
+
+    render(<App />)
+
+    await screen.findByTestId('dashboard-revenus-totaux')
+    await user.click(screen.getByText('Loft Bastille'))
+
+    expect(await screen.findByLabelText(/nom d'appartement/i)).toBeInTheDocument()
   })
 
   it('permet de créer un agent de maintenance avec mot de passe, sans champ appartements assignés', async () => {
@@ -385,8 +440,7 @@ describe('App', () => {
     }) as typeof fetch
 
     render(<App />)
-
-    await user.click(screen.getByRole('button', { name: /nouvel agent de maintenance/i }))
+    await openSection(user, 'Agent de maintenance')
 
     expect(screen.getByRole('heading', { name: 'Nouvel agent de maintenance' })).toBeInTheDocument()
     expect(screen.queryByText(/appartements assignés/i)).not.toBeInTheDocument()

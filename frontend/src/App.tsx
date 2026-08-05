@@ -46,7 +46,16 @@ import type {
   Sejour,
 } from './types'
 
-type Tab = 'sejour' | 'appartement' | 'agent' | 'agent-maintenance' | 'catalogue' | 'dashboard'
+type Tab = 'dashboard' | 'sejour' | 'appartement' | 'agent' | 'agent-maintenance' | 'catalogue'
+
+const NAV_ITEMS: [Tab, string][] = [
+  ['dashboard', 'Dashboard'],
+  ['sejour', 'Séjours'],
+  ['appartement', 'Appartements'],
+  ['agent', 'Agent de ménage'],
+  ['agent-maintenance', 'Agent de maintenance'],
+  ['catalogue', 'Catalogue ménage'],
+]
 
 function App() {
   const [appartements, setAppartements] = useState<Appartement[]>([])
@@ -57,7 +66,7 @@ function App() {
   const [produitsSignales, setProduitsSignales] = useState<ProduitMenageSignale[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<Tab>('sejour')
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
@@ -233,97 +242,94 @@ function App() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900">Séjours & ménage</h1>
-      <p className="mt-1 text-sm text-gray-600">
-        Créez un appartement, un séjour ou un compte agent, puis confirmez le checkout pour générer automatiquement une mission de ménage.
-      </p>
+    <div className="flex min-h-screen">
+      <nav className="w-64 shrink-0 border-r border-gray-200 bg-white px-4 py-8">
+        <h1 className="px-2 text-xl font-bold text-gray-900">Séjours & ménage</h1>
+        <ul className="mt-6 space-y-1">
+          {NAV_ITEMS.map(([tab, label]) => (
+            <li key={tab}>
+              <button
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`block w-full rounded-md px-3 py-2 text-left text-sm font-medium ${
+                  activeTab === tab
+                    ? 'bg-indigo-50 text-indigo-600'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-      <div className="mt-6 flex flex-wrap gap-2 border-b border-gray-200">
-        {(
-          [
-            ['sejour', 'Nouveau séjour'],
-            ['appartement', 'Nouvel appartement'],
-            ['agent', 'Nouvel agent de ménage'],
-            ['agent-maintenance', 'Nouvel agent de maintenance'],
-            ['catalogue', 'Catalogue ménage'],
-            ['dashboard', 'Dashboard'],
-          ] as [Tab, string][]
-        ).map(([tab, label]) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`border-b-2 px-3 py-2 text-sm font-medium ${
-              activeTab === tab
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <main className="min-w-0 flex-1 px-6 py-8">
+        <h2 className="text-2xl font-bold text-gray-900">{NAV_ITEMS.find(([tab]) => tab === activeTab)?.[1]}</h2>
 
-      <div className="mt-6 space-y-6">
-        {activeTab === 'sejour' && (
-          <NouveauSejourForm appartements={appartements} onSubmit={handleCreateSejour} />
-        )}
-        {activeTab === 'appartement' && (
-          <NouvelAppartementForm
-            checklistModeles={checklistModeles}
-            agentsMenage={agentsMenage}
-            onSubmit={handleCreateAppartement}
-            onCreateChecklistModele={handleCreateChecklistModele}
-          />
-        )}
-        {activeTab === 'agent' && (
-          <NouvelAgentForm appartements={appartements} onSubmit={handleCreateUtilisateur} />
-        )}
-        {activeTab === 'agent-maintenance' && (
-          <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
-        )}
-        {activeTab === 'catalogue' && (
-          <>
-            <CatalogueProduitsSection catalogue={produitsCatalogue} onCreate={handleCreateProduitCatalogue} />
-            <ProduitsSignalesSection
-              produitsSignales={produitsSignales}
-              onValider={handleValiderProduitSignale}
-              onRejeter={handleRejeterProduitSignale}
+        <div className="mt-6 space-y-6">
+          {activeTab === 'dashboard' && (
+            <DashboardSection
+              data={dashboardData}
+              loading={dashboardLoading}
+              error={dashboardError}
+              onNavigateToAppartements={() => setActiveTab('appartement')}
             />
-          </>
-        )}
-        {activeTab === 'dashboard' && (
-          <DashboardSection data={dashboardData} loading={dashboardLoading} error={dashboardError} />
-        )}
-      </div>
-
-      {activeTab === 'sejour' && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-gray-900">Séjours</h2>
-
-          {loading && <p className="mt-2 text-sm text-gray-500">Chargement...</p>}
-          {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
-          {!loading && !loadError && sejours.length === 0 && (
-            <p className="mt-2 text-sm text-gray-500">Aucun séjour pour le moment.</p>
           )}
+          {activeTab === 'sejour' && (
+            <>
+              <NouveauSejourForm appartements={appartements} onSubmit={handleCreateSejour} />
 
-          <ul className="mt-3 space-y-3">
-            {sejours.map((sejour) => (
-              <SejourCard
-                key={sejour.id}
-                sejour={sejour}
-                catalogue={produitsCatalogue}
-                onCheckout={handleCheckout}
-                onUpdateMissionProduits={handleUpdateMissionProduits}
-                onSignalerProduit={handleSignalerProduit}
-                onAddFraisMaintenance={handleAddFraisMaintenance}
-                onDeleteFraisMaintenance={handleDeleteFraisMaintenance}
+              <div>
+                {loading && <p className="mt-2 text-sm text-gray-500">Chargement...</p>}
+                {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
+                {!loading && !loadError && sejours.length === 0 && (
+                  <p className="mt-2 text-sm text-gray-500">Aucun séjour pour le moment.</p>
+                )}
+
+                <ul className="mt-3 space-y-3" aria-label="Liste des séjours">
+                  {sejours.map((sejour) => (
+                    <SejourCard
+                      key={sejour.id}
+                      sejour={sejour}
+                      catalogue={produitsCatalogue}
+                      onCheckout={handleCheckout}
+                      onUpdateMissionProduits={handleUpdateMissionProduits}
+                      onSignalerProduit={handleSignalerProduit}
+                      onAddFraisMaintenance={handleAddFraisMaintenance}
+                      onDeleteFraisMaintenance={handleDeleteFraisMaintenance}
+                    />
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
+          {activeTab === 'appartement' && (
+            <NouvelAppartementForm
+              checklistModeles={checklistModeles}
+              agentsMenage={agentsMenage}
+              onSubmit={handleCreateAppartement}
+              onCreateChecklistModele={handleCreateChecklistModele}
+            />
+          )}
+          {activeTab === 'agent' && (
+            <NouvelAgentForm appartements={appartements} onSubmit={handleCreateUtilisateur} />
+          )}
+          {activeTab === 'agent-maintenance' && (
+            <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
+          )}
+          {activeTab === 'catalogue' && (
+            <>
+              <CatalogueProduitsSection catalogue={produitsCatalogue} onCreate={handleCreateProduitCatalogue} />
+              <ProduitsSignalesSection
+                produitsSignales={produitsSignales}
+                onValider={handleValiderProduitSignale}
+                onRejeter={handleRejeterProduitSignale}
               />
-            ))}
-          </ul>
+            </>
+          )}
         </div>
-      )}
+      </main>
     </div>
   )
 }

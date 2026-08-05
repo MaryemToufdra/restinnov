@@ -4,6 +4,7 @@ interface DashboardSectionProps {
   data: DashboardData | null
   loading: boolean
   error: string | null
+  onNavigateToAppartements?: () => void
 }
 
 const STATUT_LABELS: Record<keyof DashboardData['sejours_par_statut'], string> = {
@@ -16,7 +17,12 @@ function formatMad(value: number): string {
   return `${value.toFixed(2)} MAD`
 }
 
-export function DashboardSection({ data, loading, error }: DashboardSectionProps) {
+function formatDate(value: string | null): string {
+  if (!value) return 'Aucun'
+  return new Date(value).toLocaleDateString('fr-FR')
+}
+
+export function DashboardSection({ data, loading, error, onNavigateToAppartements }: DashboardSectionProps) {
   if (loading) {
     return <p className="text-sm text-gray-500">Chargement du dashboard...</p>
   }
@@ -61,6 +67,7 @@ export function DashboardSection({ data, loading, error }: DashboardSectionProps
           >
             {formatMad(data.resultat_net)}
           </p>
+          <p className="mt-1 text-xs text-gray-400">Hors commission propriétaire (non incluse pour le moment)</p>
         </div>
       </div>
 
@@ -81,22 +88,42 @@ export function DashboardSection({ data, loading, error }: DashboardSectionProps
         {data.appartements.length === 0 ? (
           <p className="mt-2 text-sm text-gray-500">Aucun appartement pour le moment.</p>
         ) : (
-          <ul className="mt-3 space-y-1">
-            {data.appartements.map((appartement) => (
-              <li key={appartement.id} className="flex items-center justify-between text-sm text-gray-700">
-                <span>{appartement.nom}</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    appartement.statut === 'disponible'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {appartement.statut === 'disponible' ? 'Disponible' : appartement.statut}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead>
+                <tr className="text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="py-2 pr-4">Nom</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2 pr-4">Séjours</th>
+                  <th className="py-2 pr-4">Dernier séjour</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.appartements.map((appartement) => (
+                  <tr
+                    key={appartement.id}
+                    onClick={() => onNavigateToAppartements?.()}
+                    className={onNavigateToAppartements ? 'cursor-pointer hover:bg-gray-50' : undefined}
+                  >
+                    <td className="py-2 pr-4 text-gray-900">{appartement.nom}</td>
+                    <td className="py-2 pr-4">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          appartement.statut === 'disponible'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {appartement.statut === 'disponible' ? 'Disponible' : appartement.statut}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-gray-700">{appartement.sejours_count}</td>
+                    <td className="py-2 pr-4 text-gray-700">{formatDate(appartement.dernier_sejour)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
