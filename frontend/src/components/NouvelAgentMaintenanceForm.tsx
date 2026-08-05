@@ -1,19 +1,16 @@
 import { useState, type FormEvent } from 'react'
 import type { NewUtilisateurInput } from '../api'
-import type { Appartement } from '../types'
 
-interface NouvelAgentFormProps {
-  appartements: Appartement[]
+interface NouvelAgentMaintenanceFormProps {
   onSubmit: (input: NewUtilisateurInput) => Promise<void>
   onCancel?: () => void
 }
 
-export function NouvelAgentForm({ appartements, onSubmit, onCancel }: NouvelAgentFormProps) {
+export function NouvelAgentMaintenanceForm({ onSubmit, onCancel }: NouvelAgentMaintenanceFormProps) {
   const [nom, setNom] = useState('')
   const [telephone, setTelephone] = useState('')
   const [adresse, setAdresse] = useState('')
   const [password, setPassword] = useState('')
-  const [appartementIds, setAppartementIds] = useState<number[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,14 +19,7 @@ export function NouvelAgentForm({ appartements, onSubmit, onCancel }: NouvelAgen
     setTelephone('')
     setAdresse('')
     setPassword('')
-    setAppartementIds([])
     setError(null)
-  }
-
-  const toggleAppartement = (id: number) => {
-    setAppartementIds((current) =>
-      current.includes(id) ? current.filter((a) => a !== id) : [...current, id],
-    )
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -45,11 +35,10 @@ export function NouvelAgentForm({ appartements, onSubmit, onCancel }: NouvelAgen
     try {
       await onSubmit({
         nom,
-        role: 'menage',
+        role: 'maintenance',
         telephone: telephone.trim() ? telephone : null,
         adresse: adresse.trim() ? adresse : null,
         password: password.trim() ? password : null,
-        appartement_ids: appartementIds,
       })
       resetForm()
     } catch (err) {
@@ -61,29 +50,29 @@ export function NouvelAgentForm({ appartements, onSubmit, onCancel }: NouvelAgen
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">Nouvel agent de ménage</h2>
+      <h2 className="text-lg font-semibold text-gray-900">Nouvel agent de maintenance</h2>
 
       <div>
-        <label htmlFor="agent_nom" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="agent_maintenance_nom" className="block text-sm font-medium text-gray-700">
           Nom
         </label>
         <input
-          id="agent_nom"
+          id="agent_maintenance_nom"
           type="text"
           required
           value={nom}
           onChange={(e) => setNom(e.target.value)}
-          placeholder="Fatima Zahra"
+          placeholder="Karim Benali"
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
 
       <div>
-        <label htmlFor="agent_telephone" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="agent_maintenance_telephone" className="block text-sm font-medium text-gray-700">
           Téléphone
         </label>
         <input
-          id="agent_telephone"
+          id="agent_maintenance_telephone"
           type="tel"
           value={telephone}
           onChange={(e) => setTelephone(e.target.value)}
@@ -93,11 +82,11 @@ export function NouvelAgentForm({ appartements, onSubmit, onCancel }: NouvelAgen
       </div>
 
       <div>
-        <label htmlFor="agent_adresse" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="agent_maintenance_adresse" className="block text-sm font-medium text-gray-700">
           Adresse
         </label>
         <input
-          id="agent_adresse"
+          id="agent_maintenance_adresse"
           type="text"
           value={adresse}
           onChange={(e) => setAdresse(e.target.value)}
@@ -107,11 +96,11 @@ export function NouvelAgentForm({ appartements, onSubmit, onCancel }: NouvelAgen
       </div>
 
       <div>
-        <label htmlFor="agent_password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="agent_maintenance_password" className="block text-sm font-medium text-gray-700">
           Mot de passe
         </label>
         <input
-          id="agent_password"
+          id="agent_maintenance_password"
           type="text"
           required
           value={password}
@@ -119,32 +108,6 @@ export function NouvelAgentForm({ appartements, onSubmit, onCancel }: NouvelAgen
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         />
         <p className="mt-1 text-xs text-gray-500">Vous pourrez communiquer ce mot de passe à l'agent</p>
-      </div>
-
-      <div>
-        <span className="block text-sm font-medium text-gray-700">Appartements assignés</span>
-        {appartements.length === 0 ? (
-          <p className="mt-1 text-sm text-gray-500">Aucun appartement disponible pour le moment.</p>
-        ) : (
-          <div className="mt-2 space-y-2">
-            {appartements.map((appartement) => (
-              <label key={appartement.id} className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={appartementIds.includes(appartement.id)}
-                  onChange={() => toggleAppartement(appartement.id)}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                {appartement.nom}
-                {appartement.agent_habituel && (
-                  <span className="text-xs text-gray-500">
-                    (actuellement : {appartement.agent_habituel.nom})
-                  </span>
-                )}
-              </label>
-            ))}
-          </div>
-        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

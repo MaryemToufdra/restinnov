@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AppartementController;
 use App\Http\Controllers\ChecklistModeleController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FraisMaintenanceController;
 use App\Http\Controllers\MissionMenageController;
 use App\Http\Controllers\ProduitCatalogueController;
@@ -9,6 +10,8 @@ use App\Http\Controllers\ProduitSignaleController;
 use App\Http\Controllers\SejourController;
 use App\Http\Controllers\UtilisateurController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/dashboard', [DashboardController::class, 'index']);
 
 Route::get('/appartements', [AppartementController::class, 'index']);
 Route::post('/appartements', [AppartementController::class, 'store']);

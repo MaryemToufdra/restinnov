@@ -48,6 +48,7 @@ describe('NouvelAgentForm', () => {
     await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
     await user.type(screen.getByLabelText(/téléphone/i), '0611111111')
     await user.type(screen.getByLabelText(/adresse/i), '5 rue des Fleurs, Casablanca')
+    await user.type(screen.getByLabelText(/mot de passe/i), 'secret123')
     await user.click(screen.getByRole('checkbox', { name: /Loft Bastille/i }))
     await user.click(screen.getByRole('button', { name: /créer le compte/i }))
 
@@ -56,6 +57,7 @@ describe('NouvelAgentForm', () => {
       role: 'menage',
       telephone: '0611111111',
       adresse: '5 rue des Fleurs, Casablanca',
+      password: 'secret123',
       appartement_ids: [1],
     })
   })
@@ -66,6 +68,7 @@ describe('NouvelAgentForm', () => {
     render(<NouvelAgentForm appartements={appartements} onSubmit={onSubmit} />)
 
     await user.type(screen.getByLabelText('Nom'), 'Karim B.')
+    await user.type(screen.getByLabelText(/mot de passe/i), 'secret123')
     await user.click(screen.getByRole('button', { name: /créer le compte/i }))
 
     expect(onSubmit).toHaveBeenCalledWith({
@@ -73,6 +76,7 @@ describe('NouvelAgentForm', () => {
       role: 'menage',
       telephone: null,
       adresse: null,
+      password: 'secret123',
       appartement_ids: [],
     })
   })
@@ -83,6 +87,7 @@ describe('NouvelAgentForm', () => {
     render(<NouvelAgentForm appartements={appartements} onSubmit={onSubmit} />)
 
     await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra')
+    await user.type(screen.getByLabelText(/mot de passe/i), 'secret123')
     await user.click(screen.getByRole('checkbox', { name: /Loft Bastille/i }))
     await user.click(screen.getByRole('checkbox', { name: /Zenith/i }))
     await user.click(screen.getByRole('checkbox', { name: /Loft Bastille/i }))
@@ -93,12 +98,21 @@ describe('NouvelAgentForm', () => {
     )
   })
 
+  it('affiche le mot de passe en clair (pas type="password") avec un texte d\'aide', () => {
+    render(<NouvelAgentForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    const passwordInput = screen.getByLabelText(/mot de passe/i)
+    expect(passwordInput).toHaveAttribute('type', 'text')
+    expect(screen.getByText(/vous pourrez communiquer ce mot de passe à l'agent/i)).toBeInTheDocument()
+  })
+
   it('exige un nom', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
     const { container } = render(<NouvelAgentForm appartements={appartements} onSubmit={onSubmit} />)
 
     container.querySelector('#agent_nom')?.removeAttribute('required')
+    container.querySelector('#agent_password')?.removeAttribute('required')
 
     await user.click(screen.getByRole('button', { name: /créer le compte/i }))
 

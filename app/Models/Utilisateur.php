@@ -19,6 +19,11 @@ class Utilisateur extends Model
         'role',
         'telephone',
         'adresse',
+        'password',
+    ];
+
+    protected $hidden = [
+        'password',
     ];
 
     public function missionMenages(): HasMany

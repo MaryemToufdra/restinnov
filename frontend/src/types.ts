@@ -90,3 +90,22 @@ export interface Sejour {
   voyageurs?: Voyageur[]
   frais_maintenance?: FraisMaintenance[]
 }
+
+export interface DashboardAppartement {
+  id: number
+  nom: string
+  statut: string
+}
+
+export interface DashboardData {
+  revenus_totaux: number
+  frais_menage_totaux: number
+  frais_maintenance_totaux: number
+  resultat_net: number
+  appartements: DashboardAppartement[]
+  sejours_par_statut: {
+    a_venir: number
+    en_cours: number
+    termine: number
+  }
+}

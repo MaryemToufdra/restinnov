@@ -2,6 +2,7 @@ import type {
   Agent,
   Appartement,
   ChecklistModele,
+  DashboardData,
   FraisMaintenance,
   MissionMenage,
   PlateformeOrigine,
@@ -39,6 +40,7 @@ export interface NewUtilisateurInput {
   role: 'menage' | 'maintenance'
   telephone: string | null
   adresse?: string | null
+  password?: string | null
   appartement_ids?: number[]
 }
 
@@ -306,4 +308,12 @@ export async function deleteFraisMaintenance(id: number): Promise<void> {
     const data = await response.json().catch(() => null)
     throw new ApiError(data?.message ?? 'Une erreur est survenue.', data?.errors)
   }
+}
+
+export async function fetchDashboard(): Promise<DashboardData> {
+  const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
 }

@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Appartement;
+use App\Models\Utilisateur;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class UtilisateurCreationTest extends TestCase
@@ -120,5 +122,83 @@ class UtilisateurCreationTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors('appartement_ids.0');
         $this->assertDatabaseCount('utilisateurs', 0);
+    }
+
+    public function test_it_hashes_the_password_and_never_stores_it_in_plaintext(): void
+    {
+        $response = $this->postJson('/api/utilisateurs', [
+            'nom' => 'Fatima Z.',
+            'role' => 'menage',
+            'password' => 'secret123',
+        ]);
+
+        $response->assertCreated();
+
+        $utilisateur = Utilisateur::where('nom', 'Fatima Z.')->firstOrFail();
+        $this->assertNotEquals('secret123', $utilisateur->password);
+        $this->assertTrue(Hash::check('secret123', $utilisateur->password));
+    }
+
+    public function test_password_is_never_exposed_in_the_response(): void
+    {
+        $response = $this->postJson('/api/utilisateurs', [
+            'nom' => 'Fatima Z.',
+            'role' => 'menage',
+            'password' => 'secret123',
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonMissing(['password']);
+        $this->assertArrayNotHasKey('password', $response->json());
+    }
+
+    public function test_password_is_optional(): void
+    {
+        $response = $this->postJson('/api/utilisateurs', [
+            'nom' => 'Fatima Z.',
+            'role' => 'menage',
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('utilisateurs', [
+            'nom' => 'Fatima Z.',
+            'password' => null,
+        ]);
+    }
+
+    public function test_password_must_be_at_least_6_characters(): void
+    {
+        $response = $this->postJson('/api/utilisateurs', [
+            'nom' => 'Fatima Z.',
+            'role' => 'menage',
+            'password' => '123',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('password');
+    }
+
+    public function test_it_creates_a_maintenance_agent_with_password_and_no_appartement_assignment(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+
+        $response = $this->postJson('/api/utilisateurs', [
+            'nom' => 'Karim B.',
+            'role' => 'maintenance',
+            'telephone' => '0622222222',
+            'adresse' => '10 rue de la Paix',
+            'password' => 'secret123',
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('role', 'maintenance');
+
+        $utilisateur = Utilisateur::where('nom', 'Karim B.')->firstOrFail();
+        $this->assertTrue(Hash::check('secret123', $utilisateur->password));
+
+        $this->assertDatabaseHas('appartements', [
+            'id' => $appartement->id,
+            'agent_habituel_id' => null,
+        ]);
     }
 }
