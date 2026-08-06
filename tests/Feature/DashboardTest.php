@@ -100,4 +100,41 @@ class DashboardTest extends TestCase
         $response->assertJsonFragment(['nom' => 'Loft Bastille', 'statut' => 'disponible']);
         $response->assertJsonFragment(['nom' => 'Zenith', 'statut' => 'occupe']);
     }
+
+    public function test_it_reports_the_sejour_count_and_last_sejour_date_per_appartement(): void
+    {
+        $appartement1 = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $appartement2 = Appartement::create(['nom' => 'Zenith', 'adresse' => 'B', 'statut' => 'occupe']);
+
+        Sejour::create([
+            'appartement_id' => $appartement1->id,
+            'date_arrivee' => '2026-01-01',
+            'date_depart' => '2026-01-05',
+            'nom_voyageur' => 'Jean Dupont',
+            'statut' => 'termine',
+            'montant_mad' => 1000,
+        ]);
+        Sejour::create([
+            'appartement_id' => $appartement1->id,
+            'date_arrivee' => '2026-03-01',
+            'date_depart' => '2026-03-05',
+            'nom_voyageur' => 'Paul Martin',
+            'statut' => 'a_venir',
+            'montant_mad' => 300,
+        ]);
+
+        $response = $this->getJson('/api/dashboard');
+
+        $response->assertOk();
+        $response->assertJsonFragment([
+            'nom' => 'Loft Bastille',
+            'sejours_count' => 2,
+            'dernier_sejour' => '2026-03-05',
+        ]);
+        $response->assertJsonFragment([
+            'nom' => 'Zenith',
+            'sejours_count' => 0,
+            'dernier_sejour' => null,
+        ]);
+    }
 }

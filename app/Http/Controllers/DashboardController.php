@@ -29,7 +29,19 @@ class DashboardController extends Controller
 
         $resultatNet = $revenusTotaux - $fraisMenageTotaux - $fraisMaintenanceTotaux;
 
-        $appartements = Appartement::select('id', 'nom', 'statut')->orderBy('nom')->get();
+        $appartements = Appartement::query()
+            ->select('id', 'nom', 'statut')
+            ->withCount('sejours')
+            ->withMax('sejours', 'date_depart')
+            ->orderBy('nom')
+            ->get()
+            ->map(fn (Appartement $appartement) => [
+                'id' => $appartement->id,
+                'nom' => $appartement->nom,
+                'statut' => $appartement->statut,
+                'sejours_count' => $appartement->sejours_count,
+                'dernier_sejour' => $appartement->sejours_max_date_depart,
+            ]);
 
         $sejoursParStatut = [
             Sejour::STATUT_A_VENIR => Sejour::where('statut', Sejour::STATUT_A_VENIR)->count(),

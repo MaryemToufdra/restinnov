@@ -95,6 +95,8 @@ export interface DashboardAppartement {
   id: number
   nom: string
   statut: string
+  sejours_count: number
+  dernier_sejour: string | null
 }
 
 export interface DashboardData {
