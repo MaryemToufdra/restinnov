@@ -1,12 +1,13 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import type { NewSejourInput } from '../api'
-import type { Appartement, PlateformeOrigine, Voyageur, VoyageurType } from '../types'
+import type { Appartement, PlateformeOrigine, Sejour, Voyageur, VoyageurType } from '../types'
 import { VoyageurFieldset } from './VoyageurFieldset'
 
 interface NouveauSejourFormProps {
   appartements: Appartement[]
   onSubmit: (input: NewSejourInput) => Promise<void>
   onCancel?: () => void
+  sejourToEdit?: Sejour | null
 }
 
 const PLATEFORMES: { value: PlateformeOrigine; label: string }[] = [
@@ -41,7 +42,7 @@ function removeAtIndex(list: Voyageur[], index: number): Voyageur[] {
   return next
 }
 
-export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauSejourFormProps) {
+export function NouveauSejourForm({ appartements, onSubmit, onCancel, sejourToEdit }: NouveauSejourFormProps) {
   const [appartementId, setAppartementId] = useState('')
   const [dateArrivee, setDateArrivee] = useState('')
   const [dateDepart, setDateDepart] = useState('')
@@ -60,6 +61,25 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
     setVoyageurs(defaultVoyageurs())
     setError(null)
   }
+
+  useEffect(() => {
+    if (sejourToEdit) {
+      setAppartementId(String(sejourToEdit.appartement_id))
+      setDateArrivee(sejourToEdit.date_arrivee)
+      setDateDepart(sejourToEdit.date_depart)
+      setPlateformeOrigine(sejourToEdit.plateforme_origine)
+      setMontantMad(String(sejourToEdit.montant_mad ?? 0))
+      setVoyageurs(
+        sejourToEdit.voyageurs && sejourToEdit.voyageurs.length > 0
+          ? sejourToEdit.voyageurs.map((v) => ({ ...v }))
+          : defaultVoyageurs(),
+      )
+      setError(null)
+    } else {
+      resetForm()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sejourToEdit])
 
   const updateVoyageur = (index: number, patch: Partial<Voyageur>) => {
     setVoyageurs((current) => current.map((v, i) => (i === index ? { ...v, ...patch } : v)))
@@ -149,7 +169,9 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">Nouveau séjour</h2>
+      <h2 className="text-lg font-semibold text-gray-900">
+        {sejourToEdit ? 'Modifier le séjour' : 'Nouveau séjour'}
+      </h2>
 
       <div>
         <label htmlFor="appartement_id" className="block text-sm font-medium text-gray-700">
@@ -350,7 +372,11 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel }: NouveauS
           disabled={submitting}
           className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
-          {submitting ? 'Enregistrement...' : 'Enregistrer le séjour'}
+          {submitting
+            ? 'Enregistrement...'
+            : sejourToEdit
+              ? 'Enregistrer les modifications'
+              : 'Enregistrer le séjour'}
         </button>
       </div>
     </form>

@@ -5,10 +5,12 @@ import type {
   DashboardData,
   FraisMaintenance,
   MissionMenage,
+  PaginatedResponse,
   PlateformeOrigine,
   ProduitCatalogue,
   ProduitMenageSignale,
   Sejour,
+  SejourStatut,
   Voyageur,
 } from './types'
 
@@ -97,6 +99,51 @@ export async function fetchAppartements(): Promise<Appartement[]> {
   return parseJsonOrThrow(response)
 }
 
+export interface FetchAppartementsListeParams {
+  search?: string
+  statut?: string
+  sort_by?: 'nom'
+  sort_dir?: 'asc' | 'desc'
+  page?: number
+  per_page?: number
+}
+
+export async function fetchAppartementsListe(
+  params: FetchAppartementsListeParams = {},
+): Promise<PaginatedResponse<Appartement>> {
+  const url = new URL(`${API_BASE_URL}/api/appartements`)
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, String(value))
+    }
+  }
+  if (!url.searchParams.has('page')) url.searchParams.set('page', '1')
+
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function updateAppartement(id: number, input: NewAppartementInput): Promise<Appartement> {
+  const formData = new FormData()
+  formData.append('nom', input.nom)
+  formData.append('adresse', input.adresse)
+  if (input.photo) formData.append('photo', input.photo)
+  if (input.checklist_modele_id) formData.append('checklist_modele_id', String(input.checklist_modele_id))
+  if (input.agent_habituel_id) formData.append('agent_habituel_id', String(input.agent_habituel_id))
+  formData.append('_method', 'PATCH')
+
+  const response = await fetch(`${API_BASE_URL}/api/appartements/${id}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    body: formData,
+  })
+
+  return parseJsonOrThrow(response)
+}
+
 export async function createAppartement(input: NewAppartementInput): Promise<Appartement> {
   const formData = new FormData()
   formData.append('nom', input.nom)
@@ -159,8 +206,27 @@ export async function createUtilisateur(input: NewUtilisateurInput): Promise<Age
   return parseJsonOrThrow(response)
 }
 
-export async function fetchSejours(): Promise<Sejour[]> {
-  const response = await fetch(`${API_BASE_URL}/api/sejours`, {
+export interface FetchSejoursParams {
+  search?: string
+  statut?: SejourStatut
+  appartement_id?: number
+  date_debut?: string
+  date_fin?: string
+  sort_by?: 'date_arrivee' | 'date_depart'
+  sort_dir?: 'asc' | 'desc'
+  page?: number
+  per_page?: number
+}
+
+export async function fetchSejours(params: FetchSejoursParams = {}): Promise<PaginatedResponse<Sejour>> {
+  const url = new URL(`${API_BASE_URL}/api/sejours`)
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, String(value))
+    }
+  }
+
+  const response = await fetch(url, {
     headers: { Accept: 'application/json' },
   })
 
@@ -170,6 +236,19 @@ export async function fetchSejours(): Promise<Sejour[]> {
 export async function createSejour(input: NewSejourInput): Promise<Sejour> {
   const response = await fetch(`${API_BASE_URL}/api/sejours`, {
     method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function updateSejour(id: number, input: NewSejourInput): Promise<Sejour> {
+  const response = await fetch(`${API_BASE_URL}/api/sejours/${id}`, {
+    method: 'PATCH',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',

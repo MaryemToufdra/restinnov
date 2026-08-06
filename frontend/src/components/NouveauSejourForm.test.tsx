@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { NouveauSejourForm } from './NouveauSejourForm'
-import type { Appartement } from '../types'
+import type { Appartement, Sejour } from '../types'
 
 const appartements: Appartement[] = [
   {
@@ -249,5 +249,66 @@ describe('NouveauSejourForm', () => {
     expect(screen.getByTestId('nombre-adultes')).toHaveTextContent('1')
     expect(screen.getByTestId('nombre-enfants')).toHaveTextContent('0')
     expect(screen.getByLabelText(/Date d'arrivée/i)).toHaveValue('')
+  })
+
+  describe('mode édition', () => {
+    const sejourToEdit: Sejour = {
+      id: 5,
+      appartement_id: 1,
+      date_arrivee: '2026-08-01',
+      date_depart: '2026-08-05',
+      nom_voyageur: 'Jean Dupont',
+      statut: 'a_venir',
+      plateforme_origine: 'booking',
+      montant_mad: 1500,
+      voyageurs: [
+        { nom: 'Jean Dupont', numero_passeport: 'FR123', est_principal: true, type: 'adulte' },
+        { nom: 'Petit Dupont', numero_passeport: null, est_principal: false, type: 'enfant' },
+      ],
+    }
+
+    it('préremplit le formulaire à partir du séjour à éditer', () => {
+      render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} sejourToEdit={sejourToEdit} />)
+
+      expect(screen.getByRole('heading', { name: 'Modifier le séjour' })).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: /Appartement/i })).toHaveValue('1')
+      expect(screen.getByLabelText(/Date d'arrivée/i)).toHaveValue('2026-08-01')
+      expect(screen.getByLabelText(/Date de départ/i)).toHaveValue('2026-08-05')
+      expect(screen.getByRole('button', { name: 'Booking' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByTestId('nombre-adultes')).toHaveTextContent('1')
+      expect(screen.getByTestId('nombre-enfants')).toHaveTextContent('1')
+      expect(screen.getByRole('button', { name: /enregistrer les modifications/i })).toBeInTheDocument()
+    })
+
+    it('soumet le payload modifié au clic sur "Enregistrer les modifications"', async () => {
+      const user = userEvent.setup()
+      const onSubmit = vi.fn().mockResolvedValue(undefined)
+      render(<NouveauSejourForm appartements={appartements} onSubmit={onSubmit} sejourToEdit={sejourToEdit} />)
+
+      await user.clear(screen.getByLabelText(/Date de départ/i))
+      await user.type(screen.getByLabelText(/Date de départ/i), '2026-08-10')
+      await user.click(screen.getByRole('button', { name: /enregistrer les modifications/i }))
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          appartement_id: 1,
+          date_arrivee: '2026-08-01',
+          date_depart: '2026-08-10',
+          plateforme_origine: 'booking',
+        }),
+      )
+    })
+
+    it('revient à un formulaire vierge quand sejourToEdit redevient null', () => {
+      const { rerender } = render(
+        <NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} sejourToEdit={sejourToEdit} />,
+      )
+      expect(screen.getByLabelText(/Date d'arrivée/i)).toHaveValue('2026-08-01')
+
+      rerender(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} sejourToEdit={null} />)
+
+      expect(screen.getByRole('heading', { name: 'Nouveau séjour' })).toBeInTheDocument()
+      expect(screen.getByLabelText(/Date d'arrivée/i)).toHaveValue('')
+    })
   })
 })

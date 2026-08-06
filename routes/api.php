@@ -15,6 +15,7 @@ Route::get('/dashboard', [DashboardController::class, 'index']);
 
 Route::get('/appartements', [AppartementController::class, 'index']);
 Route::post('/appartements', [AppartementController::class, 'store']);
+Route::patch('/appartements/{appartement}', [AppartementController::class, 'update']);
 
 Route::get('/checklist-modeles', [ChecklistModeleController::class, 'index']);
 Route::post('/checklist-modeles', [ChecklistModeleController::class, 'store']);
@@ -24,6 +25,7 @@ Route::post('/utilisateurs', [UtilisateurController::class, 'store']);
 
 Route::get('/sejours', [SejourController::class, 'index']);
 Route::post('/sejours', [SejourController::class, 'store']);
+Route::patch('/sejours/{sejour}', [SejourController::class, 'update']);
 Route::patch('/sejours/{sejour}/checkout', [SejourController::class, 'checkout']);
 
 Route::post('/sejours/{sejour}/frais-maintenance', [FraisMaintenanceController::class, 'store']);
