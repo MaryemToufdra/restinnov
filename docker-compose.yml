@@ -1,0 +1,29 @@
+﻿services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: restinnov-app
+    container_name: restinnov-app
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+    networks:
+      - restinnov-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: restinnov-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+      - "5173:5173"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+    networks:
+      - restinnov-network
+
+networks:
+  restinnov-network:
+    driver: bridge
