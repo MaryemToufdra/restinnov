@@ -21,6 +21,8 @@ export interface Appartement {
   agent_habituel_id: number | null
   checklist_modele?: ChecklistModele | null
   agent_habituel?: Agent | null
+  sejours_count?: number
+  dernier_sejour?: string | null
 }
 
 export interface Agent {
@@ -89,6 +91,15 @@ export interface Sejour {
   mission_menage?: MissionMenage | null
   voyageurs?: Voyageur[]
   frais_maintenance?: FraisMaintenance[]
+  voyageurs_count?: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
 }
 
 export interface DashboardAppartement {

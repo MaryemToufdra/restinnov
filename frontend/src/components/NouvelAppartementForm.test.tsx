@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { NouvelAppartementForm } from './NouvelAppartementForm'
-import type { Agent, ChecklistModele } from '../types'
+import type { Agent, Appartement, ChecklistModele } from '../types'
 
 const checklistModeles: ChecklistModele[] = [{ id: 1, nom: 'Checklist standard' }]
 const agentsMenage: Agent[] = [{ id: 2, nom: 'Fatima Z.', role: 'menage', telephone: null }]
@@ -146,5 +146,91 @@ describe('NouvelAppartementForm', () => {
 
     expect(await screen.findByText(/obligatoires/i)).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  describe('mode édition', () => {
+    const appartementToEdit: Appartement = {
+      id: 3,
+      nom: 'Loft Bastille',
+      adresse: '12 rue de la Roquette',
+      statut: 'occupe',
+      photo_principale: null,
+      checklist_modele_id: 1,
+      agent_habituel_id: 2,
+    }
+
+    it('préremplit le formulaire et affiche le statut réel (lecture seule)', () => {
+      render(
+        <NouvelAppartementForm
+          checklistModeles={checklistModeles}
+          agentsMenage={agentsMenage}
+          onSubmit={vi.fn()}
+          onCreateChecklistModele={vi.fn()}
+          appartementToEdit={appartementToEdit}
+        />,
+      )
+
+      expect(screen.getByRole('heading', { name: "Modifier l'appartement" })).toBeInTheDocument()
+      expect(screen.getByLabelText(/nom d'appartement/i)).toHaveValue('Loft Bastille')
+      expect(screen.getByLabelText(/adresse complète/i)).toHaveValue('12 rue de la Roquette')
+      expect(screen.getByRole('combobox', { name: /checklist de ménage/i })).toHaveValue('1')
+      expect(screen.getByRole('combobox', { name: /agent de ménage habituel/i })).toHaveValue('2')
+      expect(screen.getByText('occupe')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /enregistrer les modifications/i })).toBeInTheDocument()
+    })
+
+    it('soumet le payload modifié sans statut', async () => {
+      const user = userEvent.setup()
+      const onSubmit = vi.fn().mockResolvedValue(undefined)
+      render(
+        <NouvelAppartementForm
+          checklistModeles={checklistModeles}
+          agentsMenage={agentsMenage}
+          onSubmit={onSubmit}
+          onCreateChecklistModele={vi.fn()}
+          appartementToEdit={appartementToEdit}
+        />,
+      )
+
+      await user.clear(screen.getByLabelText(/nom d'appartement/i))
+      await user.type(screen.getByLabelText(/nom d'appartement/i), 'Loft Bastille rénové')
+      await user.click(screen.getByRole('button', { name: /enregistrer les modifications/i }))
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nom: 'Loft Bastille rénové',
+          adresse: '12 rue de la Roquette',
+          checklist_modele_id: 1,
+          agent_habituel_id: 2,
+        }),
+      )
+    })
+
+    it('revient à un formulaire vierge quand appartementToEdit redevient null', () => {
+      const { rerender } = render(
+        <NouvelAppartementForm
+          checklistModeles={checklistModeles}
+          agentsMenage={agentsMenage}
+          onSubmit={vi.fn()}
+          onCreateChecklistModele={vi.fn()}
+          appartementToEdit={appartementToEdit}
+        />,
+      )
+      expect(screen.getByLabelText(/nom d'appartement/i)).toHaveValue('Loft Bastille')
+
+      rerender(
+        <NouvelAppartementForm
+          checklistModeles={checklistModeles}
+          agentsMenage={agentsMenage}
+          onSubmit={vi.fn()}
+          onCreateChecklistModele={vi.fn()}
+          appartementToEdit={null}
+        />,
+      )
+
+      expect(screen.getByRole('heading', { name: 'Nouvel appartement' })).toBeInTheDocument()
+      expect(screen.getByLabelText(/nom d'appartement/i)).toHaveValue('')
+      expect(screen.getByText('Disponible')).toBeInTheDocument()
+    })
   })
 })

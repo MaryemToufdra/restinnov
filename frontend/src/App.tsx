@@ -1,33 +1,27 @@
 import { useEffect, useState } from 'react'
 import {
-  checkoutSejour,
   createAppartement,
   createChecklistModele,
-  createFraisMaintenance,
   createProduitCatalogue,
   createSejour,
   createUtilisateur,
-  deleteFraisMaintenance,
   fetchAppartements,
   fetchChecklistModeles,
   fetchDashboard,
   fetchProduitsCatalogue,
   fetchProduitsSignales,
-  fetchSejours,
   fetchUtilisateurs,
   rejeterProduitSignale,
-  signalerProduit,
-  updateMissionMenageProduits,
+  updateAppartement,
+  updateSejour,
   validerProduitSignale,
   type NewAppartementInput,
-  type NewFraisMaintenanceInput,
   type NewProduitCatalogueInput,
   type NewSejourInput,
   type NewUtilisateurInput,
-  type SignalerProduitInput,
-  type UpdateMissionMenageProduitsInput,
   type ValiderProduitSignaleInput,
 } from './api'
+import { AppartementsListeSection } from './components/AppartementsListeSection'
 import { CatalogueProduitsSection } from './components/CatalogueProduitsSection'
 import { DashboardSection } from './components/DashboardSection'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
@@ -35,7 +29,7 @@ import { NouvelAgentForm } from './components/NouvelAgentForm'
 import { NouvelAgentMaintenanceForm } from './components/NouvelAgentMaintenanceForm'
 import { NouvelAppartementForm } from './components/NouvelAppartementForm'
 import { ProduitsSignalesSection } from './components/ProduitsSignalesSection'
-import { SejourCard } from './components/SejourCard'
+import { SejoursListeSection } from './components/SejoursListeSection'
 import type {
   Agent,
   Appartement,
@@ -46,59 +40,112 @@ import type {
   Sejour,
 } from './types'
 
-type Tab = 'dashboard' | 'sejour' | 'appartement' | 'agent' | 'agent-maintenance' | 'catalogue'
+type Tab =
+  | 'dashboard'
+  | 'sejour-creer'
+  | 'sejour-liste'
+  | 'appartement-creer'
+  | 'appartement-liste'
+  | 'menage-agent'
+  | 'menage-catalogue'
+  | 'maintenance-agent'
 
-const NAV_ITEMS: [Tab, string][] = [
-  ['dashboard', 'Dashboard'],
-  ['sejour', 'Séjours'],
-  ['appartement', 'Appartements'],
-  ['agent', 'Agent de ménage'],
-  ['agent-maintenance', 'Agent de maintenance'],
-  ['catalogue', 'Catalogue ménage'],
+interface NavGroup {
+  key: string
+  label: string
+  tabs: [Tab, string][]
+  defaultTab: Tab
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    key: 'sejours',
+    label: 'Séjours',
+    tabs: [
+      ['sejour-creer', 'Créer un séjour'],
+      ['sejour-liste', 'Liste des séjours'],
+    ],
+    defaultTab: 'sejour-liste',
+  },
+  {
+    key: 'appartements',
+    label: 'Appartements',
+    tabs: [
+      ['appartement-creer', 'Créer un appartement'],
+      ['appartement-liste', 'Liste des appartements'],
+    ],
+    defaultTab: 'appartement-liste',
+  },
+  {
+    key: 'menage',
+    label: 'Ménage',
+    tabs: [
+      ['menage-agent', 'Ajouter un agent ménage'],
+      ['menage-catalogue', 'Catalogue ménage'],
+    ],
+    defaultTab: 'menage-agent',
+  },
+  {
+    key: 'maintenance',
+    label: 'Maintenance',
+    tabs: [['maintenance-agent', 'Ajouter un agent maintenance']],
+    defaultTab: 'maintenance-agent',
+  },
 ]
+
+const SECTION_TITLES: Record<Tab, string> = {
+  dashboard: 'Dashboard',
+  'sejour-creer': 'Séjours',
+  'sejour-liste': 'Séjours',
+  'appartement-creer': 'Appartements',
+  'appartement-liste': 'Appartements',
+  'menage-agent': 'Ménage',
+  'menage-catalogue': 'Ménage',
+  'maintenance-agent': 'Maintenance',
+}
+
+function groupKeyForTab(tab: Tab): string | null {
+  return NAV_GROUPS.find((group) => group.tabs.some(([t]) => t === tab))?.key ?? null
+}
 
 function App() {
   const [appartements, setAppartements] = useState<Appartement[]>([])
-  const [sejours, setSejours] = useState<Sejour[]>([])
   const [checklistModeles, setChecklistModeles] = useState<ChecklistModele[]>([])
   const [agentsMenage, setAgentsMenage] = useState<Agent[]>([])
   const [produitsCatalogue, setProduitsCatalogue] = useState<ProduitCatalogue[]>([])
   const [produitsSignales, setProduitsSignales] = useState<ProduitMenageSignale[]>([])
-  const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
+  const [editingSejour, setEditingSejour] = useState<Sejour | null>(null)
+  const [editingAppartement, setEditingAppartement] = useState<Appartement | null>(null)
+
+  const navigateTo = (tab: Tab) => {
+    setActiveTab(tab)
+    setExpandedGroup(groupKeyForTab(tab))
+  }
 
   const loadData = async () => {
     setLoadError(null)
     try {
-      const [
-        appartementsData,
-        sejoursData,
-        checklistModelesData,
-        agentsMenageData,
-        produitsCatalogueData,
-        produitsSignalesData,
-      ] = await Promise.all([
-        fetchAppartements(),
-        fetchSejours(),
-        fetchChecklistModeles(),
-        fetchUtilisateurs('menage'),
-        fetchProduitsCatalogue(),
-        fetchProduitsSignales('en_attente'),
-      ])
+      const [appartementsData, checklistModelesData, agentsMenageData, produitsCatalogueData, produitsSignalesData] =
+        await Promise.all([
+          fetchAppartements(),
+          fetchChecklistModeles(),
+          fetchUtilisateurs('menage'),
+          fetchProduitsCatalogue(),
+          fetchProduitsSignales('en_attente'),
+        ])
       setAppartements(appartementsData)
-      setSejours(sejoursData)
       setChecklistModeles(checklistModelesData)
       setAgentsMenage(agentsMenageData)
       setProduitsCatalogue(produitsCatalogueData)
       setProduitsSignales(produitsSignalesData)
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Impossible de charger les données.')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -130,15 +177,52 @@ function App() {
     }
   }, [activeTab])
 
-  const handleCreateSejour = async (input: NewSejourInput) => {
-    const sejour = await createSejour(input)
-    setSejours((current) => [sejour, ...current])
+  const handleSubmitSejour = async (input: NewSejourInput) => {
+    if (editingSejour) {
+      await updateSejour(editingSejour.id, input)
+      setEditingSejour(null)
+    } else {
+      await createSejour(input)
+    }
+    navigateTo('sejour-liste')
   }
 
-  const handleCreateAppartement = async (input: NewAppartementInput) => {
-    const appartement = await createAppartement(input)
-    setAppartements((current) => [...current, appartement].sort((a, b) => a.nom.localeCompare(b.nom)))
-    setActiveTab('sejour')
+  const handleCancelSejourForm = () => {
+    if (editingSejour) {
+      setEditingSejour(null)
+      navigateTo('sejour-liste')
+    }
+  }
+
+  const handleEditSejour = (sejour: Sejour) => {
+    setEditingSejour(sejour)
+    navigateTo('sejour-creer')
+  }
+
+  const handleSubmitAppartement = async (input: NewAppartementInput) => {
+    if (editingAppartement) {
+      const appartement = await updateAppartement(editingAppartement.id, input)
+      setAppartements((current) =>
+        current.map((a) => (a.id === appartement.id ? appartement : a)).sort((a, b) => a.nom.localeCompare(b.nom)),
+      )
+      setEditingAppartement(null)
+    } else {
+      const appartement = await createAppartement(input)
+      setAppartements((current) => [...current, appartement].sort((a, b) => a.nom.localeCompare(b.nom)))
+    }
+    navigateTo('appartement-liste')
+  }
+
+  const handleCancelAppartementForm = () => {
+    if (editingAppartement) {
+      setEditingAppartement(null)
+      navigateTo('appartement-liste')
+    }
+  }
+
+  const handleEditAppartement = (appartement: Appartement) => {
+    setEditingAppartement(appartement)
+    navigateTo('appartement-creer')
   }
 
   const handleCreateChecklistModele = async (nom: string) => {
@@ -165,33 +249,9 @@ function App() {
     }
   }
 
-  const handleCheckout = async (id: number) => {
-    const { sejour: updated, mission_menage } = await checkoutSejour(id)
-    setSejours((current) =>
-      current.map((s) => (s.id === id ? { ...s, statut: updated.statut, mission_menage } : s)),
-    )
-  }
-
   const handleCreateProduitCatalogue = async (input: NewProduitCatalogueInput) => {
     const produit = await createProduitCatalogue(input)
     setProduitsCatalogue((current) => [...current, produit].sort((a, b) => a.nom.localeCompare(b.nom)))
-  }
-
-  const handleUpdateMissionProduits = async (
-    missionMenageId: number,
-    input: UpdateMissionMenageProduitsInput,
-  ) => {
-    const updated = await updateMissionMenageProduits(missionMenageId, input)
-    setSejours((current) =>
-      current.map((s) =>
-        s.mission_menage && s.mission_menage.id === missionMenageId ? { ...s, mission_menage: updated } : s,
-      ),
-    )
-  }
-
-  const handleSignalerProduit = async (missionMenageId: number, input: SignalerProduitInput) => {
-    const created = await signalerProduit(missionMenageId, input)
-    setProduitsSignales((current) => [created, ...current])
   }
 
   const handleValiderProduitSignale = async (id: number, input: ValiderProduitSignaleInput) => {
@@ -201,19 +261,6 @@ function App() {
     const nouveauProduit = updated.produit_catalogue
     if (nouveauProduit) {
       setProduitsCatalogue((current) => [...current, nouveauProduit].sort((a, b) => a.nom.localeCompare(b.nom)))
-      setSejours((current) =>
-        current.map((s) => {
-          if (!s.mission_menage || s.mission_menage.id !== updated.mission_menage_id) return s
-          if (s.mission_menage.produits?.some((p) => p.id === nouveauProduit.id)) return s
-          return {
-            ...s,
-            mission_menage: {
-              ...s.mission_menage,
-              produits: [...(s.mission_menage.produits ?? []), nouveauProduit],
-            },
-          }
-        }),
-      )
     }
   }
 
@@ -222,23 +269,16 @@ function App() {
     setProduitsSignales((current) => current.filter((p) => p.id !== id))
   }
 
-  const handleAddFraisMaintenance = async (sejourId: number, input: NewFraisMaintenanceInput) => {
-    const created = await createFraisMaintenance(sejourId, input)
-    setSejours((current) =>
-      current.map((s) =>
-        s.id === sejourId ? { ...s, frais_maintenance: [...(s.frais_maintenance ?? []), created] } : s,
-      ),
-    )
-  }
+  const toggleGroup = (group: NavGroup) => {
+    if (expandedGroup === group.key) {
+      setExpandedGroup(null)
+      return
+    }
 
-  const handleDeleteFraisMaintenance = async (id: number) => {
-    await deleteFraisMaintenance(id)
-    setSejours((current) =>
-      current.map((s) => ({
-        ...s,
-        frais_maintenance: (s.frais_maintenance ?? []).filter((f) => f.id !== id),
-      })),
-    )
+    setExpandedGroup(group.key)
+    if (groupKeyForTab(activeTab) !== group.key) {
+      setActiveTab(group.defaultTab)
+    }
   }
 
   return (
@@ -246,26 +286,69 @@ function App() {
       <nav className="w-64 shrink-0 border-r border-gray-200 bg-white px-4 py-8">
         <h1 className="px-2 text-xl font-bold text-gray-900">Séjours & ménage</h1>
         <ul className="mt-6 space-y-1">
-          {NAV_ITEMS.map(([tab, label]) => (
-            <li key={tab}>
-              <button
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`block w-full rounded-md px-3 py-2 text-left text-sm font-medium ${
-                  activeTab === tab
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                {label}
-              </button>
-            </li>
-          ))}
+          <li>
+            <button
+              type="button"
+              onClick={() => navigateTo('dashboard')}
+              className={`block w-full rounded-md px-3 py-2 text-left text-sm font-medium ${
+                activeTab === 'dashboard'
+                  ? 'bg-indigo-50 text-indigo-600'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              Dashboard
+            </button>
+          </li>
+
+          {NAV_GROUPS.map((group) => {
+            const isExpanded = expandedGroup === group.key
+            const isActiveGroup = groupKeyForTab(activeTab) === group.key
+
+            return (
+              <li key={group.key}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group)}
+                  aria-expanded={isExpanded}
+                  className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium ${
+                    isActiveGroup
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  {group.label}
+                  <span className="text-xs" aria-hidden="true">
+                    {isExpanded ? '▾' : '▸'}
+                  </span>
+                </button>
+                {isExpanded && (
+                  <ul className="mt-1 space-y-1 pl-3">
+                    {group.tabs.map(([tab, label]) => (
+                      <li key={tab}>
+                        <button
+                          type="button"
+                          onClick={() => navigateTo(tab)}
+                          className={`block w-full rounded-md px-3 py-1.5 text-left text-sm ${
+                            activeTab === tab
+                              ? 'bg-indigo-50 text-indigo-600 font-medium'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </nav>
 
       <main className="min-w-0 flex-1 px-6 py-8">
-        <h2 className="text-2xl font-bold text-gray-900">{NAV_ITEMS.find(([tab]) => tab === activeTab)?.[1]}</h2>
+        <h2 className="text-2xl font-bold text-gray-900">{SECTION_TITLES[activeTab]}</h2>
+        {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
 
         <div className="mt-6 space-y-6">
           {activeTab === 'dashboard' && (
@@ -273,52 +356,51 @@ function App() {
               data={dashboardData}
               loading={dashboardLoading}
               error={dashboardError}
-              onNavigateToAppartements={() => setActiveTab('appartement')}
+              onNavigateToAppartements={() => navigateTo('appartement-liste')}
             />
           )}
-          {activeTab === 'sejour' && (
-            <>
-              <NouveauSejourForm appartements={appartements} onSubmit={handleCreateSejour} />
-
-              <div>
-                {loading && <p className="mt-2 text-sm text-gray-500">Chargement...</p>}
-                {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
-                {!loading && !loadError && sejours.length === 0 && (
-                  <p className="mt-2 text-sm text-gray-500">Aucun séjour pour le moment.</p>
-                )}
-
-                <ul className="mt-3 space-y-3" aria-label="Liste des séjours">
-                  {sejours.map((sejour) => (
-                    <SejourCard
-                      key={sejour.id}
-                      sejour={sejour}
-                      catalogue={produitsCatalogue}
-                      onCheckout={handleCheckout}
-                      onUpdateMissionProduits={handleUpdateMissionProduits}
-                      onSignalerProduit={handleSignalerProduit}
-                      onAddFraisMaintenance={handleAddFraisMaintenance}
-                      onDeleteFraisMaintenance={handleDeleteFraisMaintenance}
-                    />
-                  ))}
-                </ul>
-              </div>
-            </>
+          {activeTab === 'sejour-creer' && (
+            <NouveauSejourForm
+              appartements={appartements}
+              onSubmit={handleSubmitSejour}
+              onCancel={handleCancelSejourForm}
+              sejourToEdit={editingSejour}
+            />
           )}
-          {activeTab === 'appartement' && (
+          {activeTab === 'sejour-liste' && (
+            <SejoursListeSection
+              appartements={appartements}
+              catalogue={produitsCatalogue}
+              onNavigateToCreer={() => {
+                setEditingSejour(null)
+                navigateTo('sejour-creer')
+              }}
+              onEditSejour={handleEditSejour}
+            />
+          )}
+          {activeTab === 'appartement-creer' && (
             <NouvelAppartementForm
               checklistModeles={checklistModeles}
               agentsMenage={agentsMenage}
-              onSubmit={handleCreateAppartement}
+              onSubmit={handleSubmitAppartement}
               onCreateChecklistModele={handleCreateChecklistModele}
+              onCancel={handleCancelAppartementForm}
+              appartementToEdit={editingAppartement}
             />
           )}
-          {activeTab === 'agent' && (
+          {activeTab === 'appartement-liste' && (
+            <AppartementsListeSection
+              onNavigateToCreer={() => {
+                setEditingAppartement(null)
+                navigateTo('appartement-creer')
+              }}
+              onEditAppartement={handleEditAppartement}
+            />
+          )}
+          {activeTab === 'menage-agent' && (
             <NouvelAgentForm appartements={appartements} onSubmit={handleCreateUtilisateur} />
           )}
-          {activeTab === 'agent-maintenance' && (
-            <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
-          )}
-          {activeTab === 'catalogue' && (
+          {activeTab === 'menage-catalogue' && (
             <>
               <CatalogueProduitsSection catalogue={produitsCatalogue} onCreate={handleCreateProduitCatalogue} />
               <ProduitsSignalesSection
@@ -327,6 +409,9 @@ function App() {
                 onRejeter={handleRejeterProduitSignale}
               />
             </>
+          )}
+          {activeTab === 'maintenance-agent' && (
+            <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
           )}
         </div>
       </main>

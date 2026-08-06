@@ -164,10 +164,10 @@ class SejourCheckoutTest extends TestCase
         $response = $this->getJson('/api/sejours');
 
         $response->assertOk();
-        $response->assertJsonCount(1);
-        $response->assertJsonPath('0.nom_voyageur', 'Jean Dupont');
-        $response->assertJsonPath('0.appartement.nom', 'Loft Bastille');
-        $response->assertJsonPath('0.mission_menage.agent.nom', 'Fatima Z.');
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.nom_voyageur', 'Jean Dupont');
+        $response->assertJsonPath('data.0.appartement.nom', 'Loft Bastille');
+        $response->assertJsonPath('data.0.mission_menage.agent.nom', 'Fatima Z.');
     }
 
     public function test_it_lists_appartements(): void

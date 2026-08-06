@@ -1,6 +1,6 @@
-import { useRef, useState, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import type { NewAppartementInput } from '../api'
-import type { Agent, ChecklistModele } from '../types'
+import type { Agent, Appartement, ChecklistModele } from '../types'
 
 interface NouvelAppartementFormProps {
   checklistModeles: ChecklistModele[]
@@ -8,6 +8,11 @@ interface NouvelAppartementFormProps {
   onSubmit: (input: NewAppartementInput) => Promise<void>
   onCreateChecklistModele: (nom: string) => Promise<ChecklistModele>
   onCancel?: () => void
+  appartementToEdit?: Appartement | null
+}
+
+const STATUT_LABELS: Record<string, string> = {
+  disponible: 'Disponible',
 }
 
 export function NouvelAppartementForm({
@@ -16,6 +21,7 @@ export function NouvelAppartementForm({
   onSubmit,
   onCreateChecklistModele,
   onCancel,
+  appartementToEdit,
 }: NouvelAppartementFormProps) {
   const [nom, setNom] = useState('')
   const [adresse, setAdresse] = useState('')
@@ -40,6 +46,20 @@ export function NouvelAppartementForm({
     setNewChecklistNom('')
     setError(null)
   }
+
+  useEffect(() => {
+    if (appartementToEdit) {
+      setNom(appartementToEdit.nom)
+      setAdresse(appartementToEdit.adresse)
+      setPhoto(null)
+      setChecklistModeleId(appartementToEdit.checklist_modele_id ? String(appartementToEdit.checklist_modele_id) : '')
+      setAgentHabituelId(appartementToEdit.agent_habituel_id ? String(appartementToEdit.agent_habituel_id) : '')
+      setError(null)
+    } else {
+      resetForm()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appartementToEdit])
 
   const acceptFile = (file: File | undefined | null) => {
     if (!file) return
@@ -100,7 +120,9 @@ export function NouvelAppartementForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">Nouvel appartement</h2>
+      <h2 className="text-lg font-semibold text-gray-900">
+        {appartementToEdit ? "Modifier l'appartement" : 'Nouvel appartement'}
+      </h2>
 
       <div>
         <label htmlFor="appartement_nom" className="block text-sm font-medium text-gray-700">
@@ -233,7 +255,7 @@ export function NouvelAppartementForm({
         <span className="block text-sm font-medium text-gray-700">Statut</span>
         <div className="mt-1">
           <span className="inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
-            Disponible
+            {STATUT_LABELS[appartementToEdit?.statut ?? 'disponible'] ?? appartementToEdit?.statut}
           </span>
         </div>
         <p className="mt-1 text-xs text-gray-500">
@@ -259,7 +281,11 @@ export function NouvelAppartementForm({
           disabled={submitting}
           className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
-          {submitting ? 'Enregistrement...' : "Enregistrer l'appartement"}
+          {submitting
+            ? 'Enregistrement...'
+            : appartementToEdit
+              ? 'Enregistrer les modifications'
+              : "Enregistrer l'appartement"}
         </button>
       </div>
     </form>
