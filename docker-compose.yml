@@ -6,26 +6,20 @@ services:
     image: restinnov-app
     container_name: restinnov-app
     restart: unless-stopped
+    working_dir: /var/www
     volumes:
       - .:/var/www
-    networks:
-      - restinnov-network
     depends_on:
-      - db
-
-  db:
-    image: mysql:8.0
-    container_name: restinnov-db
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: restinnov
-      MYSQL_ROOT_PASSWORD: root
-    ports:
-      - "3306:3306"
-    volumes:
-      - dbdata:/var/lib/mysql
+      db:
+        condition: service_healthy
     networks:
       - restinnov-network
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1',9000) ? 0 : 1);"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 90s
 
   nginx:
     image: nginx:alpine
@@ -33,10 +27,51 @@ services:
     restart: unless-stopped
     ports:
       - "8000:80"
-      - "5173:5173"
     volumes:
-      - .:/var/www
-      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+      - .:/var/www:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - restinnov-network
+
+  db:
+    image: mysql:8.0
+    container_name: restinnov-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: restinnov
+      MYSQL_USER: restinnov
+      MYSQL_PASSWORD: restinnov
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - restinnov-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: restinnov-frontend
+    container_name: restinnov-frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
     networks:
       - restinnov-network
 
