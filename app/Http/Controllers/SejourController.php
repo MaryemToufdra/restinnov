@@ -71,6 +71,17 @@ class SejourController extends Controller
     }
 
     /**
+     * Display a single sejour with all of its detail relations.
+     */
+    public function show(Sejour $sejour): JsonResponse
+    {
+        return response()->json(
+            $sejour->load(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'voyageurs', 'fraisMaintenance'])
+                ->loadCount('voyageurs'),
+        );
+    }
+
+    /**
      * Store a newly created sejour along with its voyageurs.
      */
     public function store(Request $request): JsonResponse

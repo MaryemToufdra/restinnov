@@ -27,6 +27,7 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('sejours_par_statut.a_venir', 0);
         $response->assertJsonPath('sejours_par_statut.en_cours', 0);
         $response->assertJsonPath('sejours_par_statut.termine', 0);
+        $response->assertJsonPath('sejours_recents', []);
     }
 
     public function test_it_aggregates_revenus_frais_and_resultat_net(): void
@@ -136,5 +137,32 @@ class DashboardTest extends TestCase
             'sejours_count' => 0,
             'dernier_sejour' => null,
         ]);
+    }
+
+    public function test_it_lists_the_10_most_recently_created_sejours_with_their_appartement(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+
+        for ($i = 1; $i <= 12; $i++) {
+            Sejour::create([
+                'appartement_id' => $appartement->id,
+                'date_arrivee' => '2026-01-'.str_pad((string) $i, 2, '0', STR_PAD_LEFT),
+                'date_depart' => '2026-01-'.str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT),
+                'nom_voyageur' => "Voyageur {$i}",
+                'statut' => 'a_venir',
+                'montant_mad' => 100,
+            ]);
+        }
+
+        $response = $this->getJson('/api/dashboard');
+
+        $response->assertOk();
+        $response->assertJsonCount(10, 'sejours_recents');
+        // The most recently created sejour (Voyageur 12) comes first.
+        $response->assertJsonPath('sejours_recents.0.nom_voyageur', 'Voyageur 12');
+        $response->assertJsonPath('sejours_recents.0.appartement.nom', 'Loft Bastille');
+        $response->assertJsonPath('sejours_recents.0.date_arrivee', '2026-01-12');
+        $response->assertJsonPath('sejours_recents.0.statut', 'a_venir');
+        $response->assertJsonPath('sejours_recents.9.nom_voyageur', 'Voyageur 3');
     }
 }

@@ -160,4 +160,26 @@ class SejourListingTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    public function test_it_shows_a_single_sejour_with_its_full_detail(): void
+    {
+        $sejour = $this->sejour(['nom_voyageur' => 'Jean Dupont']);
+        $sejour->voyageurs()->create(['nom' => 'Jean Dupont', 'est_principal' => true, 'type' => 'adulte']);
+
+        $response = $this->getJson("/api/sejours/{$sejour->id}");
+
+        $response->assertOk();
+        $response->assertJsonPath('id', $sejour->id);
+        $response->assertJsonPath('nom_voyageur', 'Jean Dupont');
+        $response->assertJsonPath('appartement.nom', 'Loft Bastille');
+        $response->assertJsonPath('voyageurs_count', 1);
+        $response->assertJsonCount(1, 'voyageurs');
+    }
+
+    public function test_it_returns_404_for_a_nonexistent_sejour(): void
+    {
+        $response = $this->getJson('/api/sejours/999999');
+
+        $response->assertStatus(404);
+    }
 }

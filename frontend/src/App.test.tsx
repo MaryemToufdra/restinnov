@@ -46,6 +46,9 @@ function dashboardFixture(overrides: Partial<DashboardData> = {}): DashboardData
       { id: 1, nom: 'Loft Bastille', statut: 'disponible', sejours_count: 2, dernier_sejour: '2026-03-05' },
     ],
     sejours_par_statut: { a_venir: 1, en_cours: 0, termine: 2 },
+    sejours_recents: [
+      { id: 1, nom_voyageur: 'Jean Dupont', date_arrivee: '2026-08-01', statut: 'a_venir', appartement: { id: 1, nom: 'Loft Bastille' } },
+    ],
     ...overrides,
   }
 }
@@ -131,6 +134,12 @@ function mockFetch(handlers: {
     if (/^\/api\/sejours\/\d+$/.test(url) && method === 'PATCH') {
       const updated = handlers.onUpdateSejour?.() ?? sejourFixture({ date_arrivee: '2026-09-01' })
       return new Response(JSON.stringify(updated), { status: 200 })
+    }
+
+    if (/^\/api\/sejours\/\d+$/.test(url) && method === 'GET') {
+      const id = Number(url.split('/').pop())
+      const found = sejours.find((s) => s.id === id) ?? sejourFixture({ id })
+      return new Response(JSON.stringify(found), { status: 200 })
     }
 
     if (url.includes('/checkout') && method === 'PATCH') {
@@ -314,6 +323,38 @@ describe('App', () => {
     await user.click(screen.getByText('Loft Bastille'))
 
     expect(await screen.findByText(/appartements trouvés/i)).toBeInTheDocument()
+  })
+
+  it('affiche directement le détail d\'un séjour au clic sur une ligne de "Séjours récents"', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [], dashboard: dashboardFixture() }) as typeof fetch
+
+    render(<App />)
+
+    await screen.findByTestId('dashboard-revenus-totaux')
+    await user.click(screen.getByRole('button', { name: /jean dupont/i }))
+
+    expect(await screen.findByText(/confirmer le checkout/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Liste des séjours' })).toHaveClass(/bg-indigo-50/)
+  })
+
+  it('bascule vers la liste des séjours filtrée au clic sur une mini-carte de statut du dashboard', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [
+        sejourFixture({ id: 1, statut: 'a_venir', nom_voyageur: 'Jean Dupont' }),
+        sejourFixture({ id: 2, statut: 'termine', nom_voyageur: 'Marie Curie' }),
+      ],
+      dashboard: dashboardFixture(),
+    }) as typeof fetch
+
+    render(<App />)
+
+    await screen.findByTestId('dashboard-revenus-totaux')
+    await user.click(screen.getByRole('button', { name: /1\s*à venir/i }))
+
+    expect(await screen.findByRole('button', { name: 'Liste des séjours' })).toHaveClass(/bg-indigo-50/)
+    expect(screen.getByLabelText(/^statut$/i)).toHaveValue('a_venir')
   })
 
   it('regroupe "Ajouter un agent ménage" et "Catalogue ménage" sous le groupe Ménage', async () => {

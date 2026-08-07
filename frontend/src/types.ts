@@ -110,6 +110,14 @@ export interface DashboardAppartement {
   dernier_sejour: string | null
 }
 
+export interface DashboardSejourRecent {
+  id: number
+  nom_voyageur: string
+  date_arrivee: string
+  statut: SejourStatut
+  appartement: { id: number; nom: string } | null
+}
+
 export interface DashboardData {
   revenus_totaux: number
   frais_menage_totaux: number
@@ -121,4 +129,5 @@ export interface DashboardData {
     en_cours: number
     termine: number
   }
+  sejours_recents: DashboardSejourRecent[]
 }

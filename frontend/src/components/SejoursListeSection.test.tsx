@@ -46,6 +46,15 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
 function mockFetchSejours(allSejours: Sejour[]) {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = new URL(String(input))
+
+    const showMatch = url.pathname.match(/^\/api\/sejours\/(\d+)$/)
+    if (showMatch) {
+      const id = Number(showMatch[1])
+      const found = allSejours.find((s) => s.id === id)
+      if (!found) return new Response(JSON.stringify({ message: 'Not found' }), { status: 404 })
+      return new Response(JSON.stringify(found), { status: 200 })
+    }
+
     let result = [...allSejours]
 
     const search = url.searchParams.get('search')
@@ -300,5 +309,45 @@ describe('SejoursListeSection', () => {
 
     await user.click(screen.getByRole('button', { name: /retour à la liste/i }))
     expect(await screen.findByText('1 séjours trouvés')).toBeInTheDocument()
+  })
+
+  it('applique initialStatutFilter dès le montage (venu du Dashboard)', async () => {
+    globalThis.fetch = mockFetchSejours([
+      sejourFixture({ id: 1, statut: 'a_venir' }),
+      sejourFixture({ id: 2, statut: 'termine', nom_voyageur: 'Marie Curie' }),
+    ]) as typeof fetch
+
+    render(
+      <SejoursListeSection
+        appartements={[]}
+        catalogue={[]}
+        onNavigateToCreer={vi.fn()}
+        onEditSejour={vi.fn()}
+        initialStatutFilter="termine"
+      />,
+    )
+
+    expect(await screen.findByText('1 séjours trouvés')).toBeInTheDocument()
+    expect(screen.getByText('Marie Curie')).toBeInTheDocument()
+    expect(screen.getByLabelText(/statut/i)).toHaveValue('termine')
+  })
+
+  it('affiche directement le détail via initialSejourId (venu du Dashboard), même hors de la page courante', async () => {
+    const farAwaySejour = sejourFixture({ id: 42, nom_voyageur: 'Karim Benali' })
+    globalThis.fetch = mockFetchSejours([sejourFixture({ id: 1 }), farAwaySejour]) as typeof fetch
+
+    render(
+      <SejoursListeSection
+        appartements={[]}
+        catalogue={[]}
+        onNavigateToCreer={vi.fn()}
+        onEditSejour={vi.fn()}
+        initialSejourId={42}
+      />,
+    )
+
+    expect(await screen.findByText(/confirmer le checkout/i)).toBeInTheDocument()
+    expect(screen.getByText('Karim Benali')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /retour à la liste/i })).toBeInTheDocument()
   })
 })

@@ -38,6 +38,7 @@ import type {
   ProduitCatalogue,
   ProduitMenageSignale,
   Sejour,
+  SejourStatut,
 } from './types'
 
 type Tab =
@@ -122,10 +123,24 @@ function App() {
   const [dashboardError, setDashboardError] = useState<string | null>(null)
   const [editingSejour, setEditingSejour] = useState<Sejour | null>(null)
   const [editingAppartement, setEditingAppartement] = useState<Appartement | null>(null)
+  const [pendingSejourId, setPendingSejourId] = useState<number | null>(null)
+  const [pendingStatutFilter, setPendingStatutFilter] = useState<SejourStatut | ''>('')
 
   const navigateTo = (tab: Tab) => {
     setActiveTab(tab)
     setExpandedGroup(groupKeyForTab(tab))
+    setPendingSejourId(null)
+    setPendingStatutFilter('')
+  }
+
+  const handleNavigateToSejourDetail = (sejourId: number) => {
+    navigateTo('sejour-liste')
+    setPendingSejourId(sejourId)
+  }
+
+  const handleNavigateToSejoursListe = (statut?: SejourStatut) => {
+    navigateTo('sejour-liste')
+    if (statut) setPendingStatutFilter(statut)
   }
 
   const loadData = async () => {
@@ -357,6 +372,8 @@ function App() {
               loading={dashboardLoading}
               error={dashboardError}
               onNavigateToAppartements={() => navigateTo('appartement-liste')}
+              onNavigateToSejour={handleNavigateToSejourDetail}
+              onNavigateToSejoursListe={handleNavigateToSejoursListe}
             />
           )}
           {activeTab === 'sejour-creer' && (
@@ -376,6 +393,8 @@ function App() {
                 navigateTo('sejour-creer')
               }}
               onEditSejour={handleEditSejour}
+              initialSejourId={pendingSejourId}
+              initialStatutFilter={pendingStatutFilter}
             />
           )}
           {activeTab === 'appartement-creer' && (

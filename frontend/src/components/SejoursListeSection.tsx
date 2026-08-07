@@ -3,6 +3,7 @@ import {
   checkoutSejour,
   createFraisMaintenance,
   deleteFraisMaintenance,
+  fetchSejour,
   fetchSejours,
   signalerProduit,
   updateMissionMenageProduits,
@@ -18,6 +19,8 @@ interface SejoursListeSectionProps {
   catalogue: ProduitCatalogue[]
   onNavigateToCreer: () => void
   onEditSejour: (sejour: Sejour) => void
+  initialStatutFilter?: SejourStatut | ''
+  initialSejourId?: number | null
 }
 
 const PER_PAGE = 10
@@ -93,9 +96,11 @@ export function SejoursListeSection({
   catalogue,
   onNavigateToCreer,
   onEditSejour,
+  initialStatutFilter,
+  initialSejourId,
 }: SejoursListeSectionProps) {
   const [search, setSearch] = useState('')
-  const [statutFilter, setStatutFilter] = useState<SejourStatut | ''>('')
+  const [statutFilter, setStatutFilter] = useState<SejourStatut | ''>(initialStatutFilter ?? '')
   const [appartementFilter, setAppartementFilter] = useState('')
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
@@ -104,10 +109,43 @@ export function SejoursListeSection({
   const [page, setPage] = useState(1)
 
   const [sejours, setSejours] = useState<Sejour[]>([])
+  // Sejours fetched individually (e.g. opened directly from the Dashboard's
+  // "Séjours récents"), which may not be part of the currently loaded page.
+  const [extraSejours, setExtraSejours] = useState<Sejour[]>([])
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedSejourId, setSelectedSejourId] = useState<number | null>(null)
+  const [selectedSejourId, setSelectedSejourId] = useState<number | null>(initialSejourId ?? null)
+  const [initialDetailLoading, setInitialDetailLoading] = useState(initialSejourId != null)
+
+  const applySejourUpdate = (predicate: (sejour: Sejour) => boolean, updater: (sejour: Sejour) => Sejour) => {
+    setSejours((current) => current.map((s) => (predicate(s) ? updater(s) : s)))
+    setExtraSejours((current) => current.map((s) => (predicate(s) ? updater(s) : s)))
+  }
+
+  useEffect(() => {
+    if (initialSejourId == null) return
+
+    let cancelled = false
+    fetchSejour(initialSejourId)
+      .then((sejour) => {
+        if (cancelled) return
+        setExtraSejours((current) => (current.some((s) => s.id === sejour.id) ? current : [...current, sejour]))
+      })
+      .catch(() => {
+        // The detail view simply won't have anything to show; the normal
+        // list below is unaffected.
+      })
+      .finally(() => {
+        if (!cancelled) setInitialDetailLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // Only ever runs for the id this component was mounted with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -153,17 +191,17 @@ export function SejoursListeSection({
 
   const handleCheckout = async (id: number) => {
     const { sejour: updated, mission_menage } = await checkoutSejour(id)
-    setSejours((current) =>
-      current.map((s) => (s.id === id ? { ...s, statut: updated.statut, mission_menage } : s)),
+    applySejourUpdate(
+      (s) => s.id === id,
+      (s) => ({ ...s, statut: updated.statut, mission_menage }),
     )
   }
 
   const handleUpdateMissionProduits = async (missionMenageId: number, input: UpdateMissionMenageProduitsInput) => {
     const updated = await updateMissionMenageProduits(missionMenageId, input)
-    setSejours((current) =>
-      current.map((s) =>
-        s.mission_menage && s.mission_menage.id === missionMenageId ? { ...s, mission_menage: updated } : s,
-      ),
+    applySejourUpdate(
+      (s) => s.mission_menage?.id === missionMenageId,
+      (s) => ({ ...s, mission_menage: updated }),
     )
   }
 
@@ -173,24 +211,26 @@ export function SejoursListeSection({
 
   const handleAddFraisMaintenance = async (sejourId: number, input: NewFraisMaintenanceInput) => {
     const created = await createFraisMaintenance(sejourId, input)
-    setSejours((current) =>
-      current.map((s) =>
-        s.id === sejourId ? { ...s, frais_maintenance: [...(s.frais_maintenance ?? []), created] } : s,
-      ),
+    applySejourUpdate(
+      (s) => s.id === sejourId,
+      (s) => ({ ...s, frais_maintenance: [...(s.frais_maintenance ?? []), created] }),
     )
   }
 
   const handleDeleteFraisMaintenance = async (id: number) => {
     await deleteFraisMaintenance(id)
-    setSejours((current) =>
-      current.map((s) => ({
-        ...s,
-        frais_maintenance: (s.frais_maintenance ?? []).filter((f) => f.id !== id),
-      })),
+    applySejourUpdate(
+      () => true,
+      (s) => ({ ...s, frais_maintenance: (s.frais_maintenance ?? []).filter((f) => f.id !== id) }),
     )
   }
 
-  const selectedSejour = sejours.find((s) => s.id === selectedSejourId) ?? null
+  const selectedSejour =
+    sejours.find((s) => s.id === selectedSejourId) ?? extraSejours.find((s) => s.id === selectedSejourId) ?? null
+
+  if (initialDetailLoading) {
+    return <p className="text-sm text-gray-500">Chargement du séjour...</p>
+  }
 
   if (selectedSejour) {
     return (
