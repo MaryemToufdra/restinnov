@@ -9,6 +9,25 @@ services:
     working_dir: /var/www
     volumes:
       - .:/var/www
+      # Anonymous volume: keeps the container's own vendor/ (installed by
+      # entrypoint.sh, built for this Linux image) from being shadowed by
+      # whatever the bind-mounted host directory happens to contain (e.g.
+      # a vendor/ installed on a different OS). Reset with `docker compose
+      # down -v` if you ever need to force a clean reinstall.
+      - /var/www/vendor
+    environment:
+      # Forced regardless of the host's .env: Laravel's dotenv loader is
+      # immutable and never overwrites a variable that's already set in
+      # the process environment, so these always win over whatever
+      # DB_CONNECTION/DB_HOST/etc. happen to be in the bind-mounted .env
+      # (e.g. a host .env configured for a local XAMPP/MySQL setup). See
+      # README-DOCKER.md for why the host .env never needs editing.
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: restinnov
+      DB_USERNAME: restinnov
+      DB_PASSWORD: restinnov
     depends_on:
       db:
         condition: service_healthy
@@ -68,6 +87,14 @@ services:
     working_dir: /app
     volumes:
       - ./frontend:/app
+      # Anonymous volume: keeps the container's own node_modules (installed
+      # by entrypoint.sh, with Linux native binaries e.g. lightningcss)
+      # from being shadowed by the host's frontend/node_modules, which on
+      # Windows/macOS hosts contains binaries built for a different OS and
+      # will crash Vite (e.g. "Cannot find module lightningcss.linux-x64-
+      # musl.node"). Reset with `docker compose down -v` if you ever need
+      # to force a clean reinstall.
+      - /app/node_modules
     environment:
       VITE_API_BASE_URL: http://localhost:8000
     ports:

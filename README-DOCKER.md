@@ -119,14 +119,59 @@ docker compose down -v
   `docker/php/entrypoint.sh` and `docker/node/entrypoint.sh` — only when
   `vendor/`/`node_modules/` are missing, so restarts are fast.
 - `.env` (backend) and `frontend/.env` are created automatically from their
-  `.env.example` on first run if they don't already exist. The committed
-  `.env.example` is already configured for this Docker setup
-  (`DB_HOST=db`, etc.) — you shouldn't need to edit anything to get started.
+  `.env.example` on first run if they don't already exist. You never need to
+  create or edit either file to use Docker.
+- **You never need to touch your local `.env` for Docker, even if you
+  already have one from running the app outside Docker** (e.g. with a local
+  MySQL/XAMPP setup, where it's typically `DB_HOST=127.0.0.1`). The `app`
+  service in `docker-compose.yml` sets `DB_CONNECTION`, `DB_HOST` (`db`),
+  `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` directly as
+  container environment variables. Laravel's env loader never overwrites a
+  variable that's already set in the process environment when it reads
+  `.env` — so these always take priority over whatever is in the
+  bind-mounted `.env` file, Docker or not. Your local `.env` is read-only
+  as far as the database connection is concerned.
+- `vendor/` and `frontend/node_modules/` each get their own **anonymous
+  volume** (`/var/www/vendor` and `/app/node_modules` in
+  `docker-compose.yml`), layered on top of the bind mount. Without this,
+  the bind mount would expose whatever `vendor/`/`node_modules/` already
+  exists on your host *inside* the container — and if you're on
+  Windows/macOS, that directory contains native binaries built for your
+  host OS (e.g. `lightningcss.linux-x64-musl.node` is Linux-only), which
+  crash immediately inside the Linux container. The anonymous volumes keep
+  each container's own, correctly-built dependencies isolated from the
+  host's copy.
 - `nginx` and `app` only start serving traffic once `db` is confirmed ready
   (via Docker healthchecks), so there's no need to manually retry after a
   cold start.
 
 ## Troubleshooting
+
+**`SQLSTATE[HY000] [2002] Connection refused (... Host: 127.0.0.1 ...)`**
+This means the `app` container is not picking up the `DB_HOST=db` variable
+from `docker-compose.yml` — most likely because you ran `docker compose up`
+before this was fixed, and the container (and its now-stale anonymous
+`vendor/` volume) predates the fix. Recreate it:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+If it still happens after that, confirm the `app` service actually has the
+`environment:` block in `docker-compose.yml` (`DB_HOST: db`, etc.) — if it's
+missing, you're on an older version of this file.
+
+**`Error: Cannot find module '.../lightningcss.linux-x64-musl.node'`
+(or any other `.node` binary) in the frontend**
+Same root cause as above: a container built/started before the anonymous
+`node_modules` volume was added ended up with your host's (non-Linux)
+`node_modules` mounted straight through. Fix:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
 
 **"port is already allocated" on 8000, 5173, or 3306**
 Something on your host is already using that port (a local MySQL install is
