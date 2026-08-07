@@ -24,6 +24,7 @@ Route::get('/utilisateurs', [UtilisateurController::class, 'index']);
 Route::post('/utilisateurs', [UtilisateurController::class, 'store']);
 
 Route::get('/sejours', [SejourController::class, 'index']);
+Route::get('/sejours/{sejour}', [SejourController::class, 'show']);
 Route::post('/sejours', [SejourController::class, 'store']);
 Route::patch('/sejours/{sejour}', [SejourController::class, 'update']);
 Route::patch('/sejours/{sejour}/checkout', [SejourController::class, 'checkout']);

@@ -49,6 +49,14 @@ class DashboardController extends Controller
             Sejour::STATUT_TERMINE => Sejour::where('statut', Sejour::STATUT_TERMINE)->count(),
         ];
 
+        $sejoursRecents = Sejour::query()
+            ->select('id', 'appartement_id', 'nom_voyageur', 'date_arrivee', 'statut')
+            ->with('appartement:id,nom')
+            ->latest()
+            ->latest('id')
+            ->take(10)
+            ->get();
+
         return response()->json([
             'revenus_totaux' => $revenusTotaux,
             'frais_menage_totaux' => $fraisMenageTotaux,
@@ -56,6 +64,7 @@ class DashboardController extends Controller
             'resultat_net' => $resultatNet,
             'appartements' => $appartements,
             'sejours_par_statut' => $sejoursParStatut,
+            'sejours_recents' => $sejoursRecents,
         ]);
     }
 }

@@ -233,6 +233,14 @@ export async function fetchSejours(params: FetchSejoursParams = {}): Promise<Pag
   return parseJsonOrThrow(response)
 }
 
+export async function fetchSejour(id: number): Promise<Sejour> {
+  const response = await fetch(`${API_BASE_URL}/api/sejours/${id}`, {
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
 export async function createSejour(input: NewSejourInput): Promise<Sejour> {
   const response = await fetch(`${API_BASE_URL}/api/sejours`, {
     method: 'POST',
