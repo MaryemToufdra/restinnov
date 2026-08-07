@@ -117,7 +117,12 @@ docker compose down -v
   so edits on your host are reflected immediately, no rebuild needed.
 - `composer install` / `npm install` run once, at container start, via
   `docker/php/entrypoint.sh` and `docker/node/entrypoint.sh` — only when
-  `vendor/`/`node_modules/` are missing, so restarts are fast.
+  dependencies aren't actually installed yet, so restarts are fast. The
+  check looks for a file the install produces (`vendor/autoload.php`,
+  `node_modules/.bin/vite`), not just whether the directory exists: since
+  `vendor/`/`node_modules/` are anonymous volumes (see below), the
+  directory itself always exists as an empty mount point on first boot, so
+  a plain "does the directory exist" check would never trigger the install.
 - `.env` (backend) and `frontend/.env` are created automatically from their
   `.env.example` on first run if they don't already exist. You never need to
   create or edit either file to use Docker.
@@ -162,11 +167,18 @@ If it still happens after that, confirm the `app` service actually has the
 `environment:` block in `docker-compose.yml` (`DB_HOST: db`, etc.) — if it's
 missing, you're on an older version of this file.
 
-**`Error: Cannot find module '.../lightningcss.linux-x64-musl.node'`
-(or any other `.node` binary) in the frontend**
-Same root cause as above: a container built/started before the anonymous
-`node_modules` volume was added ended up with your host's (non-Linux)
-`node_modules` mounted straight through. Fix:
+**`require(/var/www/vendor/autoload.php): Failed to open stream`, or
+`sh: vite: not found` / `Cannot find module '.../lightningcss.linux-x64-
+musl.node'` in the frontend**
+These all mean dependencies were never actually installed in the
+container. `vendor/` and `node_modules/` are anonymous volumes (see
+above) — on their very first mount they exist as an empty directory, and
+`entrypoint.sh` checks for a specific installed file
+(`vendor/autoload.php`, `node_modules/.bin/vite`) rather than just
+whether the directory exists, precisely so an empty volume is correctly
+detected as "needs installing". If you're hitting this, you're most
+likely on a container/volume from before that check was fixed. Recreate
+it:
 
 ```bash
 docker compose down -v

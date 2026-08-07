@@ -8,7 +8,11 @@ if [ ! -f .env ]; then
   cp .env.example .env
 fi
 
-if [ ! -d vendor ]; then
+# Checking for vendor/autoload.php rather than just "does vendor/ exist":
+# vendor/ is mounted as an anonymous volume (see docker-compose.yml), so the
+# directory itself always exists as an empty mount point on first boot --
+# `[ ! -d vendor ]` would never be true, and composer install would never run.
+if [ ! -f vendor/autoload.php ]; then
   echo "[entrypoint] Installing Composer dependencies"
   composer install --no-interaction --prefer-dist
 fi
