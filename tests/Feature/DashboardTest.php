@@ -93,7 +93,18 @@ class DashboardTest extends TestCase
     public function test_it_lists_appartements_with_their_statut(): void
     {
         Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
-        Appartement::create(['nom' => 'Zenith', 'adresse' => 'B', 'statut' => 'occupe']);
+        $zenith = Appartement::create(['nom' => 'Zenith', 'adresse' => 'B', 'statut' => 'disponible']);
+
+        // "occupe" is derived from a live en_cours sejour, never from the
+        // stored statut column.
+        Sejour::create([
+            'appartement_id' => $zenith->id,
+            'date_arrivee' => '2026-08-01',
+            'date_depart' => '2026-08-05',
+            'nom_voyageur' => 'Paul Martin',
+            'statut' => 'en_cours',
+            'montant_mad' => 300,
+        ]);
 
         $response = $this->getJson('/api/dashboard');
 

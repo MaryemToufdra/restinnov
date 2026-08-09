@@ -109,6 +109,18 @@ class SejourController extends Controller
 
         $validated = $validator->validate();
 
+        $chevauchant = $this->findChevauchement(
+            (int) $validated['appartement_id'],
+            $validated['date_arrivee'],
+            $validated['date_depart'],
+        );
+
+        if ($chevauchant) {
+            return response()->json([
+                'message' => $this->messageChevauchement($chevauchant),
+            ], 422);
+        }
+
         $sejour = DB::transaction(function () use ($validated) {
             $principal = collect($validated['voyageurs'])
                 ->first(fn ($v) => filter_var($v['est_principal'], FILTER_VALIDATE_BOOLEAN));
@@ -159,6 +171,19 @@ class SejourController extends Controller
         $this->validateVoyageurs($validator, $request);
 
         $validated = $validator->validate();
+
+        $chevauchant = $this->findChevauchement(
+            (int) $validated['appartement_id'],
+            $validated['date_arrivee'],
+            $validated['date_depart'],
+            excludeSejourId: $sejour->id,
+        );
+
+        if ($chevauchant) {
+            return response()->json([
+                'message' => $this->messageChevauchement($chevauchant),
+            ], 422);
+        }
 
         $sejour = DB::transaction(function () use ($validated, $sejour) {
             $principal = collect($validated['voyageurs'])
@@ -226,6 +251,36 @@ class SejourController extends Controller
                 'type' => $voyageur['type'] ?? Voyageur::TYPE_ADULTE,
             ]);
         }
+    }
+
+    /**
+     * Find an existing "a_venir" or "en_cours" sejour on the same
+     * appartement whose date range overlaps [dateArrivee, dateDepart).
+     * "termine" sejours never block a new booking: their dates are history,
+     * not a reservation. $excludeSejourId lets an update() ignore the
+     * sejour being edited against itself.
+     */
+    private function findChevauchement(
+        int $appartementId,
+        string $dateArrivee,
+        string $dateDepart,
+        ?int $excludeSejourId = null,
+    ): ?Sejour {
+        return Sejour::where('appartement_id', $appartementId)
+            ->whereIn('statut', [Sejour::STATUT_A_VENIR, Sejour::STATUT_EN_COURS])
+            ->when($excludeSejourId, fn ($q) => $q->where('id', '!=', $excludeSejourId))
+            ->where('date_arrivee', '<', $dateDepart)
+            ->where('date_depart', '>', $dateArrivee)
+            ->first();
+    }
+
+    private function messageChevauchement(Sejour $chevauchant): string
+    {
+        return sprintf(
+            'Cet appartement est déjà réservé du %s au %s.',
+            $chevauchant->date_arrivee->format('Y-m-d'),
+            $chevauchant->date_depart->format('Y-m-d'),
+        );
     }
 
     /**

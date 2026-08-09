@@ -33,12 +33,13 @@ class DashboardController extends Controller
             ->select('id', 'nom', 'statut')
             ->withCount('sejours')
             ->withMax('sejours', 'date_depart')
+            ->avecStatutCalcule()
             ->orderBy('nom')
             ->get()
             ->map(fn (Appartement $appartement) => [
                 'id' => $appartement->id,
                 'nom' => $appartement->nom,
-                'statut' => $appartement->statut,
+                'statut' => $appartement->statutCalcule(),
                 'sejours_count' => $appartement->sejours_count,
                 'dernier_sejour' => $appartement->sejours_max_date_depart,
             ]);
