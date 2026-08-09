@@ -36,6 +36,7 @@ Route::get('/produits-catalogue', [ProduitCatalogueController::class, 'index']);
 Route::post('/produits-catalogue', [ProduitCatalogueController::class, 'store']);
 
 Route::patch('/mission-menages/{missionMenage}/produits', [MissionMenageController::class, 'updateProduits']);
+Route::patch('/mission-menages/{missionMenage}/vue', [MissionMenageController::class, 'marquerVue']);
 Route::post('/mission-menages/{missionMenage}/produits-signales', [MissionMenageController::class, 'signalerProduit']);
 
 Route::get('/produits-signales', [ProduitSignaleController::class, 'index']);

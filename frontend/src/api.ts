@@ -316,6 +316,15 @@ export async function updateMissionMenageProduits(
   return parseJsonOrThrow(response)
 }
 
+export async function marquerMissionMenageVue(missionMenageId: number): Promise<MissionMenage> {
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/vue`, {
+    method: 'PATCH',
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
 export async function signalerProduit(
   missionMenageId: number,
   input: SignalerProduitInput,
