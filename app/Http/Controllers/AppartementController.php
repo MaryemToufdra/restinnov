@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appartement;
+use App\Models\Sejour;
 use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,8 @@ class AppartementController extends Controller
 
         $query = Appartement::with(['checklistModele', 'agentHabituel'])
             ->withCount('sejours')
-            ->withMax('sejours', 'date_depart');
+            ->withMax('sejours', 'date_depart')
+            ->avecStatutCalcule();
 
         if (! empty($validated['search'])) {
             $search = $validated['search'];
@@ -38,17 +40,24 @@ class AppartementController extends Controller
         }
 
         if (! empty($validated['statut'])) {
-            $query->where('statut', $validated['statut']);
+            // "occupé" is only ever true while a sejour is actually
+            // en_cours on this appartement -- the stored `statut` column is
+            // never authoritative, so filtering has to match the same
+            // live computation used for display (see statutCalcule()).
+            if ($validated['statut'] === Appartement::STATUT_OCCUPE) {
+                $query->whereHas('sejours', fn ($q) => $q->where('statut', Sejour::STATUT_EN_COURS));
+            } else {
+                $query->whereDoesntHave('sejours', fn ($q) => $q->where('statut', Sejour::STATUT_EN_COURS));
+            }
         }
 
         $sortBy = $validated['sort_by'] ?? 'nom';
         $sortDir = $validated['sort_dir'] ?? 'asc';
         $query->orderBy($sortBy, $sortDir);
 
-        $withDernierSejour = fn (Appartement $appartement) => $appartement->setAttribute(
-            'dernier_sejour',
-            $appartement->sejours_max_date_depart,
-        );
+        $withComputedAttributes = fn (Appartement $appartement) => $appartement
+            ->setAttribute('dernier_sejour', $appartement->sejours_max_date_depart)
+            ->setAttribute('statut', $appartement->statutCalcule());
 
         // Pagination only kicks in when explicitly requested (the "Liste des
         // appartements" screen). Every other consumer (dropdowns, checkbox
@@ -56,12 +65,12 @@ class AppartementController extends Controller
         if (array_key_exists('page', $validated) || array_key_exists('per_page', $validated)) {
             $perPage = $validated['per_page'] ?? 10;
             $paginated = $query->paginate($perPage)->withQueryString();
-            $paginated->getCollection()->each($withDernierSejour);
+            $paginated->getCollection()->each($withComputedAttributes);
 
             return response()->json($paginated);
         }
 
-        return response()->json($query->get()->each($withDernierSejour));
+        return response()->json($query->get()->each($withComputedAttributes));
     }
 
     /**

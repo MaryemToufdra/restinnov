@@ -237,6 +237,17 @@ describe('NouveauSejourForm', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
+  it("affiche le message d'erreur renvoyé par l'API quand la création échoue (ex. chevauchement de dates)", async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockRejectedValue(new Error('Cet appartement est déjà réservé du 2026-08-01 au 2026-08-10.'))
+    render(<NouveauSejourForm appartements={appartements} onSubmit={onSubmit} />)
+
+    await fillMinimalForm(user)
+    await user.click(screen.getByRole('button', { name: /enregistrer le séjour/i }))
+
+    expect(await screen.findByText('Cet appartement est déjà réservé du 2026-08-01 au 2026-08-10.')).toBeInTheDocument()
+  })
+
   it('le bouton Annuler réinitialise le formulaire', async () => {
     const user = userEvent.setup()
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
