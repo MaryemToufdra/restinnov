@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Sejour;
+use App\Services\SejourStatutService;
 use Illuminate\Console\Command;
 
 class ActiverSejoursEnCours extends Command
@@ -17,11 +18,13 @@ class ActiverSejoursEnCours extends Command
      */
     protected $description = 'Passe au statut "en_cours" tous les séjours "a_venir" dont la date d\'arrivée est aujourd\'hui ou passée';
 
-    public function handle(): int
+    public function handle(SejourStatutService $statutService): int
     {
         $count = Sejour::where('statut', Sejour::STATUT_A_VENIR)
             ->whereDate('date_arrivee', '<=', now())
-            ->update(['statut' => Sejour::STATUT_EN_COURS]);
+            ->get()
+            ->filter(fn (Sejour $sejour) => $statutService->activerSiNecessaire($sejour))
+            ->count();
 
         $this->info("{$count} séjour(s) passé(s) en \"en_cours\".");
 

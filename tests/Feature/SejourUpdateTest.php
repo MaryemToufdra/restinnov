@@ -134,4 +134,40 @@ class SejourUpdateTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors('date_depart');
     }
+
+    public function test_updating_a_venir_sejour_to_a_past_arrival_date_activates_it_immediately(): void
+    {
+        $sejour = $this->sejour(['statut' => 'a_venir', 'date_arrivee' => '2099-01-01', 'date_depart' => '2099-01-05']);
+
+        $response = $this->patchJson("/api/sejours/{$sejour->id}", [
+            'appartement_id' => $sejour->appartement_id,
+            'date_arrivee' => now()->subDay()->toDateString(),
+            'date_depart' => now()->addDays(3)->toDateString(),
+            'voyageurs' => [
+                ['nom' => 'Jean Dupont', 'est_principal' => true, 'type' => 'adulte'],
+            ],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('statut', 'en_cours');
+        $this->assertDatabaseHas('sejours', ['id' => $sejour->id, 'statut' => 'en_cours']);
+    }
+
+    public function test_updating_a_venir_sejour_to_a_future_arrival_date_leaves_it_a_venir(): void
+    {
+        $sejour = $this->sejour(['statut' => 'a_venir']);
+
+        $response = $this->patchJson("/api/sejours/{$sejour->id}", [
+            'appartement_id' => $sejour->appartement_id,
+            'date_arrivee' => now()->addDays(5)->toDateString(),
+            'date_depart' => now()->addDays(9)->toDateString(),
+            'voyageurs' => [
+                ['nom' => 'Jean Dupont', 'est_principal' => true, 'type' => 'adulte'],
+            ],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('statut', 'a_venir');
+        $this->assertDatabaseHas('sejours', ['id' => $sejour->id, 'statut' => 'a_venir']);
+    }
 }
