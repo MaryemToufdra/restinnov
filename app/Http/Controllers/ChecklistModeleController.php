@@ -13,7 +13,7 @@ class ChecklistModeleController extends Controller
      */
     public function index(): JsonResponse
     {
-        return response()->json(ChecklistModele::orderBy('nom')->get());
+        return response()->json(ChecklistModele::with('items')->orderBy('nom')->get());
     }
 
     /**

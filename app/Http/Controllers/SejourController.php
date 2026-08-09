@@ -37,7 +37,7 @@ class SejourController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        $query = Sejour::with(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'voyageurs', 'fraisMaintenance'])
+        $query = Sejour::with(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'missionMenage.checklistItems', 'voyageurs', 'fraisMaintenance'])
             ->withCount('voyageurs');
 
         if (! empty($validated['search'])) {
@@ -81,7 +81,7 @@ class SejourController extends Controller
     public function show(Sejour $sejour): JsonResponse
     {
         return response()->json(
-            $sejour->load(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'voyageurs', 'fraisMaintenance'])
+            $sejour->load(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'missionMenage.checklistItems', 'voyageurs', 'fraisMaintenance'])
                 ->loadCount('voyageurs'),
         );
     }
@@ -299,7 +299,7 @@ class SejourController extends Controller
 
         return response()->json([
             'sejour' => $sejour->fresh(),
-            'mission_menage' => $mission->fresh(['agent', 'produits']),
+            'mission_menage' => $mission->fresh(['agent', 'produits', 'checklistItems']),
         ]);
     }
 }

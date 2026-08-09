@@ -22,6 +22,9 @@ function ManagedForm({ onCreateChecklistModele }: { onCreateChecklistModele: (no
         setModeles((current) => [...current, created])
         return created
       }}
+      onAddChecklistModeleItem={vi.fn()}
+      onDeplacerChecklistModeleItem={vi.fn()}
+      onDeleteChecklistModeleItem={vi.fn()}
     />
   )
 }
@@ -38,6 +41,9 @@ describe('NouvelAppartementForm', () => {
         agentsMenage={agentsMenage}
         onSubmit={vi.fn()}
         onCreateChecklistModele={vi.fn()}
+        onAddChecklistModeleItem={vi.fn()}
+        onDeplacerChecklistModeleItem={vi.fn()}
+        onDeleteChecklistModeleItem={vi.fn()}
       />,
     )
 
@@ -54,6 +60,9 @@ describe('NouvelAppartementForm', () => {
         agentsMenage={agentsMenage}
         onSubmit={vi.fn()}
         onCreateChecklistModele={vi.fn()}
+        onAddChecklistModeleItem={vi.fn()}
+        onDeplacerChecklistModeleItem={vi.fn()}
+        onDeleteChecklistModeleItem={vi.fn()}
       />,
     )
 
@@ -85,6 +94,9 @@ describe('NouvelAppartementForm', () => {
         agentsMenage={agentsMenage}
         onSubmit={onSubmit}
         onCreateChecklistModele={vi.fn()}
+        onAddChecklistModeleItem={vi.fn()}
+        onDeplacerChecklistModeleItem={vi.fn()}
+        onDeleteChecklistModeleItem={vi.fn()}
       />,
     )
 
@@ -113,6 +125,9 @@ describe('NouvelAppartementForm', () => {
         agentsMenage={agentsMenage}
         onSubmit={vi.fn()}
         onCreateChecklistModele={vi.fn()}
+        onAddChecklistModeleItem={vi.fn()}
+        onDeplacerChecklistModeleItem={vi.fn()}
+        onDeleteChecklistModeleItem={vi.fn()}
       />,
     )
 
@@ -133,6 +148,9 @@ describe('NouvelAppartementForm', () => {
         agentsMenage={agentsMenage}
         onSubmit={onSubmit}
         onCreateChecklistModele={vi.fn()}
+        onAddChecklistModeleItem={vi.fn()}
+        onDeplacerChecklistModeleItem={vi.fn()}
+        onDeleteChecklistModeleItem={vi.fn()}
       />,
     )
 
@@ -166,6 +184,9 @@ describe('NouvelAppartementForm', () => {
           agentsMenage={agentsMenage}
           onSubmit={vi.fn()}
           onCreateChecklistModele={vi.fn()}
+          onAddChecklistModeleItem={vi.fn()}
+          onDeplacerChecklistModeleItem={vi.fn()}
+          onDeleteChecklistModeleItem={vi.fn()}
           appartementToEdit={appartementToEdit}
         />,
       )
@@ -188,6 +209,9 @@ describe('NouvelAppartementForm', () => {
           agentsMenage={agentsMenage}
           onSubmit={onSubmit}
           onCreateChecklistModele={vi.fn()}
+          onAddChecklistModeleItem={vi.fn()}
+          onDeplacerChecklistModeleItem={vi.fn()}
+          onDeleteChecklistModeleItem={vi.fn()}
           appartementToEdit={appartementToEdit}
         />,
       )
@@ -213,6 +237,9 @@ describe('NouvelAppartementForm', () => {
           agentsMenage={agentsMenage}
           onSubmit={vi.fn()}
           onCreateChecklistModele={vi.fn()}
+          onAddChecklistModeleItem={vi.fn()}
+          onDeplacerChecklistModeleItem={vi.fn()}
+          onDeleteChecklistModeleItem={vi.fn()}
           appartementToEdit={appartementToEdit}
         />,
       )
@@ -224,6 +251,9 @@ describe('NouvelAppartementForm', () => {
           agentsMenage={agentsMenage}
           onSubmit={vi.fn()}
           onCreateChecklistModele={vi.fn()}
+          onAddChecklistModeleItem={vi.fn()}
+          onDeplacerChecklistModeleItem={vi.fn()}
+          onDeleteChecklistModeleItem={vi.fn()}
           appartementToEdit={null}
         />,
       )

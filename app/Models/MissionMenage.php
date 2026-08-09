@@ -54,4 +54,9 @@ class MissionMenage extends Model
     {
         return $this->hasMany(ProduitMenageSignale::class);
     }
+
+    public function checklistItems(): HasMany
+    {
+        return $this->hasMany(ChecklistItem::class)->orderBy('ordre');
+    }
 }

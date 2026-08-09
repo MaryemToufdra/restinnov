@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\AppartementController;
+use App\Http\Controllers\ChecklistItemController;
 use App\Http\Controllers\ChecklistModeleController;
+use App\Http\Controllers\ChecklistModeleItemController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FraisMaintenanceController;
 use App\Http\Controllers\MissionMenageController;
@@ -19,6 +21,9 @@ Route::patch('/appartements/{appartement}', [AppartementController::class, 'upda
 
 Route::get('/checklist-modeles', [ChecklistModeleController::class, 'index']);
 Route::post('/checklist-modeles', [ChecklistModeleController::class, 'store']);
+Route::post('/checklist-modeles/{checklistModele}/items', [ChecklistModeleItemController::class, 'store']);
+Route::patch('/checklist-modele-items/{checklistModeleItem}/deplacer', [ChecklistModeleItemController::class, 'deplacer']);
+Route::delete('/checklist-modele-items/{checklistModeleItem}', [ChecklistModeleItemController::class, 'destroy']);
 
 Route::get('/utilisateurs', [UtilisateurController::class, 'index']);
 Route::post('/utilisateurs', [UtilisateurController::class, 'store']);
@@ -35,9 +40,15 @@ Route::delete('/frais-maintenance/{fraisMaintenance}', [FraisMaintenanceControll
 Route::get('/produits-catalogue', [ProduitCatalogueController::class, 'index']);
 Route::post('/produits-catalogue', [ProduitCatalogueController::class, 'store']);
 
+Route::get('/mission-menages', [MissionMenageController::class, 'index']);
+Route::get('/mission-menages/{missionMenage}', [MissionMenageController::class, 'show']);
 Route::patch('/mission-menages/{missionMenage}/produits', [MissionMenageController::class, 'updateProduits']);
 Route::patch('/mission-menages/{missionMenage}/vue', [MissionMenageController::class, 'marquerVue']);
+Route::patch('/mission-menages/{missionMenage}/ouvrir', [MissionMenageController::class, 'ouvrir']);
+Route::patch('/mission-menages/{missionMenage}/terminer', [MissionMenageController::class, 'terminer']);
 Route::post('/mission-menages/{missionMenage}/produits-signales', [MissionMenageController::class, 'signalerProduit']);
+
+Route::patch('/checklist-items/{checklistItem}', [ChecklistItemController::class, 'update']);
 
 Route::get('/produits-signales', [ProduitSignaleController::class, 'index']);
 Route::patch('/produits-signales/{produitSignale}/valider', [ProduitSignaleController::class, 'valider']);

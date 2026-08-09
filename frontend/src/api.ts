@@ -1,7 +1,9 @@
 import type {
   Agent,
   Appartement,
+  ChecklistItem,
   ChecklistModele,
+  ChecklistModeleItem,
   DashboardData,
   FraisMaintenance,
   MissionMenage,
@@ -182,6 +184,50 @@ export async function createChecklistModele(nom: string): Promise<ChecklistModel
   return parseJsonOrThrow(response)
 }
 
+export async function createChecklistModeleItem(
+  checklistModeleId: number,
+  libelle: string,
+): Promise<ChecklistModeleItem> {
+  const response = await fetch(`${API_BASE_URL}/api/checklist-modeles/${checklistModeleId}/items`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ libelle }),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function deplacerChecklistModeleItem(
+  itemId: number,
+  direction: 'haut' | 'bas',
+): Promise<ChecklistModeleItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/checklist-modele-items/${itemId}/deplacer`, {
+    method: 'PATCH',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ direction }),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function deleteChecklistModeleItem(itemId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/checklist-modele-items/${itemId}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  })
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new ApiError(data?.message ?? 'Une erreur est survenue.', data?.errors)
+  }
+}
+
 export async function fetchUtilisateurs(role?: string): Promise<Agent[]> {
   const url = new URL(`${API_BASE_URL}/api/utilisateurs`)
   if (role) url.searchParams.set('role', role)
@@ -320,6 +366,63 @@ export async function marquerMissionMenageVue(missionMenageId: number): Promise<
   const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/vue`, {
     method: 'PATCH',
     headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchMissionsAgent(agentId: number): Promise<MissionMenage[]> {
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages?agent_id=${agentId}`, {
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchMissionMenage(missionMenageId: number): Promise<MissionMenage> {
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}`, {
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function ouvrirMissionMenage(missionMenageId: number): Promise<MissionMenage> {
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/ouvrir`, {
+    method: 'PATCH',
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function terminerMissionMenage(missionMenageId: number): Promise<MissionMenage> {
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/terminer`, {
+    method: 'PATCH',
+    headers: { Accept: 'application/json' },
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export interface ToggleChecklistItemInput {
+  coche?: boolean
+  photo?: File
+}
+
+export async function toggleChecklistItem(
+  checklistItemId: number,
+  input: ToggleChecklistItemInput,
+): Promise<ChecklistItem> {
+  const formData = new FormData()
+  formData.append('_method', 'PATCH')
+  if (input.coche !== undefined) formData.append('coche', String(input.coche))
+  if (input.photo) formData.append('photo', input.photo)
+
+  const response = await fetch(`${API_BASE_URL}/api/checklist-items/${checklistItemId}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    body: formData,
   })
 
   return parseJsonOrThrow(response)

@@ -5,7 +5,6 @@ import {
   deleteFraisMaintenance,
   fetchSejour,
   fetchSejours,
-  marquerMissionMenageVue,
   signalerProduit,
   updateMissionMenageProduits,
   type NewFraisMaintenanceInput,
@@ -198,14 +197,6 @@ export function SejoursListeSection({
     )
   }
 
-  const handleMissionVue = async (missionMenageId: number) => {
-    const updated = await marquerMissionMenageVue(missionMenageId)
-    applySejourUpdate(
-      (s) => s.mission_menage?.id === missionMenageId,
-      (s) => ({ ...s, mission_menage: updated }),
-    )
-  }
-
   const handleUpdateMissionProduits = async (missionMenageId: number, input: UpdateMissionMenageProduitsInput) => {
     const updated = await updateMissionMenageProduits(missionMenageId, input)
     applySejourUpdate(
@@ -260,7 +251,6 @@ export function SejoursListeSection({
             onSignalerProduit={handleSignalerProduit}
             onAddFraisMaintenance={handleAddFraisMaintenance}
             onDeleteFraisMaintenance={handleDeleteFraisMaintenance}
-            onMissionVue={handleMissionVue}
           />
         </ul>
       </div>

@@ -18,4 +18,9 @@ class ChecklistModele extends Model
     {
         return $this->hasMany(Appartement::class);
     }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(ChecklistModeleItem::class)->orderBy('ordre');
+    }
 }
