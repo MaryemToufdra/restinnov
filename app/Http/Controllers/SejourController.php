@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Sejour;
 use App\Models\Voyageur;
 use App\Services\SejourCheckoutService;
+use App\Services\SejourStatutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,10 @@ use Illuminate\Validation\Validator as ValidatorContract;
 
 class SejourController extends Controller
 {
-    public function __construct(private readonly SejourCheckoutService $checkoutService) {}
+    public function __construct(
+        private readonly SejourCheckoutService $checkoutService,
+        private readonly SejourStatutService $statutService,
+    ) {}
 
     /**
      * Display a listing of sejours, with optional search/filtering, sorting
@@ -171,6 +175,11 @@ class SejourController extends Controller
 
             $sejour->voyageurs()->delete();
             $this->syncVoyageurs($sejour, $validated['voyageurs']);
+
+            // A new date_arrivee may make the sejour immediately eligible
+            // for "en_cours" -- don't wait for the next run of the
+            // sejours:activer-en-cours scheduled job to reflect that.
+            $this->statutService->activerSiNecessaire($sejour);
 
             return $sejour;
         });
