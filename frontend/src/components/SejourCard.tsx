@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ProduitCatalogue, Sejour } from '../types'
 import { FraisMaintenanceSection } from './FraisMaintenanceSection'
 import { FraisMenageSection } from './FraisMenageSection'
@@ -23,6 +23,7 @@ interface SejourCardProps {
   onSignalerProduit: (missionMenageId: number, input: { photo: File; note?: string | null }) => Promise<void>
   onAddFraisMaintenance: (sejourId: number, input: { description: string; prix: number }) => Promise<void>
   onDeleteFraisMaintenance: (id: number) => Promise<void>
+  onMissionVue: (missionMenageId: number) => Promise<void>
 }
 
 export function SejourCard({
@@ -33,6 +34,7 @@ export function SejourCard({
   onSignalerProduit,
   onAddFraisMaintenance,
   onDeleteFraisMaintenance,
+  onMissionVue,
 }: SejourCardProps) {
   const [checkingOut, setCheckingOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,10 +51,27 @@ export function SejourCard({
     }
   }
 
+  // Opening this séjour's detail is the agent's "opening the mission
+  // detail" moment: dismiss the "Nouveau" badge as soon as it's shown.
+  const missionMenageId = sejour.mission_menage?.id
+  const missionVue = sejour.mission_menage?.vue ?? true
+  useEffect(() => {
+    if (missionMenageId != null && !missionVue) {
+      onMissionVue(missionMenageId).catch(() => {
+        // Best-effort: the badge simply stays visible if this fails.
+      })
+    }
+    // Only re-run if the mission or its vue flag actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missionMenageId, missionVue])
+
   return (
     <li className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
+          <p className="text-xs font-medium text-gray-400" data-testid="sejour-reference">
+            {sejour.reference}
+          </p>
           <p className="font-medium text-gray-900">{sejour.nom_voyageur}</p>
           <p className="text-sm text-gray-600">{sejour.appartement?.nom ?? `Appartement #${sejour.appartement_id}`}</p>
           <p className="text-sm text-gray-500">
@@ -66,7 +85,17 @@ export function SejourCard({
 
       {sejour.mission_menage && (
         <div className="mt-3 rounded-md bg-gray-50 p-3 text-sm">
-          <p className="font-medium text-gray-700">Mission de ménage créée</p>
+          <p className="flex items-center gap-2 font-medium text-gray-700">
+            Mission de ménage créée
+            {!sejour.mission_menage.vue && (
+              <span
+                data-testid="mission-nouvelle-badge"
+                className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white"
+              >
+                Nouveau
+              </span>
+            )}
+          </p>
           <p className="text-gray-600">
             Agent assigné :{' '}
             <span className="font-medium">

@@ -58,6 +58,7 @@ export interface MissionMenage {
   statut: MissionStatut
   agent: Agent | null
   frais_forfait: string | number
+  vue: boolean
   produits?: ProduitCatalogue[]
 }
 
@@ -80,6 +81,7 @@ export interface FraisMaintenance {
 
 export interface Sejour {
   id: number
+  reference: string
   appartement_id: number
   date_arrivee: string
   date_depart: string

@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MissionMenage;
 use App\Models\Sejour;
-use App\Models\Utilisateur;
 use App\Models\Voyageur;
+use App\Services\SejourCheckoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +13,8 @@ use Illuminate\Validation\Validator as ValidatorContract;
 
 class SejourController extends Controller
 {
+    public function __construct(private readonly SejourCheckoutService $checkoutService) {}
+
     /**
      * Display a listing of sejours, with optional search/filtering, sorting
      * and pagination for the "Liste des séjours" screen.
@@ -230,27 +231,7 @@ class SejourController extends Controller
             ], 422);
         }
 
-        $mission = DB::transaction(function () use ($sejour) {
-            $sejour->update(['statut' => Sejour::STATUT_TERMINE]);
-
-            $agent = Utilisateur::where('role', Utilisateur::ROLE_MENAGE)
-                ->withCount(['missionMenages' => function ($query) {
-                    $query->whereIn('statut', [
-                        MissionMenage::STATUT_A_FAIRE,
-                        MissionMenage::STATUT_EN_COURS,
-                    ]);
-                }])
-                ->orderBy('mission_menages_count')
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->first();
-
-            return MissionMenage::create([
-                'sejour_id' => $sejour->id,
-                'agent_id' => $agent?->id,
-                'statut' => MissionMenage::STATUT_A_FAIRE,
-            ]);
-        });
+        $mission = $this->checkoutService->checkout($sejour);
 
         return response()->json([
             'sejour' => $sejour->fresh(),

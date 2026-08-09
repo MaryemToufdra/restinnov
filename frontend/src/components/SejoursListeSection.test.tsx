@@ -27,6 +27,7 @@ const appartementZenith: Appartement = {
 function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
   return {
     id: 1,
+    reference: 'SEJ-0001',
     appartement_id: 1,
     date_arrivee: '2026-08-01',
     date_depart: '2026-08-05',

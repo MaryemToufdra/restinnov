@@ -17,6 +17,7 @@ const appartement: Appartement = {
 function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
   return {
     id: 1,
+    reference: 'SEJ-0001',
     appartement_id: 1,
     date_arrivee: '2026-08-01',
     date_depart: '2026-08-05',
@@ -68,6 +69,7 @@ function mockFetch(handlers: {
   let appartements = handlers.appartements ?? [appartement]
   let agentsMenage = handlers.agentsMenage ?? []
   const dashboard = handlers.dashboard ?? dashboardFixture()
+  let lastMissionMenage: Sejour['mission_menage'] = null
 
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const urlObj = new URL(String(input))
@@ -147,7 +149,13 @@ function mockFetch(handlers: {
         sejour: sejourFixture({ statut: 'termine' }),
         mission_menage: null,
       }
+      lastMissionMenage = result.mission_menage
       return new Response(JSON.stringify(result), { status: 200 })
+    }
+
+    if (/^\/api\/mission-menages\/\d+\/vue$/.test(url) && method === 'PATCH') {
+      const updated = lastMissionMenage ? { ...lastMissionMenage, vue: true } : {}
+      return new Response(JSON.stringify(updated), { status: 200 })
     }
 
     throw new Error(`Unhandled request: ${method} ${url}`)
@@ -446,6 +454,7 @@ describe('App', () => {
           statut: 'a_faire',
           agent: { id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null },
           frais_forfait: 80,
+          vue: false,
           produits: [],
         },
       }),
@@ -462,5 +471,26 @@ describe('App', () => {
 
     const missionBlock = await screen.findByText(/mission de ménage créée/i)
     expect(within(missionBlock.parentElement!).getByText('Fatima Z.')).toBeInTheDocument()
+
+    // Opening the detail auto-marks the mission as read (PATCH .../vue), so
+    // the "Nouveau" badge is gone once things settle.
+    await waitFor(() => expect(screen.queryByTestId('mission-nouvelle-badge')).not.toBeInTheDocument())
+  })
+
+  it('affiche la référence du séjour dans la liste et dans le détail', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [sejourFixture({ reference: 'SEJ-0042' })],
+    }) as typeof fetch
+
+    render(<App />)
+    await openGroup(user, 'Séjours')
+
+    expect(await screen.findByTestId('sejour-reference-1')).toHaveTextContent('SEJ-0042')
+
+    const viewButton = await screen.findByRole('button', { name: /voir le détail du séjour de jean dupont/i })
+    await user.click(viewButton)
+
+    expect(await screen.findByTestId('sejour-reference')).toHaveTextContent('SEJ-0042')
   })
 })

@@ -22,10 +22,12 @@ class MissionMenage extends Model
         'agent_id',
         'statut',
         'frais_forfait',
+        'vue',
     ];
 
     protected $casts = [
         'frais_forfait' => 'decimal:2',
+        'vue' => 'boolean',
     ];
 
     public function sejour(): BelongsTo

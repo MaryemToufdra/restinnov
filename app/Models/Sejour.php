@@ -37,6 +37,33 @@ class Sejour extends Model
         'montant_mad' => 'decimal:2',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (Sejour $sejour) {
+            if (empty($sejour->reference)) {
+                $sejour->reference = static::nextReference();
+            }
+        });
+    }
+
+    /**
+     * Next short reference in the SEJ-0001, SEJ-0002... sequence. Derived
+     * from the last-created sejour's own reference rather than a dedicated
+     * counter table -- simple increment, not meant to be collision-proof
+     * under heavy concurrency, which this app's volume doesn't need.
+     */
+    public static function nextReference(): string
+    {
+        $last = static::query()->whereNotNull('reference')->orderByDesc('id')->value('reference');
+
+        $lastNumber = 0;
+        if ($last && preg_match('/(\d+)$/', $last, $matches)) {
+            $lastNumber = (int) $matches[1];
+        }
+
+        return sprintf('SEJ-%04d', $lastNumber + 1);
+    }
+
     public function appartement(): BelongsTo
     {
         return $this->belongsTo(Appartement::class);

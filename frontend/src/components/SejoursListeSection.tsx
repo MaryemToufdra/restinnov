@@ -5,6 +5,7 @@ import {
   deleteFraisMaintenance,
   fetchSejour,
   fetchSejours,
+  marquerMissionMenageVue,
   signalerProduit,
   updateMissionMenageProduits,
   type NewFraisMaintenanceInput,
@@ -197,6 +198,14 @@ export function SejoursListeSection({
     )
   }
 
+  const handleMissionVue = async (missionMenageId: number) => {
+    const updated = await marquerMissionMenageVue(missionMenageId)
+    applySejourUpdate(
+      (s) => s.mission_menage?.id === missionMenageId,
+      (s) => ({ ...s, mission_menage: updated }),
+    )
+  }
+
   const handleUpdateMissionProduits = async (missionMenageId: number, input: UpdateMissionMenageProduitsInput) => {
     const updated = await updateMissionMenageProduits(missionMenageId, input)
     applySejourUpdate(
@@ -251,6 +260,7 @@ export function SejoursListeSection({
             onSignalerProduit={handleSignalerProduit}
             onAddFraisMaintenance={handleAddFraisMaintenance}
             onDeleteFraisMaintenance={handleDeleteFraisMaintenance}
+            onMissionVue={handleMissionVue}
           />
         </ul>
       </div>
@@ -375,6 +385,7 @@ export function SejoursListeSection({
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr className="text-left text-xs font-medium uppercase text-gray-500">
+                <th className="px-4 py-2">Référence</th>
                 <th className="px-4 py-2">Voyageur principal</th>
                 <th className="px-4 py-2">Appartement</th>
                 <th className="px-4 py-2">
@@ -398,6 +409,9 @@ export function SejoursListeSection({
             <tbody className="divide-y divide-gray-100">
               {sejours.map((sejour) => (
                 <tr key={sejour.id}>
+                  <td className="px-4 py-3 text-gray-700" data-testid={`sejour-reference-${sejour.id}`}>
+                    {sejour.reference}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">

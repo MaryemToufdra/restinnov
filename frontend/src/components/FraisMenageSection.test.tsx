@@ -18,6 +18,7 @@ const missionMenage: MissionMenage = {
   statut: 'a_faire',
   agent: { id: 1, nom: 'Fatima Z.', role: 'menage', telephone: null },
   frais_forfait: 80,
+  vue: true,
   produits: [],
 }
 

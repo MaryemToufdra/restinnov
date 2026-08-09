@@ -254,6 +254,7 @@ describe('NouveauSejourForm', () => {
   describe('mode édition', () => {
     const sejourToEdit: Sejour = {
       id: 5,
+      reference: 'SEJ-0005',
       appartement_id: 1,
       date_arrivee: '2026-08-01',
       date_depart: '2026-08-05',

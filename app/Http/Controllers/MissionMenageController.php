@@ -35,6 +35,19 @@ class MissionMenageController extends Controller
     }
 
     /**
+     * Mark a mission as viewed by the cleaning agent (dismisses its
+     * "Nouveau" badge). Idempotent.
+     */
+    public function marquerVue(MissionMenage $missionMenage): JsonResponse
+    {
+        if (! $missionMenage->vue) {
+            $missionMenage->update(['vue' => true]);
+        }
+
+        return response()->json($missionMenage->fresh(['produits', 'agent']));
+    }
+
+    /**
      * Report a cleaning product used in the field that is not in the catalogue yet.
      */
     public function signalerProduit(Request $request, MissionMenage $missionMenage): JsonResponse

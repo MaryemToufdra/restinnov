@@ -20,9 +20,9 @@ docker compose up
 
 That's it. On first run this will:
 
-1. Build the `app` (PHP-FPM), `frontend` (Vite/Node) and pull the `nginx`
-   and `db` (MySQL) images.
-2. Inside `app`, automatically:
+1. Build the `app` (PHP-FPM), `scheduler` (same image as `app`), `frontend`
+   (Vite/Node) and pull the `nginx` and `db` (MySQL) images.
+2. Inside `app` and `scheduler`, automatically:
    - copy `.env.example` to `.env` if `.env` doesn't exist yet,
    - run `composer install`,
    - generate `APP_KEY` if missing,
@@ -31,6 +31,9 @@ That's it. On first run this will:
    - run `php artisan storage:link`.
 3. Inside `frontend`, automatically run `npm install`, then start the Vite
    dev server with hot reload.
+4. `scheduler` then starts `php artisan schedule:work`, which fires the
+   app's scheduled jobs (`sejours:activer-en-cours` daily,
+   `sejours:checkout-automatique` daily at 11:00) for as long as it runs.
 
 The first run takes a few minutes (dependency installs). Subsequent runs are
 fast — those steps are skipped once `vendor/` and `node_modules/` already
@@ -52,12 +55,26 @@ docker compose up -d
 
 ## Services
 
-| Service    | Image           | What it does                                   | Port on host |
-|------------|-----------------|-------------------------------------------------|--------------|
-| `app`      | built locally   | PHP-FPM running the Laravel app                 | —            |
-| `nginx`    | `nginx:alpine`  | Serves Laravel, proxies `.php` requests to `app`| `8000`       |
-| `db`       | `mysql:8.0`     | MySQL database, data persisted in a named volume| `3306`       |
-| `frontend` | built locally   | Vite dev server for the React app, hot reload   | `5173`       |
+| Service     | Image           | What it does                                              | Port on host |
+|-------------|-----------------|-------------------------------------------------------------|--------------|
+| `app`       | built locally   | PHP-FPM running the Laravel app                            | —            |
+| `scheduler` | built locally (same image as `app`) | Runs `php artisan schedule:work`, the long-running process that fires the app's scheduled jobs (see below) | —            |
+| `nginx`     | `nginx:alpine`  | Serves Laravel, proxies `.php` requests to `app`            | `8000`       |
+| `db`        | `mysql:8.0`     | MySQL database, data persisted in a named volume            | `3306`       |
+| `frontend`  | built locally   | Vite dev server for the React app, hot reload                | `5173`       |
+
+`scheduler` is what makes the two scheduled jobs in `routes/console.php` actually
+run on a real clock:
+
+- `sejours:activer-en-cours` (daily) — moves "à venir" séjours to "en cours"
+  once their arrival date has passed.
+- `sejours:checkout-automatique` (daily at 11:00) — checks out "en cours"
+  séjours departing today, exactly like the manual "Confirmer le checkout"
+  button.
+
+Without this service running, those commands still exist and can be run
+by hand (`docker compose exec app php artisan sejours:activer-en-cours`),
+but nothing triggers them on a schedule.
 
 The database's data lives in the named volume `dbdata` — it survives
 `docker compose down` and container restarts. It is only removed if you
@@ -89,6 +106,15 @@ Tail logs for one service:
 ```bash
 docker compose logs -f app
 docker compose logs -f nginx
+docker compose logs -f scheduler
+```
+
+Trigger one of the scheduled jobs on demand, instead of waiting for its
+scheduled time:
+
+```bash
+docker compose exec app php artisan sejours:activer-en-cours
+docker compose exec app php artisan sejours:checkout-automatique
 ```
 
 Rebuild images after changing a `Dockerfile` (not needed for ordinary code
@@ -149,6 +175,13 @@ docker compose down -v
 - `nginx` and `app` only start serving traffic once `db` is confirmed ready
   (via Docker healthchecks), so there's no need to manually retry after a
   cold start.
+- `scheduler` runs `docker/php/entrypoint.sh` too (composer install,
+  migrations, the works — all idempotent, so running them a second time
+  alongside `app` is harmless) before settling into `php artisan
+  schedule:work`. It has its **own** anonymous `vendor/` volume, separate
+  from `app`'s — anonymous volumes aren't shared between services even
+  when they use the same image — so it does its own (parallel, equally
+  fast) dependency install on first boot rather than reusing `app`'s.
 
 ## Troubleshooting
 
