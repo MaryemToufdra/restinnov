@@ -38,6 +38,11 @@ echo "[entrypoint] Database is up"
 echo "[entrypoint] Running migrations"
 php artisan migrate --force
 
+# Idempotent (checks for an existing account before creating one) -- safe to
+# run on every container start, not just the first.
+echo "[entrypoint] Ensuring the default manager account exists"
+php artisan db:seed --class=ManagerAccountSeeder --force
+
 echo "[entrypoint] Linking storage"
 php artisan storage:link || true
 

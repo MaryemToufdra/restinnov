@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesMissionAccess;
 use App\Models\MissionMenage;
 use App\Models\ProduitMenageSignale;
+use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MissionMenageController extends Controller
 {
+    use AuthorizesMissionAccess;
+
     private const DETAIL_RELATIONS = ['sejour.appartement', 'agent', 'produits', 'checklistItems'];
 
     /**
@@ -17,15 +21,27 @@ class MissionMenageController extends Controller
      * that are still on their plate (a_faire or en_cours). Powers the
      * agent workspace's mission list -- terminees/non_conformes never
      * belong there.
+     *
+     * A "menage" caller always gets their own missions, regardless of what
+     * agent_id (if any) they pass -- there is no legitimate reason for one
+     * agent to list another's missions. Only "manager" may query by an
+     * arbitrary agent_id.
      */
     public function index(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'agent_id' => ['required', 'integer', 'exists:utilisateurs,id'],
-        ]);
+        $user = $request->user();
+
+        if ($user->role === Utilisateur::ROLE_MENAGE) {
+            $agentId = $user->id;
+        } else {
+            $validated = $request->validate([
+                'agent_id' => ['required', 'integer', 'exists:utilisateurs,id'],
+            ]);
+            $agentId = $validated['agent_id'];
+        }
 
         $missions = MissionMenage::with(self::DETAIL_RELATIONS)
-            ->where('agent_id', $validated['agent_id'])
+            ->where('agent_id', $agentId)
             ->whereIn('statut', [MissionMenage::STATUT_A_FAIRE, MissionMenage::STATUT_EN_COURS])
             ->orderBy('created_at')
             ->get();
@@ -36,8 +52,10 @@ class MissionMenageController extends Controller
     /**
      * Full detail of a single mission, including its checklist.
      */
-    public function show(MissionMenage $missionMenage): JsonResponse
+    public function show(Request $request, MissionMenage $missionMenage): JsonResponse
     {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
         return response()->json($missionMenage->load(self::DETAIL_RELATIONS));
     }
 
@@ -47,8 +65,10 @@ class MissionMenageController extends Controller
      * (a_faire -> en_cours). Idempotent -- reopening an already-seen,
      * already-en_cours mission is a no-op beyond returning its detail.
      */
-    public function ouvrir(MissionMenage $missionMenage): JsonResponse
+    public function ouvrir(Request $request, MissionMenage $missionMenage): JsonResponse
     {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
         $updates = [];
 
         if (! $missionMenage->vue) {
@@ -72,8 +92,10 @@ class MissionMenageController extends Controller
      * assigned to the appartement) has nothing to block on, so it can
      * always be marked terminee.
      */
-    public function terminer(MissionMenage $missionMenage): JsonResponse
+    public function terminer(Request $request, MissionMenage $missionMenage): JsonResponse
     {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
         $resteACocher = $missionMenage->checklistItems()->where('coche', false)->exists();
 
         if ($resteACocher) {
@@ -92,6 +114,8 @@ class MissionMenageController extends Controller
      */
     public function updateProduits(Request $request, MissionMenage $missionMenage): JsonResponse
     {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
         $validated = $request->validate([
             'frais_forfait' => ['sometimes', 'numeric', 'min:0'],
             'produit_ids' => ['sometimes', 'array'],
@@ -115,8 +139,10 @@ class MissionMenageController extends Controller
      * Mark a mission as viewed by the cleaning agent (dismisses its
      * "Nouveau" badge). Idempotent.
      */
-    public function marquerVue(MissionMenage $missionMenage): JsonResponse
+    public function marquerVue(Request $request, MissionMenage $missionMenage): JsonResponse
     {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
         if (! $missionMenage->vue) {
             $missionMenage->update(['vue' => true]);
         }
@@ -129,6 +155,8 @@ class MissionMenageController extends Controller
      */
     public function signalerProduit(Request $request, MissionMenage $missionMenage): JsonResponse
     {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
         $validated = $request->validate([
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'note' => ['nullable', 'string', 'max:255'],

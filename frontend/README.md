@@ -2,10 +2,18 @@
 
 Application React + Vite + TypeScript + Tailwind CSS consommant l'API Laravel du dépôt (backend à la racine).
 
-Elle affiche sur un seul écran :
-- un formulaire de création de séjour (`POST /api/sejours`)
-- la liste des séjours existants (`GET /api/sejours`)
-- un bouton de confirmation de checkout par séjour non terminé (`PATCH /api/sejours/{id}/checkout`), qui affiche la mission de ménage créée et l'agent assigné (ou "non assigné")
+Deux routes, deux publics, une seule authentification (téléphone + mot de
+passe, voir [README-DOCKER.md](../README-DOCKER.md#comptes--connexion)) :
+
+- `/` — l'app Manager complète (Dashboard, Séjours, Appartements, Ménage,
+  Maintenance), réservée au rôle `manager`.
+- `/menage` — l'espace de l'agent de ménage (ses missions du jour, plein
+  écran, sans la sidebar Manager), réservé au rôle `menage`, installable
+  comme icône PWA indépendante (voir
+  [README-DOCKER.md](../README-DOCKER.md#installer-sur-mobile-pwa)).
+
+Un compte du mauvais rôle sur l'une ou l'autre route est redirigé
+automatiquement vers celle qui correspond au sien.
 
 ## Prérequis
 

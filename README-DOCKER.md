@@ -41,11 +41,35 @@ exist.
 
 Once it settles, open:
 
-- **Frontend (React app):** http://localhost:5173
+- **Manager app:** http://localhost:5173 (sidebar: Dashboard, Séjours,
+  Appartements, Ménage, Maintenance)
+- **Cleaning agent app:** http://localhost:5173/menage (full-screen "Mes
+  missions", no Manager sidebar — see "Comptes & connexion" below and
+  "Installer sur mobile" further down)
 - **Backend API:** http://localhost:8000/api/...
 - **MySQL** (optional, for a GUI client like TablePlus/DBeaver):
   `localhost:3306`, database `restinnov`, user `restinnov`, password
   `restinnov` (root password: `root`).
+
+### Comptes & connexion
+
+The whole app requires logging in (téléphone + mot de passe) — there is no
+anonymous access. A default **manager** account is created automatically on
+first start (the `app`/`scheduler` entrypoint runs a seeder that's a no-op
+if it already exists, so it's safe on every restart too):
+
+- **Téléphone :** `0600000000`
+- **Mot de passe :** `ChangeMe123!`
+
+Override these before first start with `MANAGER_DEFAULT_TELEPHONE` /
+`MANAGER_DEFAULT_PASSWORD` in `.env` (backend), and **change the password
+after first login** — there is no in-app "change password" screen yet, so do
+it via `php artisan tinker` (`$u = App\Models\Utilisateur::where('telephone', '0600000000')->first(); $u->password = Hash::make('...'); $u->save();`) or a fresh seed with different env values.
+
+Create additional accounts (agents ménage, maintenance) as the manager, from
+**Ménage → Ajouter un agent** — set a téléphone + mot de passe there for
+anyone who needs to log in themselves (an agent record without a password
+can still be assigned to appartements/missions, just can't log in).
 
 Stop everything with `Ctrl+C`, or run it in the background:
 
@@ -88,6 +112,13 @@ Run an artisan command:
 ```bash
 docker compose exec app php artisan migrate:fresh
 docker compose exec app php artisan tinker
+```
+
+`migrate:fresh` wipes every table, including the default manager account —
+re-seed it right after:
+
+```bash
+docker compose exec app php artisan db:seed --class=ManagerAccountSeeder
 ```
 
 Run the backend test suite:
@@ -136,6 +167,36 @@ Stop everything **and wipe the database**:
 ```bash
 docker compose down -v
 ```
+
+## Installer sur mobile (PWA)
+
+`/` (Manager) et `/menage` (agent de ménage) sont deux PWA indépendantes sur
+la même origine : chacune a son propre `manifest.json`
+(`frontend/public/manifest.json` et `frontend/public/manifest-menage.json`,
+avec leur propre `name`/`short_name`/`start_url`/`scope`), et l'app bascule
+le `<link rel="manifest">` (et le titre, la couleur de thème, le
+`apple-mobile-web-app-title` pour iOS) entre les deux au moment du rendu de
+chaque route — voir `frontend/src/pwa/usePwaIdentity.ts`. Résultat : une
+icône "Add to Home Screen" posée depuis `/menage` installe une app à part,
+nommée "Ménage", distincte de celle posée depuis `/`.
+
+Pour qu'un agent de ménage installe son icône :
+
+1. Se connecter sur `http://<votre-domaine>/menage` avec son compte
+   (téléphone + mot de passe créé par le manager).
+2. **Chrome Android :** menu ⋮ en haut à droite → **"Ajouter à l'écran
+   d'accueil"** (ou un bandeau "Installer l'application" peut apparaître
+   automatiquement). Confirmer le nom proposé ("Ménage") et valider.
+3. **Safari iOS :** bouton Partager (carré avec flèche vers le haut) →
+   **"Sur l'écran d'accueil"**. iOS ignore le manifest et lit le titre/icône
+   posés par l'app à ce moment précis, donc bien rester sur `/menage` (pas
+   `/`) avant d'ouvrir ce menu.
+
+L'icône actuelle (`frontend/public/favicon.svg`) est un SVG — accepté par
+les navigateurs modernes pour le manifest et `apple-touch-icon`, mais un
+jeu d'icônes PNG dédié (192×192 et 512×512 a minima) donnerait un résultat
+plus net sur les anciens appareils ; aucun outil de conversion SVG→PNG
+n'était disponible dans cet environnement pour en générer un.
 
 ## How the pieces fit together
 

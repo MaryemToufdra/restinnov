@@ -2,7 +2,16 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { AuthProvider } from './auth/AuthContext'
 import type { Appartement, DashboardData, PaginatedResponse, Sejour } from './types'
+
+function renderApp() {
+  return render(
+    <AuthProvider>
+      <App />
+    </AuthProvider>,
+  )
+}
 
 const appartement: Appartement = {
   id: 1,
@@ -158,6 +167,10 @@ function mockFetch(handlers: {
       return new Response(JSON.stringify(updated), { status: 200 })
     }
 
+    if (url === '/api/logout' && method === 'POST') {
+      return new Response(JSON.stringify({ message: 'Déconnecté.' }), { status: 200 })
+    }
+
     throw new Error(`Unhandled request: ${method} ${url}`)
   })
 }
@@ -173,12 +186,15 @@ function openSubItem(user: ReturnType<typeof userEvent.setup>, label: string) {
 describe('App', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    localStorage.clear()
+    localStorage.setItem('auth_token', 'fake-token')
+    localStorage.setItem('auth_user', JSON.stringify({ id: 1, nom: 'Nadia M.', role: 'manager' }))
   })
 
   it('affiche Dashboard comme écran par défaut avec les 4 groupes de menu repliés', async () => {
     globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
 
-    render(<App />)
+    renderApp()
 
     expect(await screen.findByTestId('dashboard-revenus-totaux')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Dashboard', level: 2 })).toBeInTheDocument()
@@ -194,7 +210,7 @@ describe('App', () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({ sejours: [sejourFixture()] }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Séjours')
 
     expect(screen.getByRole('button', { name: 'Créer un séjour' })).toBeInTheDocument()
@@ -206,7 +222,7 @@ describe('App', () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Séjours')
     expect(screen.getByRole('button', { name: 'Créer un séjour' })).toBeInTheDocument()
 
@@ -221,7 +237,7 @@ describe('App', () => {
       onCreateSejour: () => sejourFixture({ id: 2, nom_voyageur: 'Marie Curie' }),
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Séjours')
     await openSubItem(user, 'Créer un séjour')
 
@@ -244,7 +260,7 @@ describe('App', () => {
       onUpdateSejour: () => sejourFixture({ date_arrivee: '2026-09-01' }),
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Séjours')
 
     const editButton = await screen.findByRole('button', { name: /modifier le séjour de jean dupont/i })
@@ -270,7 +286,7 @@ describe('App', () => {
       sejours: [sejourFixture({ statut: 'termine' })],
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Séjours')
 
     const editButton = await screen.findByRole('button', { name: /modifier le séjour de jean dupont/i })
@@ -281,7 +297,7 @@ describe('App', () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({ sejours: [], appartements: [] }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Appartements')
 
     expect(screen.getByRole('button', { name: 'Créer un appartement' })).toBeInTheDocument()
@@ -299,7 +315,7 @@ describe('App', () => {
       onUpdateAppartement: () => ({ ...appartement, nom: 'Loft Bastille rénové' }),
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Appartements')
     await openSubItem(user, 'Liste des appartements')
 
@@ -325,7 +341,7 @@ describe('App', () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({ sejours: [], appartements: [appartement], dashboard: dashboardFixture() }) as typeof fetch
 
-    render(<App />)
+    renderApp()
 
     await screen.findByTestId('dashboard-revenus-totaux')
     await user.click(screen.getByText('Loft Bastille'))
@@ -337,7 +353,7 @@ describe('App', () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({ sejours: [], dashboard: dashboardFixture() }) as typeof fetch
 
-    render(<App />)
+    renderApp()
 
     await screen.findByTestId('dashboard-revenus-totaux')
     await user.click(screen.getByRole('button', { name: /jean dupont/i }))
@@ -356,7 +372,7 @@ describe('App', () => {
       dashboard: dashboardFixture(),
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
 
     await screen.findByTestId('dashboard-revenus-totaux')
     await user.click(screen.getByRole('button', { name: /1\s*à venir/i }))
@@ -369,7 +385,7 @@ describe('App', () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Ménage')
 
     expect(screen.getByRole('button', { name: 'Ajouter un agent ménage' })).toBeInTheDocument()
@@ -383,23 +399,6 @@ describe('App', () => {
     expect(screen.getByText(/produits signalés en attente/i)).toBeInTheDocument()
   })
 
-  it('propose "Mes missions" sous le groupe Ménage et affiche le sélecteur d\'agent au premier accès', async () => {
-    const user = userEvent.setup()
-    globalThis.fetch = mockFetch({
-      sejours: [],
-      agentsMenage: [{ id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null }],
-    }) as typeof fetch
-
-    render(<App />)
-    await openGroup(user, 'Ménage')
-
-    expect(screen.getByRole('button', { name: 'Mes missions' })).toBeInTheDocument()
-
-    await openSubItem(user, 'Mes missions')
-    expect(await screen.findByText('Se connecter en tant que')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Fatima Z.' })).toBeInTheDocument()
-  })
-
   it('regroupe "Ajouter un agent maintenance" sous le groupe Maintenance', async () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({
@@ -407,7 +406,7 @@ describe('App', () => {
       onCreateUtilisateur: () => ({ id: 7, nom: 'Karim Benali', role: 'maintenance', telephone: null }),
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Maintenance')
     await openSubItem(user, 'Ajouter un agent maintenance')
 
@@ -439,7 +438,7 @@ describe('App', () => {
       onCreateUtilisateur: () => ({ id: 42, nom: 'Fatima Zahra', role: 'menage', telephone: null }),
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Ménage')
     await openSubItem(user, 'Ajouter un agent ménage')
 
@@ -477,7 +476,7 @@ describe('App', () => {
       }),
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Séjours')
 
     const viewButton = await screen.findByRole('button', { name: /voir le détail du séjour de jean dupont/i })
@@ -501,7 +500,7 @@ describe('App', () => {
       sejours: [sejourFixture({ reference: 'SEJ-0042' })],
     }) as typeof fetch
 
-    render(<App />)
+    renderApp()
     await openGroup(user, 'Séjours')
 
     expect(await screen.findByTestId('sejour-reference-1')).toHaveTextContent('SEJ-0042')
@@ -510,5 +509,18 @@ describe('App', () => {
     await user.click(viewButton)
 
     expect(await screen.findByTestId('sejour-reference')).toHaveTextContent('SEJ-0042')
+  })
+
+  it('le bouton Déconnexion appelle /api/logout et efface la session locale', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
+
+    renderApp()
+    expect(await screen.findByTestId('dashboard-revenus-totaux')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Déconnexion' }))
+
+    await waitFor(() => expect(localStorage.getItem('auth_token')).toBeNull())
+    expect(localStorage.getItem('auth_user')).toBeNull()
   })
 })

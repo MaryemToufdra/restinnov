@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Séjours & ménage",
+  "short_name": "Séjours",
+  "description": "Espace Manager : séjours, appartements, agents, ménage.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
