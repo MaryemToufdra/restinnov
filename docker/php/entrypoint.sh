@@ -50,4 +50,13 @@ php artisan storage:link || true
 # writable by the php-fpm worker (www-data), regardless of host UID.
 chmod -R ugo+rwX storage bootstrap/cache || true
 
+# Catch up any scheduled jobs that may have missed their slot while Docker
+# was stopped (common in local dev: closing your laptop overnight skips
+# `scheduler`'s daily runs entirely). Both commands are idempotent --
+# they're no-ops when nothing is overdue -- so running them unconditionally
+# on every `app` start is always safe, whether or not catch-up was needed.
+echo "[entrypoint] Catching up any overdue scheduled jobs"
+php artisan sejours:activer-en-cours
+php artisan sejours:checkout-automatique
+
 exec "$@"
