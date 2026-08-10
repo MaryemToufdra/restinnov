@@ -23,8 +23,8 @@ class SejourCheckoutTest extends TestCase
 
         $response = $this->postJson('/api/sejours', [
             'appartement_id' => $appartement->id,
-            'date_arrivee' => '2026-08-01',
-            'date_depart' => '2026-08-05',
+            'date_arrivee' => now()->addDays(5)->toDateString(),
+            'date_depart' => now()->addDays(9)->toDateString(),
             'voyageurs' => [
                 ['nom' => 'Jean Dupont', 'numero_passeport' => null, 'est_principal' => true],
             ],

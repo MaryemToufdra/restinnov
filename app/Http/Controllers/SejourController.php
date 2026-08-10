@@ -137,10 +137,20 @@ class SejourController extends Controller
 
             $this->syncVoyageurs($sejour, $validated['voyageurs']);
 
+            // A sejour created with an arrival (and possibly departure) date
+            // already in the past must reflect its real status immediately,
+            // exactly like the scheduled catch-up jobs would do on their
+            // next run -- don't leave it stuck at "a_venir".
+            $this->statutService->activerSiNecessaire($sejour);
+
+            if ($sejour->statut === Sejour::STATUT_EN_COURS && $sejour->date_depart->lte(now()->startOfDay())) {
+                $this->checkoutService->checkout($sejour);
+            }
+
             return $sejour;
         });
 
-        return response()->json($sejour->load(['appartement', 'voyageurs']), 201);
+        return response()->json($sejour->fresh()->load(['appartement', 'voyageurs', 'missionMenage']), 201);
     }
 
     /**
