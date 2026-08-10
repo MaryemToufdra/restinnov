@@ -383,6 +383,23 @@ describe('App', () => {
     expect(screen.getByText(/produits signalés en attente/i)).toBeInTheDocument()
   })
 
+  it('propose "Mes missions" sous le groupe Ménage et affiche le sélecteur d\'agent au premier accès', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [],
+      agentsMenage: [{ id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null }],
+    }) as typeof fetch
+
+    render(<App />)
+    await openGroup(user, 'Ménage')
+
+    expect(screen.getByRole('button', { name: 'Mes missions' })).toBeInTheDocument()
+
+    await openSubItem(user, 'Mes missions')
+    expect(await screen.findByText('Se connecter en tant que')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Fatima Z.' })).toBeInTheDocument()
+  })
+
   it('regroupe "Ajouter un agent maintenance" sous le groupe Maintenance', async () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({
@@ -472,9 +489,10 @@ describe('App', () => {
     const missionBlock = await screen.findByText(/mission de ménage créée/i)
     expect(within(missionBlock.parentElement!).getByText('Fatima Z.')).toBeInTheDocument()
 
-    // Opening the detail auto-marks the mission as read (PATCH .../vue), so
-    // the "Nouveau" badge is gone once things settle.
-    await waitFor(() => expect(screen.queryByTestId('mission-nouvelle-badge')).not.toBeInTheDocument())
+    // The "Nouveau" badge is informational for the Manager here -- only the
+    // cleaning agent opening the mission in their own workspace dismisses
+    // it (see MissionDetailAgent), so it stays visible on this screen.
+    expect(screen.getByTestId('mission-nouvelle-badge')).toBeInTheDocument()
   })
 
   it('affiche la référence du séjour dans la liste et dans le détail', async () => {

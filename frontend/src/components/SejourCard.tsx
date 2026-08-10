@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { ProduitCatalogue, Sejour } from '../types'
 import { FraisMaintenanceSection } from './FraisMaintenanceSection'
 import { FraisMenageSection } from './FraisMenageSection'
@@ -23,7 +23,6 @@ interface SejourCardProps {
   onSignalerProduit: (missionMenageId: number, input: { photo: File; note?: string | null }) => Promise<void>
   onAddFraisMaintenance: (sejourId: number, input: { description: string; prix: number }) => Promise<void>
   onDeleteFraisMaintenance: (id: number) => Promise<void>
-  onMissionVue: (missionMenageId: number) => Promise<void>
 }
 
 export function SejourCard({
@@ -34,7 +33,6 @@ export function SejourCard({
   onSignalerProduit,
   onAddFraisMaintenance,
   onDeleteFraisMaintenance,
-  onMissionVue,
 }: SejourCardProps) {
   const [checkingOut, setCheckingOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,20 +48,6 @@ export function SejourCard({
       setCheckingOut(false)
     }
   }
-
-  // Opening this séjour's detail is the agent's "opening the mission
-  // detail" moment: dismiss the "Nouveau" badge as soon as it's shown.
-  const missionMenageId = sejour.mission_menage?.id
-  const missionVue = sejour.mission_menage?.vue ?? true
-  useEffect(() => {
-    if (missionMenageId != null && !missionVue) {
-      onMissionVue(missionMenageId).catch(() => {
-        // Best-effort: the badge simply stays visible if this fails.
-      })
-    }
-    // Only re-run if the mission or its vue flag actually changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionMenageId, missionVue])
 
   return (
     <li className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">

@@ -6,9 +6,26 @@ export type PlateformeOrigine = 'airbnb' | 'direct' | 'autre' | 'booking'
 
 export type ProduitSignaleStatut = 'en_attente' | 'valide' | 'rejete'
 
+export interface ChecklistModeleItem {
+  id: number
+  checklist_modele_id: number
+  libelle: string
+  ordre: number
+}
+
 export interface ChecklistModele {
   id: number
   nom: string
+  items?: ChecklistModeleItem[]
+}
+
+export interface ChecklistItem {
+  id: number
+  mission_menage_id: number
+  libelle: string
+  coche: boolean
+  photo_url: string | null
+  ordre: number
 }
 
 export interface Appartement {
@@ -60,6 +77,8 @@ export interface MissionMenage {
   frais_forfait: string | number
   vue: boolean
   produits?: ProduitCatalogue[]
+  checklist_items?: ChecklistItem[]
+  sejour?: { id: number; appartement: Appartement | null } | null
 }
 
 export type VoyageurType = 'adulte' | 'enfant'

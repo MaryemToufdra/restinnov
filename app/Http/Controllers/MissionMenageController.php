@@ -10,6 +10,83 @@ use Illuminate\Support\Facades\DB;
 
 class MissionMenageController extends Controller
 {
+    private const DETAIL_RELATIONS = ['sejour.appartement', 'agent', 'produits', 'checklistItems'];
+
+    /**
+     * "Mes missions du jour": missions assigned to a given menage agent
+     * that are still on their plate (a_faire or en_cours). Powers the
+     * agent workspace's mission list -- terminees/non_conformes never
+     * belong there.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'agent_id' => ['required', 'integer', 'exists:utilisateurs,id'],
+        ]);
+
+        $missions = MissionMenage::with(self::DETAIL_RELATIONS)
+            ->where('agent_id', $validated['agent_id'])
+            ->whereIn('statut', [MissionMenage::STATUT_A_FAIRE, MissionMenage::STATUT_EN_COURS])
+            ->orderBy('created_at')
+            ->get();
+
+        return response()->json($missions);
+    }
+
+    /**
+     * Full detail of a single mission, including its checklist.
+     */
+    public function show(MissionMenage $missionMenage): JsonResponse
+    {
+        return response()->json($missionMenage->load(self::DETAIL_RELATIONS));
+    }
+
+    /**
+     * The agent opening a mission's detail: dismisses its "Nouveau" badge
+     * (vue -> true) and, the first time, starts the clock on it
+     * (a_faire -> en_cours). Idempotent -- reopening an already-seen,
+     * already-en_cours mission is a no-op beyond returning its detail.
+     */
+    public function ouvrir(MissionMenage $missionMenage): JsonResponse
+    {
+        $updates = [];
+
+        if (! $missionMenage->vue) {
+            $updates['vue'] = true;
+        }
+
+        if ($missionMenage->statut === MissionMenage::STATUT_A_FAIRE) {
+            $updates['statut'] = MissionMenage::STATUT_EN_COURS;
+        }
+
+        if ($updates) {
+            $missionMenage->update($updates);
+        }
+
+        return response()->json($missionMenage->fresh(self::DETAIL_RELATIONS));
+    }
+
+    /**
+     * Marks a mission "conforme" once its whole checklist is checked off.
+     * A mission with no checklist items at all (no checklist_modele was
+     * assigned to the appartement) has nothing to block on, so it can
+     * always be marked terminee.
+     */
+    public function terminer(MissionMenage $missionMenage): JsonResponse
+    {
+        $resteACocher = $missionMenage->checklistItems()->where('coche', false)->exists();
+
+        if ($resteACocher) {
+            return response()->json([
+                'message' => 'Tous les éléments de la checklist doivent être cochés avant de marquer la mission terminée.',
+            ], 422);
+        }
+
+        $missionMenage->update(['statut' => MissionMenage::STATUT_CONFORME]);
+
+        return response()->json($missionMenage->fresh(self::DETAIL_RELATIONS));
+    }
+
     /**
      * Update the forfait and the catalogue products checked for a mission.
      */
@@ -31,7 +108,7 @@ class MissionMenageController extends Controller
             }
         });
 
-        return response()->json($missionMenage->fresh(['produits', 'agent']));
+        return response()->json($missionMenage->fresh(self::DETAIL_RELATIONS));
     }
 
     /**
@@ -44,7 +121,7 @@ class MissionMenageController extends Controller
             $missionMenage->update(['vue' => true]);
         }
 
-        return response()->json($missionMenage->fresh(['produits', 'agent']));
+        return response()->json($missionMenage->fresh(self::DETAIL_RELATIONS));
     }
 
     /**

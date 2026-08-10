@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import {
   createAppartement,
   createChecklistModele,
+  createChecklistModeleItem,
   createProduitCatalogue,
   createSejour,
   createUtilisateur,
+  deleteChecklistModeleItem,
+  deplacerChecklistModeleItem,
   fetchAppartements,
   fetchChecklistModeles,
   fetchDashboard,
@@ -27,6 +30,7 @@ import { DashboardSection } from './components/DashboardSection'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
 import { NouvelAgentForm } from './components/NouvelAgentForm'
 import { NouvelAgentMaintenanceForm } from './components/NouvelAgentMaintenanceForm'
+import { MesMissionsSection } from './components/MesMissionsSection'
 import { NouvelAppartementForm } from './components/NouvelAppartementForm'
 import { ProduitsSignalesSection } from './components/ProduitsSignalesSection'
 import { SejoursListeSection } from './components/SejoursListeSection'
@@ -49,6 +53,7 @@ type Tab =
   | 'appartement-liste'
   | 'menage-agent'
   | 'menage-catalogue'
+  | 'menage-mission'
   | 'maintenance-agent'
 
 interface NavGroup {
@@ -83,6 +88,7 @@ const NAV_GROUPS: NavGroup[] = [
     tabs: [
       ['menage-agent', 'Ajouter un agent ménage'],
       ['menage-catalogue', 'Catalogue ménage'],
+      ['menage-mission', 'Mes missions'],
     ],
     defaultTab: 'menage-agent',
   },
@@ -102,6 +108,7 @@ const SECTION_TITLES: Record<Tab, string> = {
   'appartement-liste': 'Appartements',
   'menage-agent': 'Ménage',
   'menage-catalogue': 'Ménage',
+  'menage-mission': 'Ménage',
   'maintenance-agent': 'Maintenance',
 }
 
@@ -125,6 +132,7 @@ function App() {
   const [editingAppartement, setEditingAppartement] = useState<Appartement | null>(null)
   const [pendingSejourId, setPendingSejourId] = useState<number | null>(null)
   const [pendingStatutFilter, setPendingStatutFilter] = useState<SejourStatut | ''>('')
+  const [selectedAgentMenageId, setSelectedAgentMenageId] = useState<number | null>(null)
 
   const navigateTo = (tab: Tab) => {
     setActiveTab(tab)
@@ -244,6 +252,27 @@ function App() {
     const modele = await createChecklistModele(nom)
     setChecklistModeles((current) => [...current, modele].sort((a, b) => a.nom.localeCompare(b.nom)))
     return modele
+  }
+
+  const handleAddChecklistModeleItem = async (checklistModeleId: number, libelle: string) => {
+    const item = await createChecklistModeleItem(checklistModeleId, libelle)
+    setChecklistModeles((current) =>
+      current.map((m) => (m.id === checklistModeleId ? { ...m, items: [...(m.items ?? []), item] } : m)),
+    )
+  }
+
+  const handleDeplacerChecklistModeleItem = async (itemId: number, direction: 'haut' | 'bas') => {
+    const updatedItems = await deplacerChecklistModeleItem(itemId, direction)
+    const checklistModeleId = updatedItems[0]?.checklist_modele_id
+    if (checklistModeleId == null) return
+    setChecklistModeles((current) => current.map((m) => (m.id === checklistModeleId ? { ...m, items: updatedItems } : m)))
+  }
+
+  const handleDeleteChecklistModeleItem = async (itemId: number) => {
+    await deleteChecklistModeleItem(itemId)
+    setChecklistModeles((current) =>
+      current.map((m) => ({ ...m, items: (m.items ?? []).filter((i) => i.id !== itemId) })),
+    )
   }
 
   const handleCreateUtilisateur = async (input: NewUtilisateurInput) => {
@@ -403,6 +432,9 @@ function App() {
               agentsMenage={agentsMenage}
               onSubmit={handleSubmitAppartement}
               onCreateChecklistModele={handleCreateChecklistModele}
+              onAddChecklistModeleItem={handleAddChecklistModeleItem}
+              onDeplacerChecklistModeleItem={handleDeplacerChecklistModeleItem}
+              onDeleteChecklistModeleItem={handleDeleteChecklistModeleItem}
               onCancel={handleCancelAppartementForm}
               appartementToEdit={editingAppartement}
             />
@@ -428,6 +460,15 @@ function App() {
                 onRejeter={handleRejeterProduitSignale}
               />
             </>
+          )}
+          {activeTab === 'menage-mission' && (
+            <MesMissionsSection
+              agentsMenage={agentsMenage}
+              catalogue={produitsCatalogue}
+              selectedAgentId={selectedAgentMenageId}
+              onSelectAgent={setSelectedAgentMenageId}
+              onChangerAgent={() => setSelectedAgentMenageId(null)}
+            />
           )}
           {activeTab === 'maintenance-agent' && (
             <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />

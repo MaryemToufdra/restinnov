@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { SejourCard } from './SejourCard'
 import type { Sejour } from '../types'
@@ -32,7 +32,7 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
 
 const noop = vi.fn().mockResolvedValue(undefined)
 
-function renderCard(sejour: Sejour, onMissionVue = noop) {
+function renderCard(sejour: Sejour) {
   return render(
     <SejourCard
       sejour={sejour}
@@ -42,7 +42,6 @@ function renderCard(sejour: Sejour, onMissionVue = noop) {
       onSignalerProduit={noop}
       onAddFraisMaintenance={noop}
       onDeleteFraisMaintenance={noop}
-      onMissionVue={onMissionVue}
     />,
   )
 }
@@ -53,7 +52,7 @@ describe('SejourCard', () => {
     expect(screen.getByTestId('sejour-reference')).toHaveTextContent('SEJ-0042')
   })
 
-  it('affiche le badge "Nouveau" quand la mission n\'a pas encore été vue', () => {
+  it('affiche le badge "Nouveau" quand la mission n\'a pas encore été vue par l\'agent', () => {
     renderCard(
       sejourFixture({
         mission_menage: {
@@ -89,48 +88,5 @@ describe('SejourCard', () => {
     )
 
     expect(screen.queryByTestId('mission-nouvelle-badge')).not.toBeInTheDocument()
-  })
-
-  it('marque la mission comme vue dès que la carte du séjour est affichée', async () => {
-    const onMissionVue = vi.fn().mockResolvedValue(undefined)
-    renderCard(
-      sejourFixture({
-        mission_menage: {
-          id: 10,
-          sejour_id: 1,
-          agent_id: 5,
-          statut: 'a_faire',
-          agent: { id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null },
-          frais_forfait: 0,
-          vue: false,
-          produits: [],
-        },
-      }),
-      onMissionVue,
-    )
-
-    await waitFor(() => expect(onMissionVue).toHaveBeenCalledWith(10))
-  })
-
-  it('ne rappelle pas onMissionVue quand la mission est déjà vue', async () => {
-    const onMissionVue = vi.fn().mockResolvedValue(undefined)
-    renderCard(
-      sejourFixture({
-        mission_menage: {
-          id: 10,
-          sejour_id: 1,
-          agent_id: 5,
-          statut: 'a_faire',
-          agent: { id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null },
-          frais_forfait: 0,
-          vue: true,
-          produits: [],
-        },
-      }),
-      onMissionVue,
-    )
-
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(onMissionVue).not.toHaveBeenCalled()
   })
 })

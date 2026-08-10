@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import type { NewAppartementInput } from '../api'
 import type { Agent, Appartement, ChecklistModele } from '../types'
+import { ChecklistModeleItemsEditor } from './ChecklistModeleItemsEditor'
 
 interface NouvelAppartementFormProps {
   checklistModeles: ChecklistModele[]
   agentsMenage: Agent[]
   onSubmit: (input: NewAppartementInput) => Promise<void>
   onCreateChecklistModele: (nom: string) => Promise<ChecklistModele>
+  onAddChecklistModeleItem: (checklistModeleId: number, libelle: string) => Promise<void>
+  onDeplacerChecklistModeleItem: (itemId: number, direction: 'haut' | 'bas') => Promise<void>
+  onDeleteChecklistModeleItem: (itemId: number) => Promise<void>
   onCancel?: () => void
   appartementToEdit?: Appartement | null
 }
@@ -20,6 +24,9 @@ export function NouvelAppartementForm({
   agentsMenage,
   onSubmit,
   onCreateChecklistModele,
+  onAddChecklistModeleItem,
+  onDeplacerChecklistModeleItem,
+  onDeleteChecklistModeleItem,
   onCancel,
   appartementToEdit,
 }: NouvelAppartementFormProps) {
@@ -230,6 +237,19 @@ export function NouvelAppartementForm({
             + Créer un nouveau modèle
           </button>
         )}
+
+        {checklistModeleId &&
+          (() => {
+            const selectedModele = checklistModeles.find((m) => m.id === Number(checklistModeleId))
+            return selectedModele ? (
+              <ChecklistModeleItemsEditor
+                checklistModele={selectedModele}
+                onAddItem={onAddChecklistModeleItem}
+                onDeplacerItem={onDeplacerChecklistModeleItem}
+                onDeleteItem={onDeleteChecklistModeleItem}
+              />
+            ) : null
+          })()}
       </div>
 
       <div>

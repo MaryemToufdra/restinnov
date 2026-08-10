@@ -1,0 +1,100 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+import { ChecklistModeleItemsEditor } from './ChecklistModeleItemsEditor'
+import type { ChecklistModele } from '../types'
+
+function modeleFixture(overrides: Partial<ChecklistModele> = {}): ChecklistModele {
+  return {
+    id: 1,
+    nom: 'Standard',
+    items: [
+      { id: 1, checklist_modele_id: 1, libelle: 'Item 1', ordre: 0 },
+      { id: 2, checklist_modele_id: 1, libelle: 'Item 2', ordre: 1 },
+    ],
+    ...overrides,
+  }
+}
+
+describe('ChecklistModeleItemsEditor', () => {
+  it('affiche les items existants dans l\'ordre', () => {
+    render(
+      <ChecklistModeleItemsEditor
+        checklistModele={modeleFixture()}
+        onAddItem={vi.fn()}
+        onDeplacerItem={vi.fn()}
+        onDeleteItem={vi.fn()}
+      />,
+    )
+
+    const items = screen.getAllByText(/Item \d/)
+    expect(items.map((el) => el.textContent)).toEqual(['Item 1', 'Item 2'])
+  })
+
+  it('affiche un message quand le modèle n\'a aucun item', () => {
+    render(
+      <ChecklistModeleItemsEditor
+        checklistModele={modeleFixture({ items: [] })}
+        onAddItem={vi.fn()}
+        onDeplacerItem={vi.fn()}
+        onDeleteItem={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/aucun item/i)).toBeInTheDocument()
+  })
+
+  it('ajoute un item via le champ texte', async () => {
+    const user = userEvent.setup()
+    const onAddItem = vi.fn().mockResolvedValue(undefined)
+    render(
+      <ChecklistModeleItemsEditor
+        checklistModele={modeleFixture()}
+        onAddItem={onAddItem}
+        onDeplacerItem={vi.fn()}
+        onDeleteItem={vi.fn()}
+      />,
+    )
+
+    await user.type(screen.getByLabelText(/nouvel item pour standard/i), 'Nettoyer la salle de bain')
+    await user.click(screen.getByRole('button', { name: /ajouter/i }))
+
+    expect(onAddItem).toHaveBeenCalledWith(1, 'Nettoyer la salle de bain')
+  })
+
+  it('le bouton monter est désactivé sur le premier item, descendre sur le dernier', () => {
+    render(
+      <ChecklistModeleItemsEditor
+        checklistModele={modeleFixture()}
+        onAddItem={vi.fn()}
+        onDeplacerItem={vi.fn()}
+        onDeleteItem={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /monter "item 1"/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /descendre "item 2"/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /descendre "item 1"/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /monter "item 2"/i })).toBeEnabled()
+  })
+
+  it('déplacer et retirer un item appellent les callbacks avec le bon id', async () => {
+    const user = userEvent.setup()
+    const onDeplacerItem = vi.fn()
+    const onDeleteItem = vi.fn()
+    render(
+      <ChecklistModeleItemsEditor
+        checklistModele={modeleFixture()}
+        onAddItem={vi.fn()}
+        onDeplacerItem={onDeplacerItem}
+        onDeleteItem={onDeleteItem}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /descendre "item 1"/i }))
+    expect(onDeplacerItem).toHaveBeenCalledWith(1, 'bas')
+
+    await user.click(screen.getByRole('button', { name: /retirer "item 2"/i }))
+    expect(onDeleteItem).toHaveBeenCalledWith(2)
+  })
+})
