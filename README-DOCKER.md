@@ -101,6 +101,20 @@ Without this service running, those commands still exist and can be run
 by hand (`docker compose exec app php artisan sejours:activer-en-cours`),
 but nothing triggers them on a schedule.
 
+**Catch-up on startup.** Every time a container boots from this image
+(`app` and `scheduler` alike), the entrypoint (`docker/php/entrypoint.sh`)
+runs both commands once, right before starting the container's main
+process. This means `docker compose up` itself automatically catches up
+any overdue séjours as soon as it starts — useful in local dev, where it's
+common to stop Docker (or your laptop) for hours or days, causing
+`scheduler` to miss its runs entirely while it's down. As soon as the
+container is up again, any séjour that should have been activated or
+checked out while you were away gets caught up immediately, without
+waiting for the next scheduled run. Both commands are idempotent (they do
+nothing if no séjour is overdue), so running them unconditionally on every
+start is always safe. `scheduler` then takes over for the normal, ongoing
+daily schedule described above.
+
 The database's data lives in the named volume `dbdata` — it survives
 `docker compose down` and container restarts. It is only removed if you
 explicitly run `docker compose down -v`.
