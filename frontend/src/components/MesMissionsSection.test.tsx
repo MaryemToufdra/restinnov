@@ -1,13 +1,15 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthProvider } from '../auth/AuthContext'
 import { MesMissionsSection } from './MesMissionsSection'
-import type { Agent, MissionMenage } from '../types'
+import type { MissionMenage, ProduitCatalogue } from '../types'
 
-const agentsMenage: Agent[] = [
-  { id: 1, nom: 'Fatima Z.', role: 'menage', telephone: null },
-  { id: 2, nom: 'Karim B.', role: 'menage', telephone: null },
-]
+const CURRENT_AGENT = { id: 1, nom: 'Fatima Z.', role: 'menage' as const }
+
+function seedLoggedInAgent() {
+  localStorage.setItem('auth_token', 'fake-token')
+  localStorage.setItem('auth_user', JSON.stringify(CURRENT_AGENT))
+}
 
 function missionFixture(overrides: Partial<MissionMenage> = {}): MissionMenage {
   return {
@@ -15,123 +17,96 @@ function missionFixture(overrides: Partial<MissionMenage> = {}): MissionMenage {
     sejour_id: 1,
     agent_id: 1,
     statut: 'a_faire',
-    agent: agentsMenage[0],
+    agent: { id: 1, nom: 'Fatima Z.', role: 'menage', telephone: null },
     frais_forfait: 0,
     vue: false,
     produits: [],
     checklist_items: [],
-    sejour: { id: 1, appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'occupe', photo_principale: null, checklist_modele_id: null, agent_habituel_id: null } },
+    sejour: {
+      id: 1,
+      appartement: {
+        id: 1,
+        nom: 'Loft Bastille',
+        adresse: '12 rue de la Roquette',
+        statut: 'occupe',
+        photo_principale: null,
+        checklist_modele_id: null,
+        agent_habituel_id: null,
+      },
+    },
     ...overrides,
   }
 }
 
 function mockFetch(missions: MissionMenage[]) {
-  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  return vi.fn(async (input: RequestInfo | URL) => {
     const url = new URL(String(input))
-    const method = init?.method ?? 'GET'
 
-    if (url.pathname === '/api/mission-menages' && method === 'GET') {
+    if (url.pathname === '/api/mission-menages') {
       const agentId = Number(url.searchParams.get('agent_id'))
       return new Response(JSON.stringify(missions.filter((m) => m.agent_id === agentId)), { status: 200 })
     }
 
-    throw new Error(`Unhandled request: ${method} ${url.pathname}`)
+    throw new Error(`Unhandled request: ${url.pathname}`)
   })
+}
+
+function renderWithAuth(catalogue: ProduitCatalogue[] = []) {
+  return render(
+    <AuthProvider>
+      <MesMissionsSection catalogue={catalogue} />
+    </AuthProvider>,
+  )
 }
 
 describe('MesMissionsSection', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    localStorage.clear()
   })
 
-  it('affiche le sélecteur d\'agent quand aucun agent n\'est sélectionné', () => {
-    globalThis.fetch = mockFetch([]) as typeof fetch
-    const onSelectAgent = vi.fn()
-
-    render(
-      <MesMissionsSection
-        agentsMenage={agentsMenage}
-        catalogue={[]}
-        selectedAgentId={null}
-        onSelectAgent={onSelectAgent}
-        onChangerAgent={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByText('Se connecter en tant que')).toBeInTheDocument()
-  })
-
-  it('charge et affiche les missions a_faire/en_cours de l\'agent sélectionné', async () => {
+  it("charge et affiche les missions a_faire/en_cours de l'agent connecté", async () => {
+    seedLoggedInAgent()
     globalThis.fetch = mockFetch([
       missionFixture({ id: 10, vue: false }),
       missionFixture({ id: 11, agent_id: 2, vue: true }),
     ]) as typeof fetch
 
-    render(
-      <MesMissionsSection
-        agentsMenage={agentsMenage}
-        catalogue={[]}
-        selectedAgentId={1}
-        onSelectAgent={vi.fn()}
-        onChangerAgent={vi.fn()}
-      />,
-    )
+    renderWithAuth()
 
     expect(await screen.findByText('Loft Bastille')).toBeInTheDocument()
     expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
     expect(screen.getByTestId('mission-nouvelle-badge-10')).toBeInTheDocument()
+    expect(screen.getByText('Fatima Z.')).toBeInTheDocument()
+  })
+
+  it('appelle /api/mission-menages avec l\'id de l\'agent connecté (pas de sélecteur)', async () => {
+    seedLoggedInAgent()
+    const fetchMock = mockFetch([missionFixture()])
+    globalThis.fetch = fetchMock as typeof fetch
+
+    renderWithAuth()
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(String(fetchMock.mock.calls[0][0])).toContain('agent_id=1')
+    expect(screen.queryByText('Se connecter en tant que')).not.toBeInTheDocument()
   })
 
   it('n\'affiche pas le badge "Nouveau" pour une mission déjà vue', async () => {
+    seedLoggedInAgent()
     globalThis.fetch = mockFetch([missionFixture({ id: 10, vue: true })]) as typeof fetch
 
-    render(
-      <MesMissionsSection
-        agentsMenage={agentsMenage}
-        catalogue={[]}
-        selectedAgentId={1}
-        onSelectAgent={vi.fn()}
-        onChangerAgent={vi.fn()}
-      />,
-    )
+    renderWithAuth()
 
     await screen.findByText('Loft Bastille')
     expect(screen.queryByTestId('mission-nouvelle-badge-10')).not.toBeInTheDocument()
   })
 
-  it('le bouton "Changer d\'agent" appelle onChangerAgent', async () => {
-    const user = userEvent.setup()
-    globalThis.fetch = mockFetch([]) as typeof fetch
-    const onChangerAgent = vi.fn()
-
-    render(
-      <MesMissionsSection
-        agentsMenage={agentsMenage}
-        catalogue={[]}
-        selectedAgentId={1}
-        onSelectAgent={vi.fn()}
-        onChangerAgent={onChangerAgent}
-      />,
-    )
-
-    await waitFor(() => expect(screen.queryByText('Chargement...')).not.toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: /changer d'agent/i }))
-
-    expect(onChangerAgent).toHaveBeenCalled()
-  })
-
   it("affiche un message quand l'agent n'a aucune mission", async () => {
+    seedLoggedInAgent()
     globalThis.fetch = mockFetch([]) as typeof fetch
 
-    render(
-      <MesMissionsSection
-        agentsMenage={agentsMenage}
-        catalogue={[]}
-        selectedAgentId={1}
-        onSelectAgent={vi.fn()}
-        onChangerAgent={vi.fn()}
-      />,
-    )
+    renderWithAuth()
 
     expect(await screen.findByText(/aucune mission/i)).toBeInTheDocument()
   })

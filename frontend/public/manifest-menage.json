@@ -1,0 +1,19 @@
+{
+  "id": "/menage",
+  "name": "Ménage — Mes missions",
+  "short_name": "Ménage",
+  "description": "Espace agent de ménage : missions du jour et checklists.",
+  "start_url": "/menage",
+  "scope": "/menage",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesMissionAccess;
 use App\Models\ChecklistItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ChecklistItemController extends Controller
 {
+    use AuthorizesMissionAccess;
+
     /**
      * Toggle a checklist item and/or attach a photo to it.
      */
     public function update(Request $request, ChecklistItem $checklistItem): JsonResponse
     {
+        $this->authorizeMissionAccess($request, $checklistItem->missionMenage);
+
         // "coche" is validated loosely (not Laravel's `boolean` rule) because
         // this endpoint accepts multipart/form-data when a photo is attached
         // (consistent with AppartementController's POST + _method=PATCH

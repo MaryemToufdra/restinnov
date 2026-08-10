@@ -121,7 +121,7 @@ class UtilisateurCreationTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors('appartement_ids.0');
-        $this->assertDatabaseCount('utilisateurs', 0);
+        $this->assertDatabaseMissing('utilisateurs', ['nom' => 'Fatima Z.']);
     }
 
     public function test_it_hashes_the_password_and_never_stores_it_in_plaintext(): void

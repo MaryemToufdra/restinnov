@@ -30,10 +30,11 @@ import { DashboardSection } from './components/DashboardSection'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
 import { NouvelAgentForm } from './components/NouvelAgentForm'
 import { NouvelAgentMaintenanceForm } from './components/NouvelAgentMaintenanceForm'
-import { MesMissionsSection } from './components/MesMissionsSection'
 import { NouvelAppartementForm } from './components/NouvelAppartementForm'
 import { ProduitsSignalesSection } from './components/ProduitsSignalesSection'
 import { SejoursListeSection } from './components/SejoursListeSection'
+import { useAuth } from './auth/AuthContext'
+import { usePwaIdentity } from './pwa/usePwaIdentity'
 import type {
   Agent,
   Appartement,
@@ -53,7 +54,6 @@ type Tab =
   | 'appartement-liste'
   | 'menage-agent'
   | 'menage-catalogue'
-  | 'menage-mission'
   | 'maintenance-agent'
 
 interface NavGroup {
@@ -88,7 +88,6 @@ const NAV_GROUPS: NavGroup[] = [
     tabs: [
       ['menage-agent', 'Ajouter un agent ménage'],
       ['menage-catalogue', 'Catalogue ménage'],
-      ['menage-mission', 'Mes missions'],
     ],
     defaultTab: 'menage-agent',
   },
@@ -108,7 +107,6 @@ const SECTION_TITLES: Record<Tab, string> = {
   'appartement-liste': 'Appartements',
   'menage-agent': 'Ménage',
   'menage-catalogue': 'Ménage',
-  'menage-mission': 'Ménage',
   'maintenance-agent': 'Maintenance',
 }
 
@@ -132,7 +130,9 @@ function App() {
   const [editingAppartement, setEditingAppartement] = useState<Appartement | null>(null)
   const [pendingSejourId, setPendingSejourId] = useState<number | null>(null)
   const [pendingStatutFilter, setPendingStatutFilter] = useState<SejourStatut | ''>('')
-  const [selectedAgentMenageId, setSelectedAgentMenageId] = useState<number | null>(null)
+  const { logout } = useAuth()
+
+  usePwaIdentity('manager')
 
   const navigateTo = (tab: Tab) => {
     setActiveTab(tab)
@@ -327,7 +327,7 @@ function App() {
 
   return (
     <div className="flex min-h-screen">
-      <nav className="w-64 shrink-0 border-r border-gray-200 bg-white px-4 py-8">
+      <nav className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white px-4 py-8">
         <h1 className="px-2 text-xl font-bold text-gray-900">Séjours & ménage</h1>
         <ul className="mt-6 space-y-1">
           <li>
@@ -388,6 +388,16 @@ function App() {
             )
           })}
         </ul>
+
+        <button
+          type="button"
+          onClick={() => {
+            void logout()
+          }}
+          className="mt-auto rounded-md px-3 py-2 text-left text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+        >
+          Déconnexion
+        </button>
       </nav>
 
       <main className="min-w-0 flex-1 px-6 py-8">
@@ -460,15 +470,6 @@ function App() {
                 onRejeter={handleRejeterProduitSignale}
               />
             </>
-          )}
-          {activeTab === 'menage-mission' && (
-            <MesMissionsSection
-              agentsMenage={agentsMenage}
-              catalogue={produitsCatalogue}
-              selectedAgentId={selectedAgentMenageId}
-              onSelectAgent={setSelectedAgentMenageId}
-              onChangerAgent={() => setSelectedAgentMenageId(null)}
-            />
           )}
           {activeTab === 'maintenance-agent' && (
             <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />

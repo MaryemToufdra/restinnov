@@ -1,49 +1,36 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../auth/AuthContext'
 import { fetchMissionsAgent } from '../api'
-import type { Agent, MissionMenage, ProduitCatalogue } from '../types'
-import { AgentSelector } from './AgentSelector'
+import type { MissionMenage, ProduitCatalogue } from '../types'
 import { MissionDetailAgent } from './MissionDetailAgent'
 
 interface MesMissionsSectionProps {
-  agentsMenage: Agent[]
   catalogue: ProduitCatalogue[]
-  selectedAgentId: number | null
-  onSelectAgent: (agentId: number) => void
-  onChangerAgent: () => void
 }
 
-export function MesMissionsSection({
-  agentsMenage,
-  catalogue,
-  selectedAgentId,
-  onSelectAgent,
-  onChangerAgent,
-}: MesMissionsSectionProps) {
+export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
+  const { user } = useAuth()
   const [missions, setMissions] = useState<MissionMenage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null)
 
-  const agent = agentsMenage.find((a) => a.id === selectedAgentId) ?? null
-
-  const chargerMissions = (agentId: number) => {
+  const chargerMissions = () => {
+    if (!user) return
     setLoading(true)
     setError(null)
-    fetchMissionsAgent(agentId)
+    fetchMissionsAgent(user.id)
       .then(setMissions)
       .catch((err) => setError(err instanceof Error ? err.message : 'Impossible de charger les missions.'))
       .finally(() => setLoading(false))
   }
 
   useEffect(() => {
-    if (selectedAgentId == null) return
-    chargerMissions(selectedAgentId)
+    chargerMissions()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAgentId])
+  }, [user?.id])
 
-  if (selectedAgentId == null || !agent) {
-    return <AgentSelector agentsMenage={agentsMenage} onSelect={onSelectAgent} />
-  }
+  if (!user) return null
 
   if (selectedMissionId != null) {
     return (
@@ -52,11 +39,11 @@ export function MesMissionsSection({
         catalogue={catalogue}
         onBack={() => {
           setSelectedMissionId(null)
-          chargerMissions(selectedAgentId)
+          chargerMissions()
         }}
         onMissionTerminee={() => {
           setSelectedMissionId(null)
-          chargerMissions(selectedAgentId)
+          chargerMissions()
         }}
       />
     )
@@ -64,18 +51,9 @@ export function MesMissionsSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Mes missions du jour</h3>
-          <p className="text-sm text-gray-500">{agent.nom}</p>
-        </div>
-        <button
-          type="button"
-          onClick={onChangerAgent}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Changer d'agent
-        </button>
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900">Mes missions du jour</h3>
+        <p className="text-sm text-gray-500">{user.nom}</p>
       </div>
 
       {loading && <p className="mt-4 text-sm text-gray-500">Chargement...</p>}

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppartementController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChecklistItemController;
 use App\Http\Controllers\ChecklistModeleController;
 use App\Http\Controllers\ChecklistModeleItemController;
@@ -13,43 +14,65 @@ use App\Http\Controllers\SejourController;
 use App\Http\Controllers\UtilisateurController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/dashboard', [DashboardController::class, 'index']);
+Route::post('/login', [AuthController::class, 'login']);
 
-Route::get('/appartements', [AppartementController::class, 'index']);
-Route::post('/appartements', [AppartementController::class, 'store']);
-Route::patch('/appartements/{appartement}', [AppartementController::class, 'update']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
 
-Route::get('/checklist-modeles', [ChecklistModeleController::class, 'index']);
-Route::post('/checklist-modeles', [ChecklistModeleController::class, 'store']);
-Route::post('/checklist-modeles/{checklistModele}/items', [ChecklistModeleItemController::class, 'store']);
-Route::patch('/checklist-modele-items/{checklistModeleItem}/deplacer', [ChecklistModeleItemController::class, 'deplacer']);
-Route::delete('/checklist-modele-items/{checklistModeleItem}', [ChecklistModeleItemController::class, 'destroy']);
+    // Manager-only: séjours/appartements/agents/checklist templates/
+    // dashboard/maintenance-cost management and the moderation side of the
+    // produits catalogue.
+    Route::middleware('role:manager')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index']);
 
-Route::get('/utilisateurs', [UtilisateurController::class, 'index']);
-Route::post('/utilisateurs', [UtilisateurController::class, 'store']);
+        Route::get('/appartements', [AppartementController::class, 'index']);
+        Route::post('/appartements', [AppartementController::class, 'store']);
+        Route::patch('/appartements/{appartement}', [AppartementController::class, 'update']);
 
-Route::get('/sejours', [SejourController::class, 'index']);
-Route::get('/sejours/{sejour}', [SejourController::class, 'show']);
-Route::post('/sejours', [SejourController::class, 'store']);
-Route::patch('/sejours/{sejour}', [SejourController::class, 'update']);
-Route::patch('/sejours/{sejour}/checkout', [SejourController::class, 'checkout']);
+        Route::get('/checklist-modeles', [ChecklistModeleController::class, 'index']);
+        Route::post('/checklist-modeles', [ChecklistModeleController::class, 'store']);
+        Route::post('/checklist-modeles/{checklistModele}/items', [ChecklistModeleItemController::class, 'store']);
+        Route::patch('/checklist-modele-items/{checklistModeleItem}/deplacer', [ChecklistModeleItemController::class, 'deplacer']);
+        Route::delete('/checklist-modele-items/{checklistModeleItem}', [ChecklistModeleItemController::class, 'destroy']);
 
-Route::post('/sejours/{sejour}/frais-maintenance', [FraisMaintenanceController::class, 'store']);
-Route::delete('/frais-maintenance/{fraisMaintenance}', [FraisMaintenanceController::class, 'destroy']);
+        Route::get('/utilisateurs', [UtilisateurController::class, 'index']);
+        Route::post('/utilisateurs', [UtilisateurController::class, 'store']);
 
-Route::get('/produits-catalogue', [ProduitCatalogueController::class, 'index']);
-Route::post('/produits-catalogue', [ProduitCatalogueController::class, 'store']);
+        Route::get('/sejours', [SejourController::class, 'index']);
+        Route::get('/sejours/{sejour}', [SejourController::class, 'show']);
+        Route::post('/sejours', [SejourController::class, 'store']);
+        Route::patch('/sejours/{sejour}', [SejourController::class, 'update']);
+        Route::patch('/sejours/{sejour}/checkout', [SejourController::class, 'checkout']);
 
-Route::get('/mission-menages', [MissionMenageController::class, 'index']);
-Route::get('/mission-menages/{missionMenage}', [MissionMenageController::class, 'show']);
-Route::patch('/mission-menages/{missionMenage}/produits', [MissionMenageController::class, 'updateProduits']);
-Route::patch('/mission-menages/{missionMenage}/vue', [MissionMenageController::class, 'marquerVue']);
-Route::patch('/mission-menages/{missionMenage}/ouvrir', [MissionMenageController::class, 'ouvrir']);
-Route::patch('/mission-menages/{missionMenage}/terminer', [MissionMenageController::class, 'terminer']);
-Route::post('/mission-menages/{missionMenage}/produits-signales', [MissionMenageController::class, 'signalerProduit']);
+        Route::post('/sejours/{sejour}/frais-maintenance', [FraisMaintenanceController::class, 'store']);
+        Route::delete('/frais-maintenance/{fraisMaintenance}', [FraisMaintenanceController::class, 'destroy']);
 
-Route::patch('/checklist-items/{checklistItem}', [ChecklistItemController::class, 'update']);
+        Route::post('/produits-catalogue', [ProduitCatalogueController::class, 'store']);
 
-Route::get('/produits-signales', [ProduitSignaleController::class, 'index']);
-Route::patch('/produits-signales/{produitSignale}/valider', [ProduitSignaleController::class, 'valider']);
-Route::patch('/produits-signales/{produitSignale}/rejeter', [ProduitSignaleController::class, 'rejeter']);
+        Route::get('/produits-signales', [ProduitSignaleController::class, 'index']);
+        Route::patch('/produits-signales/{produitSignale}/valider', [ProduitSignaleController::class, 'valider']);
+        Route::patch('/produits-signales/{produitSignale}/rejeter', [ProduitSignaleController::class, 'rejeter']);
+    });
+
+    // "menage" (and "manager") -- the cleaning mission workspace: checklist
+    // execution and the frais-de-menage flow (forfait/produits/signalement).
+    // Prepared the same way for "maintenance" below, ready for whenever that
+    // agent workspace gets built -- no maintenance routes exist yet.
+    Route::middleware('role:menage,manager')->group(function () {
+        Route::get('/produits-catalogue', [ProduitCatalogueController::class, 'index']);
+
+        Route::get('/mission-menages', [MissionMenageController::class, 'index']);
+        Route::get('/mission-menages/{missionMenage}', [MissionMenageController::class, 'show']);
+        Route::patch('/mission-menages/{missionMenage}/produits', [MissionMenageController::class, 'updateProduits']);
+        Route::patch('/mission-menages/{missionMenage}/vue', [MissionMenageController::class, 'marquerVue']);
+        Route::patch('/mission-menages/{missionMenage}/ouvrir', [MissionMenageController::class, 'ouvrir']);
+        Route::patch('/mission-menages/{missionMenage}/terminer', [MissionMenageController::class, 'terminer']);
+        Route::post('/mission-menages/{missionMenage}/produits-signales', [MissionMenageController::class, 'signalerProduit']);
+
+        Route::patch('/checklist-items/{checklistItem}', [ChecklistItemController::class, 'update']);
+    });
+
+    // Route::middleware('role:maintenance,manager')->group(function () {
+    //     // No maintenance agent workspace yet -- routes land here once it exists.
+    // });
+});

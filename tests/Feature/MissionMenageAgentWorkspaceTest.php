@@ -198,4 +198,77 @@ class MissionMenageAgentWorkspaceTest extends TestCase
         $response->assertJsonPath('coche', true);
         $this->assertNotNull($response->json('photo_url'));
     }
+
+    // --- ownership: a "menage" account may only act on its own missions ---
+
+    public function test_a_menage_account_always_gets_its_own_missions_regardless_of_the_agent_id_query_param(): void
+    {
+        $appartement = $this->appartement();
+        $moi = $this->actingAsMenage();
+        $autreAgent = $this->agent();
+
+        $maMission = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $moi->id, 'statut' => 'a_faire']);
+        MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $autreAgent->id, 'statut' => 'a_faire']);
+
+        $response = $this->getJson("/api/mission-menages?agent_id={$autreAgent->id}");
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $maMission->id);
+    }
+
+    public function test_a_menage_account_cannot_view_another_agents_mission(): void
+    {
+        $appartement = $this->appartement();
+        $autreAgent = $this->agent();
+        $leurMission = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $autreAgent->id, 'statut' => 'a_faire']);
+
+        $this->actingAsMenage();
+
+        $response = $this->getJson("/api/mission-menages/{$leurMission->id}");
+
+        $response->assertStatus(403);
+    }
+
+    public function test_a_menage_account_cannot_open_another_agents_mission(): void
+    {
+        $appartement = $this->appartement();
+        $autreAgent = $this->agent();
+        $leurMission = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $autreAgent->id, 'statut' => 'a_faire']);
+
+        $this->actingAsMenage();
+
+        $response = $this->patchJson("/api/mission-menages/{$leurMission->id}/ouvrir");
+
+        $response->assertStatus(403);
+        $this->assertDatabaseHas('mission_menages', ['id' => $leurMission->id, 'statut' => 'a_faire', 'vue' => false]);
+    }
+
+    public function test_a_menage_account_cannot_toggle_a_checklist_item_on_another_agents_mission(): void
+    {
+        $appartement = $this->appartement();
+        $autreAgent = $this->agent();
+        $leurMission = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $autreAgent->id, 'statut' => 'en_cours']);
+        $item = ChecklistItem::create(['mission_menage_id' => $leurMission->id, 'libelle' => 'Item 1', 'coche' => false, 'ordre' => 0]);
+
+        $this->actingAsMenage();
+
+        $response = $this->patchJson("/api/checklist-items/{$item->id}", ['coche' => true]);
+
+        $response->assertStatus(403);
+        $this->assertDatabaseHas('checklist_items', ['id' => $item->id, 'coche' => false]);
+    }
+
+    public function test_a_manager_account_can_view_and_act_on_any_agents_mission(): void
+    {
+        $appartement = $this->appartement();
+        $agent = $this->agent();
+        $mission = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $agent->id, 'statut' => 'a_faire']);
+
+        $this->actingAsManager();
+
+        $response = $this->patchJson("/api/mission-menages/{$mission->id}/ouvrir");
+
+        $response->assertOk();
+    }
 }
