@@ -52,6 +52,38 @@ class CheckoutAutomatiqueCommandTest extends TestCase
         $this->assertDatabaseMissing('mission_menages', ['sejour_id' => $sejourDemain->id]);
     }
 
+    public function test_it_checks_out_en_cours_sejours_whose_departure_date_has_already_passed(): void
+    {
+        // Simulates a missed run (e.g. scheduler container was down for a
+        // few days): the sejour's date_depart is in the past, but it never
+        // got checked out because no run of this command happened in the
+        // meantime.
+        $appartement = Appartement::create([
+            'nom' => 'Loft Bastille',
+            'adresse' => '12 rue de la Roquette, Paris',
+            'statut' => 'disponible',
+        ]);
+        $agent = Utilisateur::create(['nom' => 'Fatima Z.', 'role' => Utilisateur::ROLE_MENAGE]);
+
+        $sejourEnRetard = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => now()->subDays(6)->toDateString(),
+            'date_depart' => now()->subDays(3)->toDateString(),
+            'nom_voyageur' => 'Jean Dupont',
+            'statut' => Sejour::STATUT_EN_COURS,
+        ]);
+
+        $this->artisan('sejours:checkout-automatique')->assertSuccessful();
+
+        $sejourEnRetard->refresh();
+        $this->assertSame(Sejour::STATUT_TERMINE, $sejourEnRetard->statut);
+        $this->assertDatabaseHas('mission_menages', [
+            'sejour_id' => $sejourEnRetard->id,
+            'agent_id' => $agent->id,
+            'statut' => 'a_faire',
+        ]);
+    }
+
     public function test_it_ignores_a_venir_sejours_even_if_departure_date_is_today(): void
     {
         $appartement = Appartement::create([

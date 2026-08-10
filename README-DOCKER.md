@@ -69,8 +69,9 @@ run on a real clock:
 - `sejours:activer-en-cours` (daily) — moves "à venir" séjours to "en cours"
   once their arrival date has passed.
 - `sejours:checkout-automatique` (daily at 11:00) — checks out "en cours"
-  séjours departing today, exactly like the manual "Confirmer le checkout"
-  button.
+  séjours whose departure date is today or already passed (catches up on
+  missed days, e.g. if `scheduler` was down), exactly like the manual
+  "Confirmer le checkout" button.
 
 Without this service running, those commands still exist and can be run
 by hand (`docker compose exec app php artisan sejours:activer-en-cours`),
