@@ -325,7 +325,7 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel, sejourToEd
           step="0.01"
           value={montantMad}
           onChange={(e) => setMontantMad(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
         {montantParNuit !== null && (
           <p className="mt-1 text-sm text-gray-600" data-testid="montant-par-nuit">

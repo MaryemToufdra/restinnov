@@ -349,6 +349,26 @@ function App() {
     setProduitsSignales((current) => current.filter((p) => p.id !== id))
   }
 
+  // Both the sidebar sub-item clicks and toggleGroup's default-tab jump can
+  // land directly on a create/edit tab without going through the dedicated
+  // "+ Nouveau"/pencil handlers (setEditingX(...) + navigateTo(...)) that
+  // normally keep a "creer" tab's form in sync with what's highlighted.
+  // Without this, e.g. clicking "Créer un séjour" directly while an edit
+  // was in progress left editingSejour set, so the form still showed
+  // "Modifier le séjour" -- highlighted entry and displayed screen no
+  // longer matched. "menage-agent" is included because it's also the
+  // "menage" group's defaultTab, so toggleGroup can jump there too.
+  const clearEditingStateFor = (tab: Tab) => {
+    if (tab === 'sejour-creer') setEditingSejour(null)
+    if (tab === 'appartement-creer') setEditingAppartement(null)
+    if (tab === 'menage-agent') setEditingUtilisateur(null)
+  }
+
+  const handleSidebarNavigate = (tab: Tab) => {
+    clearEditingStateFor(tab)
+    navigateTo(tab)
+  }
+
   const toggleGroup = (group: NavGroup) => {
     if (expandedGroup === group.key) {
       setExpandedGroup(null)
@@ -357,6 +377,7 @@ function App() {
 
     setExpandedGroup(group.key)
     if (groupKeyForTab(activeTab) !== group.key) {
+      clearEditingStateFor(group.defaultTab)
       setActiveTab(group.defaultTab)
     }
   }
@@ -407,7 +428,7 @@ function App() {
                       <li key={tab}>
                         <button
                           type="button"
-                          onClick={() => navigateTo(tab)}
+                          onClick={() => handleSidebarNavigate(tab)}
                           className={`block w-full rounded-md px-3 py-1.5 text-left text-sm ${
                             activeTab === tab
                               ? 'bg-indigo-50 text-indigo-600 font-medium'
