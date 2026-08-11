@@ -17,6 +17,7 @@ import {
   rejeterProduitSignale,
   updateAppartement,
   updateSejour,
+  updateUtilisateur,
   validerProduitSignale,
   type NewAppartementInput,
   type NewProduitCatalogueInput,
@@ -24,6 +25,7 @@ import {
   type NewUtilisateurInput,
   type ValiderProduitSignaleInput,
 } from './api'
+import { AgentsMenageListeSection } from './components/AgentsMenageListeSection'
 import { AppartementsListeSection } from './components/AppartementsListeSection'
 import { CatalogueProduitsSection } from './components/CatalogueProduitsSection'
 import { DashboardSection } from './components/DashboardSection'
@@ -53,6 +55,7 @@ type Tab =
   | 'appartement-creer'
   | 'appartement-liste'
   | 'menage-agent'
+  | 'menage-agents-liste'
   | 'menage-catalogue'
   | 'maintenance-agent'
 
@@ -87,6 +90,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Ménage',
     tabs: [
       ['menage-agent', 'Ajouter un agent ménage'],
+      ['menage-agents-liste', 'Liste des agents'],
       ['menage-catalogue', 'Catalogue ménage'],
     ],
     defaultTab: 'menage-agent',
@@ -106,6 +110,7 @@ const SECTION_TITLES: Record<Tab, string> = {
   'appartement-creer': 'Appartements',
   'appartement-liste': 'Appartements',
   'menage-agent': 'Ménage',
+  'menage-agents-liste': 'Ménage',
   'menage-catalogue': 'Ménage',
   'maintenance-agent': 'Maintenance',
 }
@@ -128,6 +133,7 @@ function App() {
   const [dashboardError, setDashboardError] = useState<string | null>(null)
   const [editingSejour, setEditingSejour] = useState<Sejour | null>(null)
   const [editingAppartement, setEditingAppartement] = useState<Appartement | null>(null)
+  const [editingUtilisateur, setEditingUtilisateur] = useState<Agent | null>(null)
   const [pendingSejourId, setPendingSejourId] = useState<number | null>(null)
   const [pendingStatutFilter, setPendingStatutFilter] = useState<SejourStatut | ''>('')
   const { logout } = useAuth()
@@ -158,7 +164,7 @@ function App() {
         await Promise.all([
           fetchAppartements(),
           fetchChecklistModeles(),
-          fetchUtilisateurs('menage'),
+          fetchUtilisateurs({ role: 'menage' }),
           fetchProduitsCatalogue(),
           fetchProduitsSignales('en_attente'),
         ])
@@ -291,6 +297,36 @@ function App() {
         ),
       )
     }
+  }
+
+  const handleSubmitUtilisateur = async (input: NewUtilisateurInput) => {
+    if (editingUtilisateur) {
+      const updated = await updateUtilisateur(editingUtilisateur.id, {
+        nom: input.nom,
+        telephone: input.telephone,
+        adresse: input.adresse ?? null,
+        password: input.password ?? null,
+      })
+      setAgentsMenage((current) =>
+        current.map((a) => (a.id === updated.id ? updated : a)).sort((a, b) => a.nom.localeCompare(b.nom)),
+      )
+      setEditingUtilisateur(null)
+      navigateTo('menage-agents-liste')
+    } else {
+      await handleCreateUtilisateur(input)
+    }
+  }
+
+  const handleCancelUtilisateurForm = () => {
+    if (editingUtilisateur) {
+      setEditingUtilisateur(null)
+      navigateTo('menage-agents-liste')
+    }
+  }
+
+  const handleEditUtilisateur = (agent: Agent) => {
+    setEditingUtilisateur(agent)
+    navigateTo('menage-agent')
   }
 
   const handleCreateProduitCatalogue = async (input: NewProduitCatalogueInput) => {
@@ -459,7 +495,15 @@ function App() {
             />
           )}
           {activeTab === 'menage-agent' && (
-            <NouvelAgentForm appartements={appartements} onSubmit={handleCreateUtilisateur} />
+            <NouvelAgentForm
+              appartements={appartements}
+              onSubmit={handleSubmitUtilisateur}
+              onCancel={handleCancelUtilisateurForm}
+              agentToEdit={editingUtilisateur}
+            />
+          )}
+          {activeTab === 'menage-agents-liste' && (
+            <AgentsMenageListeSection onEditAgent={handleEditUtilisateur} onAgentsChanged={loadData} />
           )}
           {activeTab === 'menage-catalogue' && (
             <>

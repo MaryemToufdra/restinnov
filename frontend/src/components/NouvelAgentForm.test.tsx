@@ -132,4 +132,51 @@ describe('NouvelAgentForm', () => {
     expect(screen.getByLabelText('Nom')).toHaveValue('')
     expect(screen.getByRole('checkbox', { name: /Loft Bastille/i })).not.toBeChecked()
   })
+
+  // --- edit mode (agentToEdit) ---
+
+  const agentToEdit = { id: 7, nom: 'Fatima Zahra', role: 'menage', telephone: '0611111111', adresse: '5 rue des Fleurs' }
+
+  it('en mode édition, préremplit nom/téléphone/adresse et laisse le mot de passe vide', () => {
+    render(<NouvelAgentForm appartements={appartements} onSubmit={vi.fn()} agentToEdit={agentToEdit} />)
+
+    expect(screen.getByRole('heading', { name: "Modifier l'agent de ménage" })).toBeInTheDocument()
+    expect(screen.getByLabelText('Nom')).toHaveValue('Fatima Zahra')
+    expect(screen.getByLabelText(/téléphone/i)).toHaveValue('0611111111')
+    expect(screen.getByLabelText(/adresse/i)).toHaveValue('5 rue des Fleurs')
+    expect(screen.getByLabelText(/mot de passe/i)).toHaveValue('')
+  })
+
+  it('en mode édition, le mot de passe est optionnel et la section appartements est masquée', () => {
+    render(<NouvelAgentForm appartements={appartements} onSubmit={vi.fn()} agentToEdit={agentToEdit} />)
+
+    expect(screen.getByLabelText(/mot de passe/i)).not.toBeRequired()
+    expect(screen.queryByText(/appartements assignés/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /enregistrer les modifications/i })).toBeInTheDocument()
+  })
+
+  it('en mode édition, soumet sans mot de passe quand il est laissé vide', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<NouvelAgentForm appartements={appartements} onSubmit={onSubmit} agentToEdit={agentToEdit} />)
+
+    await user.clear(screen.getByLabelText('Nom'))
+    await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra B.')
+    await user.click(screen.getByRole('button', { name: /enregistrer les modifications/i }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ nom: 'Fatima Zahra B.', password: null }),
+    )
+  })
+
+  it('en mode édition, soumet le nouveau mot de passe quand il est renseigné', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<NouvelAgentForm appartements={appartements} onSubmit={onSubmit} agentToEdit={agentToEdit} />)
+
+    await user.type(screen.getByLabelText(/mot de passe/i), 'nouveau-mdp')
+    await user.click(screen.getByRole('button', { name: /enregistrer les modifications/i }))
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ password: 'nouveau-mdp' }))
+  })
 })

@@ -22,6 +22,7 @@ class SejourCheckoutService
             $sejour->update(['statut' => Sejour::STATUT_TERMINE]);
 
             $agent = Utilisateur::where('role', Utilisateur::ROLE_MENAGE)
+                ->where('actif', true)
                 ->withCount(['missionMenages' => function ($query) {
                     $query->whereIn('statut', [
                         MissionMenage::STATUT_A_FAIRE,

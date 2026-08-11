@@ -128,6 +128,13 @@ export interface NewUtilisateurInput {
   appartement_ids?: number[]
 }
 
+export interface UpdateUtilisateurInput {
+  nom: string
+  telephone: string | null
+  adresse?: string | null
+  password?: string | null
+}
+
 export interface NewProduitCatalogueInput {
   nom: string
   prix: number
@@ -303,9 +310,17 @@ export async function deleteChecklistModeleItem(itemId: number): Promise<void> {
   }
 }
 
-export async function fetchUtilisateurs(role?: string): Promise<Agent[]> {
+export interface FetchUtilisateursParams {
+  role?: string
+  search?: string
+  inclure_inactifs?: boolean
+}
+
+export async function fetchUtilisateurs(params: FetchUtilisateursParams = {}): Promise<Agent[]> {
   const url = new URL(`${API_BASE_URL}/api/utilisateurs`)
-  if (role) url.searchParams.set('role', role)
+  if (params.role) url.searchParams.set('role', params.role)
+  if (params.search) url.searchParams.set('search', params.search)
+  if (params.inclure_inactifs) url.searchParams.set('inclure_inactifs', '1')
 
   const response = await fetch(url, {
     headers: authHeaders(),
@@ -322,6 +337,48 @@ export async function createUtilisateur(input: NewUtilisateurInput): Promise<Age
   })
 
   return parseJsonOrThrow(response)
+}
+
+export async function updateUtilisateur(id: number, input: UpdateUtilisateurInput): Promise<Agent> {
+  const response = await fetch(`${API_BASE_URL}/api/utilisateurs/${id}`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(input),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function desactiverUtilisateur(id: number): Promise<Agent> {
+  const response = await fetch(`${API_BASE_URL}/api/utilisateurs/${id}/desactiver`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function reactiverUtilisateur(id: number): Promise<Agent> {
+  const response = await fetch(`${API_BASE_URL}/api/utilisateurs/${id}/reactiver`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function deleteUtilisateur(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/utilisateurs/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
+
+  handleUnauthorized(response)
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new ApiError(data?.message ?? 'Une erreur est survenue.', data?.errors)
+  }
 }
 
 export interface FetchSejoursParams {
