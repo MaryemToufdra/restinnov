@@ -37,6 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/utilisateurs', [UtilisateurController::class, 'index']);
         Route::post('/utilisateurs', [UtilisateurController::class, 'store']);
+        Route::patch('/utilisateurs/{utilisateur}', [UtilisateurController::class, 'update']);
+        Route::patch('/utilisateurs/{utilisateur}/desactiver', [UtilisateurController::class, 'desactiver']);
+        Route::patch('/utilisateurs/{utilisateur}/reactiver', [UtilisateurController::class, 'reactiver']);
+        Route::delete('/utilisateurs/{utilisateur}', [UtilisateurController::class, 'destroy']);
 
         Route::get('/sejours', [SejourController::class, 'index']);
         Route::get('/sejours/{sejour}', [SejourController::class, 'show']);

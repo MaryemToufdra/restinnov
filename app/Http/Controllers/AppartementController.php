@@ -85,7 +85,10 @@ class AppartementController extends Controller
             'checklist_modele_id' => ['nullable', 'exists:checklist_modeles,id'],
             'agent_habituel_id' => [
                 'nullable',
-                Rule::exists('utilisateurs', 'id')->where('role', Utilisateur::ROLE_MENAGE),
+                // Only enforced on creation: a brand new appartement has no
+                // pre-existing assignment, so there is no legacy value to
+                // preserve -- an inactive agent simply cannot be picked.
+                Rule::exists('utilisateurs', 'id')->where('role', Utilisateur::ROLE_MENAGE)->where('actif', true),
             ],
         ]);
 
@@ -113,6 +116,13 @@ class AppartementController extends Controller
             'adresse' => ['required', 'string', 'max:255'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'checklist_modele_id' => ['nullable', 'exists:checklist_modeles,id'],
+            // No actif=true requirement here (unlike store()): an appartement
+            // may already have an agent_habituel who has since been
+            // deactivated, and re-submitting the form to edit unrelated
+            // fields must not fail because of that stale assignment. Newly
+            // *picking* an inactive agent is prevented upstream instead --
+            // the "Agent habituel" dropdown is only ever populated with
+            // active agents.
             'agent_habituel_id' => [
                 'nullable',
                 Rule::exists('utilisateurs', 'id')->where('role', Utilisateur::ROLE_MENAGE),

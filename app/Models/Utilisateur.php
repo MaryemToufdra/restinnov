@@ -12,7 +12,9 @@ class Utilisateur extends Authenticatable
     use HasApiTokens, HasFactory;
 
     public const ROLE_MANAGER = 'manager';
+
     public const ROLE_MENAGE = 'menage';
+
     public const ROLE_MAINTENANCE = 'maintenance';
 
     protected $fillable = [
@@ -21,10 +23,15 @@ class Utilisateur extends Authenticatable
         'telephone',
         'adresse',
         'password',
+        'actif',
     ];
 
     protected $hidden = [
         'password',
+    ];
+
+    protected $casts = [
+        'actif' => 'boolean',
     ];
 
     public function missionMenages(): HasMany

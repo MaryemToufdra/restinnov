@@ -8,18 +8,43 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UtilisateurController extends Controller
 {
     /**
-     * Display a listing of utilisateurs, optionally filtered by role.
+     * Display a listing of utilisateurs, optionally filtered by role and/or
+     * a name search, with the appartement/mission counts needed by the
+     * "Liste des agents" screen. Inactive agents are excluded by default --
+     * they must stay out of every selection list (agent habituel, automatic
+     * mission assignment) -- unless inclure_inactifs is explicitly set, which
+     * the agents management screen uses to also show deactivated agents.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Utilisateur::orderBy('nom');
+        $validated = $request->validate([
+            'role' => ['sometimes', 'in:menage,maintenance,manager'],
+            'search' => ['sometimes', 'string'],
+            'inclure_inactifs' => ['sometimes', 'boolean'],
+        ]);
 
-        if ($request->filled('role')) {
-            $query->where('role', $request->string('role'));
+        $query = Utilisateur::query()
+            ->withCount([
+                'appartementsHabituels as appartements_habituel_count',
+                'missionMenages as mission_menages_count',
+            ])
+            ->orderBy('nom');
+
+        if (! empty($validated['role'])) {
+            $query->where('role', $validated['role']);
+        }
+
+        if (! empty($validated['search'])) {
+            $query->where('nom', 'like', '%'.$validated['search'].'%');
+        }
+
+        if (! $request->boolean('inclure_inactifs')) {
+            $query->where('actif', true);
         }
 
         return response()->json($query->get());
@@ -61,5 +86,72 @@ class UtilisateurController extends Controller
         });
 
         return response()->json($utilisateur, 201);
+    }
+
+    /**
+     * Update an existing utilisateur's profile. The password only changes
+     * when a new one is actually provided -- an empty/absent value leaves
+     * the current hash untouched.
+     */
+    public function update(Request $request, Utilisateur $utilisateur): JsonResponse
+    {
+        $validated = $request->validate([
+            'nom' => ['required', 'string', 'max:255'],
+            'telephone' => ['nullable', 'string', 'max:255', Rule::unique('utilisateurs', 'telephone')->ignore($utilisateur->id)],
+            'adresse' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'min:6'],
+        ]);
+
+        if ($request->filled('password')) {
+            $validated['password'] = Hash::make($validated['password']);
+        } else {
+            unset($validated['password']);
+        }
+
+        $utilisateur->update($validated);
+
+        return response()->json($utilisateur->fresh());
+    }
+
+    /**
+     * Deactivate an agent: it disappears from every selection list (agent
+     * habituel, automatic mission assignment) but stays visible in the
+     * history of its past missions/appartements.
+     */
+    public function desactiver(Utilisateur $utilisateur): JsonResponse
+    {
+        $utilisateur->update(['actif' => false]);
+
+        return response()->json($utilisateur->fresh());
+    }
+
+    /**
+     * Reactivate a previously deactivated agent.
+     */
+    public function reactiver(Utilisateur $utilisateur): JsonResponse
+    {
+        $utilisateur->update(['actif' => true]);
+
+        return response()->json($utilisateur->fresh());
+    }
+
+    /**
+     * Permanently delete an utilisateur. Only allowed when it never had any
+     * history (no mission_menage ever assigned, never set as an
+     * appartement's agent_habituel) -- an agent with history must be
+     * deactivated instead, so its past missions/appartements keep a valid
+     * reference.
+     */
+    public function destroy(Utilisateur $utilisateur): JsonResponse
+    {
+        if ($utilisateur->missionMenages()->exists() || $utilisateur->appartementsHabituels()->exists()) {
+            return response()->json([
+                'message' => 'Cet agent a un historique (missions ou appartements assignés) et ne peut pas être supprimé. Désactivez-le à la place.',
+            ], 422);
+        }
+
+        $utilisateur->delete();
+
+        return response()->json(null, 204);
     }
 }

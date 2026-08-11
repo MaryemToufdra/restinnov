@@ -68,6 +68,7 @@ function mockFetch(handlers: {
   onUpdateSejour?: () => Sejour
   onCheckout?: () => { sejour: Sejour; mission_menage: Sejour['mission_menage'] }
   onCreateUtilisateur?: () => unknown
+  onUpdateUtilisateur?: () => unknown
   onUpdateAppartement?: () => Appartement
   sejours?: Sejour[]
   appartements?: Appartement[]
@@ -119,6 +120,20 @@ function mockFetch(handlers: {
         handlers.onCreateUtilisateur?.() ?? { id: 42, nom: 'Fatima Zahra', role: 'menage', telephone: null }
       agentsMenage = [...agentsMenage, created]
       return new Response(JSON.stringify(created), { status: 201 })
+    }
+
+    if (/^\/api\/utilisateurs\/\d+$/.test(url) && method === 'PATCH') {
+      const id = Number(url.split('/').pop())
+      const updated = handlers.onUpdateUtilisateur?.() ?? {
+        id,
+        nom: 'Fatima Zahra modifiée',
+        role: 'menage',
+        telephone: null,
+        adresse: null,
+        actif: true,
+      }
+      agentsMenage = agentsMenage.map((a) => ((a as { id: number }).id === id ? updated : a))
+      return new Response(JSON.stringify(updated), { status: 200 })
     }
 
     if (url === '/api/produits-catalogue' && method === 'GET') {
@@ -397,6 +412,48 @@ describe('App', () => {
     await openSubItem(user, 'Catalogue ménage')
     expect(await screen.findByText(/catalogue de produits de ménage/i)).toBeInTheDocument()
     expect(screen.getByText(/produits signalés en attente/i)).toBeInTheDocument()
+  })
+
+  it('affiche la liste des agents de ménage, puis modifie un agent via le crayon', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [],
+      agentsMenage: [
+        { id: 7, nom: 'Fatima Zahra', role: 'menage', telephone: '0611111111', adresse: null, actif: true, appartements_habituel_count: 0, mission_menages_count: 0 },
+      ],
+      onUpdateUtilisateur: () => ({
+        id: 7,
+        nom: 'Fatima Zahra B.',
+        role: 'menage',
+        telephone: '0611111111',
+        adresse: null,
+        actif: true,
+      }),
+    }) as typeof fetch
+
+    renderApp()
+    await openGroup(user, 'Ménage')
+    await openSubItem(user, 'Liste des agents')
+
+    expect(await screen.findByText('Fatima Zahra')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /modifier l'agent fatima zahra/i }))
+
+    expect(await screen.findByRole('heading', { name: "Modifier l'agent de ménage" })).toBeInTheDocument()
+    expect(screen.getByLabelText('Nom')).toHaveValue('Fatima Zahra')
+    expect(screen.queryByText(/appartements assignés/i)).not.toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText('Nom'))
+    await user.type(screen.getByLabelText('Nom'), 'Fatima Zahra B.')
+    await user.click(screen.getByRole('button', { name: /enregistrer les modifications/i }))
+
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/utilisateurs/7'),
+        expect.objectContaining({ method: 'PATCH' }),
+      ),
+    )
+    expect(await screen.findByText('Fatima Zahra B.')).toBeInTheDocument()
   })
 
   it('regroupe "Ajouter un agent maintenance" sous le groupe Maintenance', async () => {

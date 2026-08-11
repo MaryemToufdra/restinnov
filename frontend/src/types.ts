@@ -48,6 +48,9 @@ export interface Agent {
   role: string
   telephone: string | null
   adresse?: string | null
+  actif?: boolean
+  appartements_habituel_count?: number
+  mission_menages_count?: number
 }
 
 export interface ProduitCatalogue {

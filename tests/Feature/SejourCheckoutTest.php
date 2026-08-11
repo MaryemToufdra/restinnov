@@ -116,6 +116,30 @@ class SejourCheckoutTest extends TestCase
         $response->assertJsonPath('mission_menage.agent_id', $freeAgent->id);
     }
 
+    public function test_checkout_never_assigns_a_deactivated_agent_even_if_least_busy(): void
+    {
+        $appartement = Appartement::create([
+            'nom' => 'Loft Bastille',
+            'adresse' => '12 rue de la Roquette, Paris',
+            'statut' => 'disponible',
+        ]);
+
+        Utilisateur::create(['nom' => 'Inactive Fatima', 'role' => 'menage', 'actif' => false]);
+        $activeAgent = Utilisateur::create(['nom' => 'Karim B.', 'role' => 'menage']);
+
+        $sejour = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-08-01',
+            'date_depart' => '2026-08-05',
+            'nom_voyageur' => 'Jean Dupont',
+        ]);
+
+        $response = $this->patchJson("/api/sejours/{$sejour->id}/checkout");
+
+        $response->assertOk();
+        $response->assertJsonPath('mission_menage.agent_id', $activeAgent->id);
+    }
+
     public function test_checkout_is_rejected_when_sejour_already_terminated(): void
     {
         $appartement = Appartement::create([
