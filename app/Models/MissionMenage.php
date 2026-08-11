@@ -13,8 +13,13 @@ class MissionMenage extends Model
     use HasFactory;
 
     public const STATUT_A_FAIRE = 'a_faire';
+
     public const STATUT_EN_COURS = 'en_cours';
+
+    public const STATUT_EN_ATTENTE_VALIDATION = 'en_attente_validation';
+
     public const STATUT_CONFORME = 'conforme';
+
     public const STATUT_NON_CONFORME = 'non_conforme';
 
     protected $fillable = [

@@ -13,7 +13,10 @@ class Appartement extends Model
     use HasFactory;
 
     public const STATUT_DISPONIBLE = 'disponible';
+
     public const STATUT_OCCUPE = 'occupe';
+
+    public const STATUT_EN_MENAGE = 'en_menage';
 
     protected $fillable = [
         'nom',
@@ -30,27 +33,45 @@ class Appartement extends Model
     }
 
     /**
-     * Adds the `a_un_sejour_en_cours` boolean via an EXISTS subquery
-     * (works alongside a custom select(), unlike an eager-loaded relation).
-     * The stored `statut` column is only ever the default set at creation
-     * -- it is never authoritative for "occupé", which must always be
-     * derived from live sejours data at read time. See statutCalcule().
+     * Adds the `a_un_sejour_en_cours` and `a_une_mission_menage_active`
+     * booleans via EXISTS subqueries (works alongside a custom select(),
+     * unlike an eager-loaded relation). The stored `statut` column is only
+     * ever the default set at creation -- it is never authoritative for
+     * "occupé"/"en_menage", which must always be derived from live
+     * sejours/mission_menage data at read time. See statutCalcule().
      */
     public function scopeAvecStatutCalcule(Builder $query): Builder
     {
         return $query->withExists([
             'sejours as a_un_sejour_en_cours' => fn ($q) => $q->where('statut', Sejour::STATUT_EN_COURS),
+            'sejours as a_une_mission_menage_active' => fn ($q) => $q->whereHas(
+                'missionMenage',
+                fn ($q2) => $q2->whereIn('statut', [MissionMenage::STATUT_A_FAIRE, MissionMenage::STATUT_EN_COURS, MissionMenage::STATUT_EN_ATTENTE_VALIDATION]),
+            ),
         ]);
     }
 
     /**
-     * The appartement's real statut, derived from its sejours rather than
-     * read from the (never-updated) `statut` column. Requires the model to
-     * have been loaded via the avecStatutCalcule() scope.
+     * The appartement's real statut, derived from its sejours/missions
+     * rather than read from the (never-updated) `statut` column. Requires
+     * the model to have been loaded via the avecStatutCalcule() scope.
+     *
+     * Order matters: a fresh sejour checking in while a previous mission is
+     * still being validated is vanishingly unlikely in practice, but if it
+     * ever happens "occupé" (a guest physically present) takes priority
+     * over "en_menage".
      */
     public function statutCalcule(): string
     {
-        return $this->a_un_sejour_en_cours ? self::STATUT_OCCUPE : self::STATUT_DISPONIBLE;
+        if ($this->a_un_sejour_en_cours) {
+            return self::STATUT_OCCUPE;
+        }
+
+        if ($this->a_une_mission_menage_active) {
+            return self::STATUT_EN_MENAGE;
+        }
+
+        return self::STATUT_DISPONIBLE;
     }
 
     public function checklistModele(): BelongsTo

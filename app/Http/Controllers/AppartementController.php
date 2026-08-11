@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appartement;
+use App\Models\MissionMenage;
 use App\Models\Sejour;
 use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
@@ -40,14 +41,26 @@ class AppartementController extends Controller
         }
 
         if (! empty($validated['statut'])) {
-            // "occupé" is only ever true while a sejour is actually
-            // en_cours on this appartement -- the stored `statut` column is
-            // never authoritative, so filtering has to match the same
-            // live computation used for display (see statutCalcule()).
+            // Mirrors statutCalcule() exactly: "occupé" only while a sejour
+            // is actually en_cours, "en_menage" only while a mission_menage
+            // is still active (a_faire/en_cours/en_attente_validation) with
+            // no en_cours sejour, "disponible" otherwise -- the stored
+            // `statut` column is never authoritative, filtering has to
+            // match the same live computation used for display.
+            $enCours = fn ($q) => $q->where('statut', Sejour::STATUT_EN_COURS);
+            $missionActive = fn ($q) => $q->whereHas(
+                'missionMenage',
+                fn ($q2) => $q2->whereIn('statut', [MissionMenage::STATUT_A_FAIRE, MissionMenage::STATUT_EN_COURS, MissionMenage::STATUT_EN_ATTENTE_VALIDATION]),
+            );
+
             if ($validated['statut'] === Appartement::STATUT_OCCUPE) {
-                $query->whereHas('sejours', fn ($q) => $q->where('statut', Sejour::STATUT_EN_COURS));
+                $query->whereHas('sejours', $enCours);
+            } elseif ($validated['statut'] === Appartement::STATUT_EN_MENAGE) {
+                $query->whereDoesntHave('sejours', $enCours)
+                    ->whereHas('sejours', $missionActive);
             } else {
-                $query->whereDoesntHave('sejours', fn ($q) => $q->where('statut', Sejour::STATUT_EN_COURS));
+                $query->whereDoesntHave('sejours', $enCours)
+                    ->whereDoesntHave('sejours', $missionActive);
             }
         }
 

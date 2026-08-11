@@ -138,7 +138,8 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
     setTerminerError(null)
     setTerminating(true)
     try {
-      await terminerMissionMenage(missionId)
+      const updated = await terminerMissionMenage(missionId)
+      setMission(updated)
       onMissionTerminee()
     } catch (err) {
       setTerminerError(err instanceof Error ? err.message : 'Une erreur est survenue.')
@@ -196,15 +197,21 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
 
           {terminerError && <p className="text-sm text-red-600">{terminerError}</p>}
 
-          <button
-            type="button"
-            disabled={!toutesCochees || terminating}
-            onClick={handleTerminer}
-            title={!toutesCochees ? 'Cochez tous les items de la checklist pour terminer la mission.' : undefined}
-            className="w-full rounded-md bg-emerald-600 px-4 py-4 text-lg font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {terminating ? 'Enregistrement...' : '✓ Marquer terminé'}
-          </button>
+          {mission.statut === 'en_attente_validation' ? (
+            <p className="w-full rounded-md bg-emerald-50 px-4 py-4 text-center text-base font-semibold text-emerald-700">
+              ✓ Envoyé au Manager pour validation
+            </p>
+          ) : (
+            <button
+              type="button"
+              disabled={!toutesCochees || terminating}
+              onClick={handleTerminer}
+              title={!toutesCochees ? 'Cochez tous les items de la checklist pour terminer la mission.' : undefined}
+              className="w-full rounded-md bg-emerald-600 px-4 py-4 text-lg font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              {terminating ? 'Enregistrement...' : '✓ Marquer terminé'}
+            </button>
+          )}
         </div>
       )}
     </div>

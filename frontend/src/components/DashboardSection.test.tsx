@@ -102,8 +102,20 @@ describe('DashboardSection', () => {
     expect(screen.getByRole('cell', { name: '3' })).toBeInTheDocument()
     expect(screen.getByText('05/03/2026')).toBeInTheDocument()
     expect(screen.getByText('Zenith')).toBeInTheDocument()
-    expect(screen.getByText('occupe')).toBeInTheDocument()
+    expect(screen.getByText('Occupé')).toBeInTheDocument()
     expect(screen.getByText('Aucun')).toBeInTheDocument()
+  })
+
+  it('affiche le badge "En ménage" pour un appartement en_menage', () => {
+    render(
+      <DashboardSection
+        data={{ ...data, appartements: [{ id: 1, nom: 'Loft Bastille', statut: 'en_menage', sejours_count: 1, dernier_sejour: '2026-03-05' }] }}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    expect(screen.getByText('En ménage')).toBeInTheDocument()
   })
 
   it('précise que le résultat net n\'inclut pas la commission propriétaire', () => {

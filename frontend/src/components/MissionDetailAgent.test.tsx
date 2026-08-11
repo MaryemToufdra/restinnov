@@ -52,7 +52,7 @@ function mockFetch(mission: MissionMenage) {
       if (nonCoche) {
         return new Response(JSON.stringify({ message: 'Tous les éléments doivent être cochés.' }), { status: 422 })
       }
-      current = { ...current, statut: 'conforme' }
+      current = { ...current, statut: 'en_attente_validation' }
       return new Response(JSON.stringify(current), { status: 200 })
     }
 
@@ -128,6 +128,8 @@ describe('MissionDetailAgent', () => {
     await user.click(screen.getByRole('button', { name: /marquer terminé/i }))
 
     await waitFor(() => expect(onMissionTerminee).toHaveBeenCalled())
+    expect(await screen.findByText(/envoyé au manager pour validation/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /marquer terminé/i })).not.toBeInTheDocument()
   })
 
   it('le bouton "Signaler un problème" reste désactivé avec "Bientôt disponible"', async () => {
@@ -152,5 +154,6 @@ describe('MissionDetailAgent', () => {
     await user.click(screen.getByRole('button', { name: /marquer terminé/i }))
 
     await waitFor(() => expect(onMissionTerminee).toHaveBeenCalled())
+    expect(await screen.findByText(/envoyé au manager pour validation/i)).toBeInTheDocument()
   })
 })

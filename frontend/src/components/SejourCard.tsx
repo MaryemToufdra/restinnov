@@ -19,6 +19,7 @@ interface SejourCardProps {
   sejour: Sejour
   catalogue: ProduitCatalogue[]
   onCheckout: (id: number) => Promise<void>
+  onValiderMission: (missionMenageId: number) => Promise<void>
   onUpdateMissionProduits: (missionMenageId: number, input: { frais_forfait: number; produit_ids: number[] }) => Promise<void>
   onSignalerProduit: (missionMenageId: number, input: { photo: File; note?: string | null }) => Promise<void>
   onAddFraisMaintenance: (sejourId: number, input: { description: string; prix: number }) => Promise<void>
@@ -29,6 +30,7 @@ export function SejourCard({
   sejour,
   catalogue,
   onCheckout,
+  onValiderMission,
   onUpdateMissionProduits,
   onSignalerProduit,
   onAddFraisMaintenance,
@@ -36,6 +38,8 @@ export function SejourCard({
 }: SejourCardProps) {
   const [checkingOut, setCheckingOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [validating, setValidating] = useState(false)
+  const [validerError, setValiderError] = useState<string | null>(null)
 
   const handleCheckout = async () => {
     setError(null)
@@ -46,6 +50,19 @@ export function SejourCard({
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.')
     } finally {
       setCheckingOut(false)
+    }
+  }
+
+  const handleValider = async () => {
+    if (!sejour.mission_menage) return
+    setValiderError(null)
+    setValidating(true)
+    try {
+      await onValiderMission(sejour.mission_menage.id)
+    } catch (err) {
+      setValiderError(err instanceof Error ? err.message : 'Une erreur est survenue.')
+    } finally {
+      setValidating(false)
     }
   }
 
@@ -86,6 +103,21 @@ export function SejourCard({
               {sejour.mission_menage.agent?.nom ?? 'non assigné'}
             </span>
           </p>
+
+          {sejour.mission_menage.statut === 'en_attente_validation' && (
+            <div className="mt-2">
+              <p className="mb-2 font-medium text-purple-700">En attente de validation</p>
+              <button
+                type="button"
+                onClick={handleValider}
+                disabled={validating}
+                className="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              >
+                {validating ? 'Validation...' : 'Valider'}
+              </button>
+              {validerError && <p className="mt-1 text-sm text-red-600">{validerError}</p>}
+            </div>
+          )}
         </div>
       )}
 

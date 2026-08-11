@@ -29,6 +29,19 @@ const STATUT_CARD_STYLES: Record<SejourStatut, string> = {
   termine: 'border-green-200 bg-green-50 text-green-800 hover:bg-green-100',
 }
 
+// Appartement statut labels/colors, kept identical to AppartementsListeSection.tsx.
+const APPARTEMENT_STATUT_LABELS: Record<string, string> = {
+  disponible: 'Disponible',
+  occupe: 'Occupé',
+  en_menage: 'En ménage',
+}
+
+const APPARTEMENT_STATUT_STYLES: Record<string, string> = {
+  disponible: 'bg-green-100 text-green-800',
+  occupe: 'bg-gray-100 text-gray-600',
+  en_menage: 'bg-purple-100 text-purple-800',
+}
+
 const STATUT_ORDER: SejourStatut[] = ['a_venir', 'en_cours', 'termine']
 
 function formatMad(value: number): string {
@@ -259,12 +272,10 @@ export function DashboardSection({
                       <td className="py-2 pr-4">
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            appartement.statut === 'disponible'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-600'
+                            APPARTEMENT_STATUT_STYLES[appartement.statut] ?? 'bg-gray-100 text-gray-600'
                           }`}
                         >
-                          {appartement.statut === 'disponible' ? 'Disponible' : appartement.statut}
+                          {APPARTEMENT_STATUT_LABELS[appartement.statut] ?? appartement.statut}
                         </span>
                       </td>
                       <td className="py-2 pr-4 text-gray-700">{appartement.sejours_count}</td>

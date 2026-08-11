@@ -56,6 +56,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/produits-signales', [ProduitSignaleController::class, 'index']);
         Route::patch('/produits-signales/{produitSignale}/valider', [ProduitSignaleController::class, 'valider']);
         Route::patch('/produits-signales/{produitSignale}/rejeter', [ProduitSignaleController::class, 'rejeter']);
+
+        Route::patch('/mission-menages/{missionMenage}/valider', [MissionMenageController::class, 'valider']);
     });
 
     // "menage" (and "manager") -- the cleaning mission workspace: checklist

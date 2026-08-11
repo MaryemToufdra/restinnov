@@ -87,10 +87,12 @@ class MissionMenageController extends Controller
     }
 
     /**
-     * Marks a mission "conforme" once its whole checklist is checked off.
-     * A mission with no checklist items at all (no checklist_modele was
-     * assigned to the appartement) has nothing to block on, so it can
-     * always be marked terminee.
+     * Marks a mission "en_attente_validation" once its whole checklist is
+     * checked off -- the agent's part of the job is done, but the
+     * appartement only becomes "disponible" again once a manager reviews
+     * and validates it (see valider()). A mission with no checklist items
+     * at all (no checklist_modele was assigned to the appartement) has
+     * nothing to block on, so it can always be marked terminee.
      */
     public function terminer(Request $request, MissionMenage $missionMenage): JsonResponse
     {
@@ -101,6 +103,28 @@ class MissionMenageController extends Controller
         if ($resteACocher) {
             return response()->json([
                 'message' => 'Tous les éléments de la checklist doivent être cochés avant de marquer la mission terminée.',
+            ], 422);
+        }
+
+        $missionMenage->update(['statut' => MissionMenage::STATUT_EN_ATTENTE_VALIDATION]);
+
+        return response()->json($missionMenage->fresh(self::DETAIL_RELATIONS));
+    }
+
+    /**
+     * Manager-only: validates a mission the agent has finished, moving it
+     * from "en_attente_validation" to "conforme". This is the precise
+     * moment the appartement flips back to "disponible" (its statut is
+     * derived live from mission_menage statuts, see
+     * Appartement::statutCalcule()).
+     */
+    public function valider(Request $request, MissionMenage $missionMenage): JsonResponse
+    {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
+        if ($missionMenage->statut !== MissionMenage::STATUT_EN_ATTENTE_VALIDATION) {
+            return response()->json([
+                'message' => 'Cette mission n\'est pas en attente de validation.',
             ], 422);
         }
 

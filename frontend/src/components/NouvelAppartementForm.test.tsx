@@ -196,7 +196,7 @@ describe('NouvelAppartementForm', () => {
       expect(screen.getByLabelText(/adresse complète/i)).toHaveValue('12 rue de la Roquette')
       expect(screen.getByRole('combobox', { name: /checklist de ménage/i })).toHaveValue('1')
       expect(screen.getByRole('combobox', { name: /agent de ménage habituel/i })).toHaveValue('2')
-      expect(screen.getByText('occupe')).toBeInTheDocument()
+      expect(screen.getByText('Occupé')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /enregistrer les modifications/i })).toBeInTheDocument()
     })
 
