@@ -7,6 +7,7 @@ import {
   fetchSejours,
   signalerProduit,
   updateMissionMenageProduits,
+  validerMissionMenage,
   type NewFraisMaintenanceInput,
   type SignalerProduitInput,
   type UpdateMissionMenageProduitsInput,
@@ -197,6 +198,14 @@ export function SejoursListeSection({
     )
   }
 
+  const handleValiderMission = async (missionMenageId: number) => {
+    const updated = await validerMissionMenage(missionMenageId)
+    applySejourUpdate(
+      (s) => s.mission_menage?.id === missionMenageId,
+      (s) => ({ ...s, mission_menage: updated }),
+    )
+  }
+
   const handleUpdateMissionProduits = async (missionMenageId: number, input: UpdateMissionMenageProduitsInput) => {
     const updated = await updateMissionMenageProduits(missionMenageId, input)
     applySejourUpdate(
@@ -247,6 +256,7 @@ export function SejoursListeSection({
             sejour={selectedSejour}
             catalogue={catalogue}
             onCheckout={handleCheckout}
+            onValiderMission={handleValiderMission}
             onUpdateMissionProduits={handleUpdateMissionProduits}
             onSignalerProduit={handleSignalerProduit}
             onAddFraisMaintenance={handleAddFraisMaintenance}

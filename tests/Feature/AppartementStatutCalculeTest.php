@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Appartement;
+use App\Models\MissionMenage;
 use App\Models\Sejour;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -10,6 +11,18 @@ use Tests\TestCase;
 class AppartementStatutCalculeTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function sejourTermine(Appartement $appartement): Sejour
+    {
+        return Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-08-01',
+            'date_depart' => '2026-08-05',
+            'nom_voyageur' => 'Jean Dupont',
+            'statut' => 'termine',
+            'montant_mad' => 1000,
+        ]);
+    }
 
     public function test_appartement_is_occupe_while_it_has_an_en_cours_sejour(): void
     {
@@ -103,5 +116,116 @@ class AppartementStatutCalculeTest extends TestCase
 
         $response = $this->getJson('/api/appartements');
         $response->assertJsonPath('0.statut', 'disponible');
+    }
+
+    // --- en_menage ---
+
+    public function test_appartement_is_en_menage_while_its_mission_is_a_faire(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $sejour = $this->sejourTermine($appartement);
+        MissionMenage::create(['sejour_id' => $sejour->id, 'statut' => 'a_faire']);
+
+        $response = $this->getJson('/api/appartements');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.statut', 'en_menage');
+    }
+
+    public function test_appartement_is_en_menage_while_its_mission_is_en_cours(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $sejour = $this->sejourTermine($appartement);
+        MissionMenage::create(['sejour_id' => $sejour->id, 'statut' => 'en_cours']);
+
+        $response = $this->getJson('/api/appartements');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.statut', 'en_menage');
+    }
+
+    public function test_appartement_is_en_menage_while_its_mission_is_en_attente_validation(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $sejour = $this->sejourTermine($appartement);
+        MissionMenage::create(['sejour_id' => $sejour->id, 'statut' => 'en_attente_validation']);
+
+        $response = $this->getJson('/api/appartements');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.statut', 'en_menage');
+    }
+
+    public function test_appartement_is_disponible_once_its_mission_is_conforme(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $sejour = $this->sejourTermine($appartement);
+        MissionMenage::create(['sejour_id' => $sejour->id, 'statut' => 'conforme']);
+
+        $response = $this->getJson('/api/appartements');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.statut', 'disponible');
+    }
+
+    public function test_a_current_sejour_takes_priority_over_en_menage(): void
+    {
+        // The appartement's previous mission is still active, but a new
+        // sejour has already checked in on it.
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $sejourPrecedent = $this->sejourTermine($appartement);
+        MissionMenage::create(['sejour_id' => $sejourPrecedent->id, 'statut' => 'a_faire']);
+        Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-08-10',
+            'date_depart' => '2026-08-15',
+            'nom_voyageur' => 'Marie Curie',
+            'statut' => 'en_cours',
+            'montant_mad' => 800,
+        ]);
+
+        $response = $this->getJson('/api/appartements');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.statut', 'occupe');
+    }
+
+    public function test_it_filters_by_statut_en_menage(): void
+    {
+        $enMenage = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        MissionMenage::create(['sejour_id' => $this->sejourTermine($enMenage)->id, 'statut' => 'en_cours']);
+
+        $disponible = Appartement::create(['nom' => 'Zenith', 'adresse' => 'B', 'statut' => 'disponible']);
+
+        $response = $this->getJson('/api/appartements?statut=en_menage&page=1');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.nom', 'Loft Bastille');
+    }
+
+    public function test_en_menage_is_excluded_when_filtering_by_disponible(): void
+    {
+        $enMenage = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        MissionMenage::create(['sejour_id' => $this->sejourTermine($enMenage)->id, 'statut' => 'en_cours']);
+
+        $disponible = Appartement::create(['nom' => 'Zenith', 'adresse' => 'B', 'statut' => 'disponible']);
+
+        $response = $this->getJson('/api/appartements?statut=disponible&page=1');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.nom', 'Zenith');
+    }
+
+    public function test_it_reflects_en_menage_in_the_dashboard_too(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        MissionMenage::create(['sejour_id' => $this->sejourTermine($appartement)->id, 'statut' => 'en_cours']);
+
+        $response = $this->getJson('/api/dashboard');
+
+        $response->assertOk();
+        $response->assertJsonPath('appartements.0.statut', 'en_menage');
     }
 }

@@ -45,8 +45,18 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
 
 /** Fakes the backend's filter/sort/pagination behaviour over an in-memory list of sejours. */
 function mockFetchSejours(allSejours: Sejour[]) {
-  return vi.fn(async (input: RequestInfo | URL) => {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input))
+    const method = init?.method ?? 'GET'
+
+    const validerMatch = url.pathname.match(/^\/api\/mission-menages\/(\d+)\/valider$/)
+    if (validerMatch && method === 'PATCH') {
+      const missionId = Number(validerMatch[1])
+      const sejour = allSejours.find((s) => s.mission_menage?.id === missionId)
+      const updated = { ...sejour!.mission_menage!, statut: 'conforme' as const }
+      sejour!.mission_menage = updated
+      return new Response(JSON.stringify(updated), { status: 200 })
+    }
 
     const showMatch = url.pathname.match(/^\/api\/sejours\/(\d+)$/)
     if (showMatch) {
@@ -310,6 +320,42 @@ describe('SejoursListeSection', () => {
 
     await user.click(screen.getByRole('button', { name: /retour à la liste/i }))
     expect(await screen.findByText('1 séjours trouvés')).toBeInTheDocument()
+  })
+
+  it('le bouton "Valider" du détail appelle la route de validation et met à jour la mission', async () => {
+    const sejour = sejourFixture({
+      statut: 'termine',
+      mission_menage: {
+        id: 20,
+        sejour_id: 1,
+        agent_id: 5,
+        statut: 'en_attente_validation',
+        agent: { id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null },
+        frais_forfait: 0,
+        vue: true,
+        produits: [],
+      },
+    })
+    globalThis.fetch = mockFetchSejours([sejour]) as typeof fetch
+    const user = userEvent.setup()
+
+    render(
+      <SejoursListeSection appartements={[]} catalogue={[]} onNavigateToCreer={vi.fn()} onEditSejour={vi.fn()} />,
+    )
+
+    await screen.findByText('1 séjours trouvés')
+    await user.click(screen.getByRole('button', { name: /voir le détail du séjour de jean dupont/i }))
+
+    expect(await screen.findByText('En attente de validation')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /valider/i }))
+
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/mission-menages/20/valider'),
+        expect.objectContaining({ method: 'PATCH' }),
+      ),
+    )
+    expect(screen.queryByText('En attente de validation')).not.toBeInTheDocument()
   })
 
   it('applique initialStatutFilter dès le montage (venu du Dashboard)', async () => {

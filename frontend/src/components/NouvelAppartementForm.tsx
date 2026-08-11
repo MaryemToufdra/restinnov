@@ -17,6 +17,8 @@ interface NouvelAppartementFormProps {
 
 const STATUT_LABELS: Record<string, string> = {
   disponible: 'Disponible',
+  occupe: 'Occupé',
+  en_menage: 'En ménage',
 }
 
 export function NouvelAppartementForm({

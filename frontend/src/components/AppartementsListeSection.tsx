@@ -9,15 +9,22 @@ interface AppartementsListeSectionProps {
 
 const PER_PAGE = 10
 
+const STATUT_LABELS: Record<string, string> = {
+  disponible: 'Disponible',
+  occupe: 'Occupé',
+  en_menage: 'En ménage',
+}
+
+const STATUT_STYLES: Record<string, string> = {
+  disponible: 'bg-green-100 text-green-800',
+  occupe: 'bg-gray-100 text-gray-600',
+  en_menage: 'bg-purple-100 text-purple-800',
+}
+
 function StatutBadge({ statut }: { statut: string }) {
-  const isDisponible = statut === 'disponible'
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-        isDisponible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-      }`}
-    >
-      {isDisponible ? 'Disponible' : statut}
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUT_STYLES[statut] ?? 'bg-gray-100 text-gray-600'}`}>
+      {STATUT_LABELS[statut] ?? statut}
     </span>
   )
 }
@@ -197,6 +204,7 @@ export function AppartementsListeSection({ onNavigateToCreer, onEditAppartement 
             <option value="">Tous</option>
             <option value="disponible">Disponible</option>
             <option value="occupe">Occupé</option>
+            <option value="en_menage">En ménage</option>
           </select>
         </div>
       </div>

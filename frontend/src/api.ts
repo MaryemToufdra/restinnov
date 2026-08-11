@@ -522,6 +522,15 @@ export async function terminerMissionMenage(missionMenageId: number): Promise<Mi
   return parseJsonOrThrow(response)
 }
 
+export async function validerMissionMenage(missionMenageId: number): Promise<MissionMenage> {
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/valider`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
 export interface ToggleChecklistItemInput {
   coche?: boolean
   photo?: File

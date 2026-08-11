@@ -42,7 +42,10 @@ export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
           chargerMissions()
         }}
         onMissionTerminee={() => {
-          setSelectedMissionId(null)
+          // Stays on the detail view: MissionDetailAgent now shows a
+          // confirmation message instead of silently disappearing --
+          // refresh the underlying list in the background so it's already
+          // up to date once the agent clicks "Retour à mes missions".
           chargerMissions()
         }}
       />

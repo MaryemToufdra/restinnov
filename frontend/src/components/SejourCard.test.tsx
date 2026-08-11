@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { SejourCard } from './SejourCard'
 import type { Sejour } from '../types'
@@ -38,6 +39,7 @@ function renderCard(sejour: Sejour) {
       sejour={sejour}
       catalogue={[]}
       onCheckout={noop}
+      onValiderMission={noop}
       onUpdateMissionProduits={noop}
       onSignalerProduit={noop}
       onAddFraisMaintenance={noop}
@@ -88,5 +90,58 @@ describe('SejourCard', () => {
     )
 
     expect(screen.queryByTestId('mission-nouvelle-badge')).not.toBeInTheDocument()
+  })
+
+  it('affiche "Valider" quand la mission est en_attente_validation, et l\'appelle au clic', async () => {
+    const user = userEvent.setup()
+    const onValiderMission = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <SejourCard
+        sejour={sejourFixture({
+          mission_menage: {
+            id: 10,
+            sejour_id: 1,
+            agent_id: 5,
+            statut: 'en_attente_validation',
+            agent: { id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null },
+            frais_forfait: 0,
+            vue: true,
+            produits: [],
+          },
+        })}
+        catalogue={[]}
+        onCheckout={noop}
+        onValiderMission={onValiderMission}
+        onUpdateMissionProduits={noop}
+        onSignalerProduit={noop}
+        onAddFraisMaintenance={noop}
+        onDeleteFraisMaintenance={noop}
+      />,
+    )
+
+    expect(screen.getByText('En attente de validation')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /valider/i }))
+
+    expect(onValiderMission).toHaveBeenCalledWith(10)
+  })
+
+  it('n\'affiche pas "Valider" quand la mission est a_faire', () => {
+    renderCard(
+      sejourFixture({
+        mission_menage: {
+          id: 10,
+          sejour_id: 1,
+          agent_id: 5,
+          statut: 'a_faire',
+          agent: { id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null },
+          frais_forfait: 0,
+          vue: true,
+          produits: [],
+        },
+      }),
+    )
+
+    expect(screen.queryByRole('button', { name: /^valider$/i })).not.toBeInTheDocument()
   })
 })

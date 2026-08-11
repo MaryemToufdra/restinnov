@@ -132,8 +132,8 @@ class MissionMenageAgentWorkspaceTest extends TestCase
         $response = $this->patchJson("/api/mission-menages/{$mission->id}/terminer");
 
         $response->assertOk();
-        $response->assertJsonPath('statut', 'conforme');
-        $this->assertDatabaseHas('mission_menages', ['id' => $mission->id, 'statut' => 'conforme']);
+        $response->assertJsonPath('statut', 'en_attente_validation');
+        $this->assertDatabaseHas('mission_menages', ['id' => $mission->id, 'statut' => 'en_attente_validation']);
     }
 
     public function test_terminer_succeeds_when_there_are_no_checklist_items_at_all(): void
@@ -145,7 +145,7 @@ class MissionMenageAgentWorkspaceTest extends TestCase
         $response = $this->patchJson("/api/mission-menages/{$mission->id}/terminer");
 
         $response->assertOk();
-        $response->assertJsonPath('statut', 'conforme');
+        $response->assertJsonPath('statut', 'en_attente_validation');
     }
 
     // --- checklist item toggle ---

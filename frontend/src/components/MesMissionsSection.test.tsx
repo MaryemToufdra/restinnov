@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../auth/AuthContext'
 import { MesMissionsSection } from './MesMissionsSection'
@@ -109,5 +110,48 @@ describe('MesMissionsSection', () => {
     renderWithAuth()
 
     expect(await screen.findByText(/aucune mission/i)).toBeInTheDocument()
+  })
+
+  it('reste sur le détail de la mission (au lieu de revenir à la liste) après "Marquer terminé"', async () => {
+    seedLoggedInAgent()
+    const user = userEvent.setup()
+    let missionStatut = 'a_faire'
+
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? 'GET'
+
+      if (url.pathname === '/api/mission-menages' && method === 'GET') {
+        const missions =
+          missionStatut === 'a_faire' || missionStatut === 'en_cours'
+            ? [missionFixture({ statut: missionStatut as 'a_faire' | 'en_cours' })]
+            : []
+        return new Response(JSON.stringify(missions), { status: 200 })
+      }
+
+      if (url.pathname === '/api/mission-menages/10/ouvrir' && method === 'PATCH') {
+        missionStatut = 'en_cours'
+        return new Response(JSON.stringify(missionFixture({ statut: 'en_cours', vue: true })), { status: 200 })
+      }
+
+      if (url.pathname === '/api/mission-menages/10/terminer' && method === 'PATCH') {
+        missionStatut = 'en_attente_validation'
+        return new Response(JSON.stringify(missionFixture({ statut: 'en_attente_validation' })), { status: 200 })
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`)
+    }) as typeof fetch
+
+    renderWithAuth()
+
+    await user.click(await screen.findByText('Loft Bastille'))
+    await screen.findByText('Checklist')
+
+    const boutonTerminer = await screen.findByRole('button', { name: /marquer terminé/i })
+    await user.click(boutonTerminer)
+
+    expect(await screen.findByText(/envoyé au manager pour validation/i)).toBeInTheDocument()
+    // Still on the detail view -- "Retour à mes missions" only appears there.
+    expect(screen.getByRole('button', { name: /retour à mes missions/i })).toBeInTheDocument()
   })
 })
