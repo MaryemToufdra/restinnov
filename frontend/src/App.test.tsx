@@ -295,6 +295,27 @@ describe('App', () => {
     )
   })
 
+  it('l\'entrée surlignée correspond toujours à l\'écran affiché : "Créer un séjour" après édition puis clic direct dans le menu', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [sejourFixture({ statut: 'a_venir' })] }) as typeof fetch
+
+    renderApp()
+    await openGroup(user, 'Séjours')
+
+    await user.click(await screen.findByRole('button', { name: /modifier le séjour de jean dupont/i }))
+    expect(await screen.findByRole('heading', { name: 'Modifier le séjour' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Créer un séjour' })).toHaveClass(/bg-indigo-50/)
+
+    // Direct sidebar click (not "Annuler", not "+ Nouveau séjour") must
+    // still reset the pending edit -- otherwise "Créer un séjour" stays
+    // highlighted while the form silently keeps showing "Modifier le séjour".
+    await user.click(screen.getByRole('button', { name: 'Créer un séjour' }))
+
+    expect(await screen.findByRole('heading', { name: 'Nouveau séjour' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Date d'arrivée/i)).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Créer un séjour' })).toHaveClass(/bg-indigo-50/)
+  })
+
   it('désactive l\'icône crayon pour un séjour déjà terminé', async () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch({
@@ -350,6 +371,54 @@ describe('App', () => {
         expect.objectContaining({ method: 'POST' }),
       ),
     )
+  })
+
+  it('l\'entrée surlignée correspond toujours à l\'écran affiché : "Créer un appartement" après édition puis clic direct dans le menu', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [], appartements: [appartement] }) as typeof fetch
+
+    renderApp()
+    await openGroup(user, 'Appartements')
+    await openSubItem(user, 'Liste des appartements')
+    await screen.findByText('Loft Bastille')
+
+    await user.click(screen.getByRole('button', { name: /modifier l'appartement loft bastille/i }))
+    expect(await screen.findByRole('heading', { name: "Modifier l'appartement" })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Créer un appartement' })).toHaveClass(/bg-indigo-50/)
+
+    await user.click(screen.getByRole('button', { name: 'Créer un appartement' }))
+
+    expect(await screen.findByRole('heading', { name: 'Nouvel appartement' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/nom d'appartement/i)).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Créer un appartement' })).toHaveClass(/bg-indigo-50/)
+  })
+
+  it('l\'entrée surlignée correspond toujours à l\'écran affiché : formulaire agent vidé après édition puis retour via le groupe Ménage', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({
+      sejours: [],
+      agentsMenage: [
+        { id: 7, nom: 'Fatima Zahra', role: 'menage', telephone: '0611111111', adresse: null, actif: true, appartements_habituel_count: 0, mission_menages_count: 0 },
+      ],
+    }) as typeof fetch
+
+    renderApp()
+    await openGroup(user, 'Ménage')
+    await openSubItem(user, 'Liste des agents')
+    await screen.findByText('Fatima Zahra')
+
+    await user.click(screen.getByRole('button', { name: /modifier l'agent fatima zahra/i }))
+    expect(await screen.findByRole('heading', { name: "Modifier l'agent de ménage" })).toBeInTheDocument()
+
+    // Switch to a different group, then back via the "Ménage" PARENT header
+    // -- toggleGroup's default-tab jump lands directly on the agent tab
+    // ("menage-agent" is the group's defaultTab), which must also reset
+    // the pending edit rather than keep showing "Modifier l'agent".
+    await openGroup(user, 'Maintenance')
+    await openGroup(user, 'Ménage')
+
+    expect(await screen.findByRole('heading', { name: 'Nouvel agent de ménage' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Nom')).toHaveValue('')
   })
 
   it('bascule vers "Liste des appartements" au clic sur une ligne du tableau du dashboard', async () => {

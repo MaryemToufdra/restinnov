@@ -192,6 +192,18 @@ describe('NouveauSejourForm', () => {
     expect(screen.getByTestId('montant-par-nuit')).toHaveTextContent('125.00 MAD / nuit')
   })
 
+  it('masque les flèches natives du champ montant sans perdre la validation numérique', () => {
+    render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
+
+    const montantInput = screen.getByLabelText(/Montant du séjour/i)
+    expect(montantInput).toHaveAttribute('type', 'number')
+    expect(montantInput).toHaveAttribute('min', '0')
+    expect(montantInput).toHaveAttribute('step', '0.01')
+    expect(montantInput.className).toContain('[&::-webkit-inner-spin-button]:appearance-none')
+    expect(montantInput.className).toContain('[&::-webkit-outer-spin-button]:appearance-none')
+    expect(montantInput.className).toContain('[-moz-appearance:textfield]')
+  })
+
   it('soumet le formulaire avec le payload attendu, type inclus pour chaque voyageur', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)
