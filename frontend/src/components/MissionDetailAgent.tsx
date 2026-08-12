@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ouvrirMissionMenage,
+  signalerProbleme,
   signalerProduit,
   terminerMissionMenage,
   toggleChecklistItem,
   updateMissionMenageProduits,
+  type SignalerProblemeInput,
   type SignalerProduitInput,
   type UpdateMissionMenageProduitsInput,
 } from '../api'
 import type { ChecklistItem, MissionMenage, ProduitCatalogue } from '../types'
 import { FraisMenageSection } from './FraisMenageSection'
+import { SignalerProblemeSection } from './SignalerProblemeSection'
 
 interface MissionDetailAgentProps {
   missionId: number
@@ -134,6 +137,10 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
     await signalerProduit(missionMenageId, input)
   }
 
+  const handleSignalerProbleme = async (missionMenageId: number, input: SignalerProblemeInput) => {
+    await signalerProbleme(missionMenageId, input)
+  }
+
   const handleTerminer = async () => {
     setTerminerError(null)
     setTerminating(true)
@@ -184,16 +191,7 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
             onSignalerProduit={handleSignalerProduit}
           />
 
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              className="w-full cursor-not-allowed rounded-md border border-gray-300 px-4 py-3 text-base font-medium text-gray-400"
-            >
-              🚧 Signaler un problème — Bientôt disponible
-            </button>
-          </div>
+          <SignalerProblemeSection missionMenageId={mission.id} onSignaler={handleSignalerProbleme} />
 
           {terminerError && <p className="text-sm text-red-600">{terminerError}</p>}
 

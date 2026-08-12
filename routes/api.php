@@ -11,6 +11,7 @@ use App\Http\Controllers\MissionMenageController;
 use App\Http\Controllers\ProduitCatalogueController;
 use App\Http\Controllers\ProduitSignaleController;
 use App\Http\Controllers\SejourController;
+use App\Http\Controllers\TicketMaintenanceController;
 use App\Http\Controllers\UtilisateurController;
 use Illuminate\Support\Facades\Route;
 
@@ -58,6 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/produits-signales/{produitSignale}/rejeter', [ProduitSignaleController::class, 'rejeter']);
 
         Route::patch('/mission-menages/{missionMenage}/valider', [MissionMenageController::class, 'valider']);
+
+        Route::get('/tickets-maintenance', [TicketMaintenanceController::class, 'index']);
+        Route::patch('/tickets-maintenance/{ticketMaintenance}/assigner', [TicketMaintenanceController::class, 'assigner']);
     });
 
     // "menage" (and "manager") -- the cleaning mission workspace: checklist
@@ -74,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/mission-menages/{missionMenage}/ouvrir', [MissionMenageController::class, 'ouvrir']);
         Route::patch('/mission-menages/{missionMenage}/terminer', [MissionMenageController::class, 'terminer']);
         Route::post('/mission-menages/{missionMenage}/produits-signales', [MissionMenageController::class, 'signalerProduit']);
+        Route::post('/mission-menages/{missionMenage}/signalements', [MissionMenageController::class, 'signalerProbleme']);
 
         Route::patch('/checklist-items/{checklistItem}', [ChecklistItemController::class, 'update']);
     });

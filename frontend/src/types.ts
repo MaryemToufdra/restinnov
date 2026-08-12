@@ -6,6 +6,10 @@ export type PlateformeOrigine = 'airbnb' | 'direct' | 'autre' | 'booking'
 
 export type ProduitSignaleStatut = 'en_attente' | 'valide' | 'rejete'
 
+export type TicketMaintenanceUrgence = 'basse' | 'normale' | 'haute'
+
+export type TicketMaintenanceStatut = 'ouvert' | 'assigne' | 'resolu'
+
 export interface ChecklistModeleItem {
   id: number
   checklist_modele_id: number
@@ -82,6 +86,21 @@ export interface MissionMenage {
   produits?: ProduitCatalogue[]
   checklist_items?: ChecklistItem[]
   sejour?: { id: number; appartement: Appartement | null } | null
+}
+
+export interface TicketMaintenance {
+  id: number
+  appartement_id: number
+  mission_origine_id: number | null
+  agent_id: number | null
+  description: string | null
+  photo_url: string | null
+  audio_url: string | null
+  urgence: TicketMaintenanceUrgence
+  statut: TicketMaintenanceStatut
+  appartement?: Appartement | null
+  agent?: Agent | null
+  mission_origine?: (Omit<MissionMenage, 'sejour'> & { sejour?: Sejour | null }) | null
 }
 
 export type VoyageurType = 'adulte' | 'enfant'
