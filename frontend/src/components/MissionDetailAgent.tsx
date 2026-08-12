@@ -11,6 +11,8 @@ import {
   type UpdateMissionMenageProduitsInput,
 } from '../api'
 import type { ChecklistItem, MissionMenage, ProduitCatalogue } from '../types'
+import { checklistIcon } from '../utils/checklistIcons'
+import { playConfirmSound } from '../utils/sound'
 import { FraisMenageSection } from './FraisMenageSection'
 import { SignalerProblemeSection } from './SignalerProblemeSection'
 
@@ -33,14 +35,14 @@ function ChecklistItemRow({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <li className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <li className="flex items-center gap-3 rounded-xl border-2 border-gray-200 bg-white p-4 shadow-sm">
       <button
         type="button"
         role="checkbox"
         aria-checked={item.coche}
         aria-label={item.libelle}
         onClick={() => onToggle(item)}
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border-2 text-lg font-bold ${
+        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-4 text-2xl font-bold ${
           item.coche
             ? 'border-emerald-600 bg-emerald-600 text-white'
             : 'border-gray-300 bg-white text-transparent hover:border-indigo-400'
@@ -48,6 +50,10 @@ function ChecklistItemRow({
       >
         ✓
       </button>
+
+      <span aria-hidden="true" className="shrink-0 text-3xl">
+        {checklistIcon(item.libelle)}
+      </span>
 
       <span className={`flex-1 text-base ${item.coche ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
         {item.libelle}
@@ -57,7 +63,7 @@ function ChecklistItemRow({
         type="button"
         aria-label={`Ajouter une photo pour "${item.libelle}"`}
         onClick={() => fileInputRef.current?.click()}
-        className={`shrink-0 rounded-md border px-3 py-2 text-sm font-medium ${
+        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-2 text-2xl ${
           item.photo_url
             ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
             : 'border-gray-300 text-gray-500 hover:bg-gray-50'
@@ -109,8 +115,12 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
 
   const checklistItems = mission?.checklist_items ?? []
   const toutesCochees = checklistItems.every((item) => item.coche)
+  const totalItems = checklistItems.length
+  const doneItems = checklistItems.filter((item) => item.coche).length
+  const progressPct = totalItems === 0 ? 100 : Math.round((doneItems / totalItems) * 100)
 
   const handleToggle = async (item: ChecklistItem) => {
+    if (!item.coche) playConfirmSound()
     const updated = await toggleChecklistItem(item.id, { coche: !item.coche })
     setMission((current) =>
       current
@@ -171,6 +181,27 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
             <p className="text-sm text-gray-500">{mission.sejour?.appartement?.adresse}</p>
           </div>
 
+          {totalItems > 0 && (
+            <div>
+              <div
+                role="progressbar"
+                aria-label="Progression de la checklist"
+                aria-valuenow={doneItems}
+                aria-valuemin={0}
+                aria-valuemax={totalItems}
+                className="h-4 w-full overflow-hidden rounded-full bg-gray-200"
+              >
+                <div
+                  className="h-full rounded-full bg-emerald-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p className="mt-1 text-right text-xs text-gray-400">
+                {doneItems}/{totalItems}
+              </p>
+            </div>
+          )}
+
           <div>
             <h4 className="text-base font-semibold text-gray-900">Checklist</h4>
             {checklistItems.length === 0 ? (
@@ -196,8 +227,11 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
           {terminerError && <p className="text-sm text-red-600">{terminerError}</p>}
 
           {mission.statut === 'en_attente_validation' ? (
-            <p className="w-full rounded-md bg-emerald-50 px-4 py-4 text-center text-base font-semibold text-emerald-700">
-              ✓ Envoyé au Manager pour validation
+            <p className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-4 text-center text-base font-semibold text-emerald-700">
+              <span aria-hidden="true" className="text-xl">
+                ✅
+              </span>
+              Envoyé au Manager pour validation
             </p>
           ) : (
             <button
@@ -205,9 +239,12 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
               disabled={!toutesCochees || terminating}
               onClick={handleTerminer}
               title={!toutesCochees ? 'Cochez tous les items de la checklist pour terminer la mission.' : undefined}
-              className="w-full rounded-md bg-emerald-600 px-4 py-4 text-lg font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-4 text-lg font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
-              {terminating ? 'Enregistrement...' : '✓ Marquer terminé'}
+              <span aria-hidden="true" className="text-xl">
+                ✓
+              </span>
+              {terminating ? 'Enregistrement...' : 'Marquer terminé'}
             </button>
           )}
         </div>
