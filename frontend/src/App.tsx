@@ -35,6 +35,7 @@ import { NouvelAgentMaintenanceForm } from './components/NouvelAgentMaintenanceF
 import { NouvelAppartementForm } from './components/NouvelAppartementForm'
 import { ProduitsSignalesSection } from './components/ProduitsSignalesSection'
 import { SejoursListeSection } from './components/SejoursListeSection'
+import { TicketsMaintenanceSection } from './components/TicketsMaintenanceSection'
 import { useAuth } from './auth/AuthContext'
 import { usePwaIdentity } from './pwa/usePwaIdentity'
 import type {
@@ -58,6 +59,7 @@ type Tab =
   | 'menage-agents-liste'
   | 'menage-catalogue'
   | 'maintenance-agent'
+  | 'maintenance-tickets'
 
 interface NavGroup {
   key: string
@@ -98,7 +100,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     key: 'maintenance',
     label: 'Maintenance',
-    tabs: [['maintenance-agent', 'Ajouter un agent maintenance']],
+    tabs: [
+      ['maintenance-agent', 'Ajouter un agent maintenance'],
+      ['maintenance-tickets', 'Tickets de maintenance'],
+    ],
     defaultTab: 'maintenance-agent',
   },
 ]
@@ -113,6 +118,7 @@ const SECTION_TITLES: Record<Tab, string> = {
   'menage-agents-liste': 'Ménage',
   'menage-catalogue': 'Ménage',
   'maintenance-agent': 'Maintenance',
+  'maintenance-tickets': 'Maintenance',
 }
 
 function groupKeyForTab(tab: Tab): string | null {
@@ -539,6 +545,7 @@ function App() {
           {activeTab === 'maintenance-agent' && (
             <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
           )}
+          {activeTab === 'maintenance-tickets' && <TicketsMaintenanceSection />}
         </div>
       </main>
     </div>

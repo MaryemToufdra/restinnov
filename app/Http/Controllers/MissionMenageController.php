@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesMissionAccess;
 use App\Models\MissionMenage;
 use App\Models\ProduitMenageSignale;
+use App\Models\TicketMaintenance;
 use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class MissionMenageController extends Controller
 {
@@ -196,5 +198,47 @@ class MissionMenageController extends Controller
         ]);
 
         return response()->json($produitSignale, 201);
+    }
+
+    /**
+     * Report a maintenance problem found during a cleaning mission (broken
+     * fixture, leak, ...). Creates an open, unassigned ticket for the
+     * Manager to triage and hand off to a maintenance agent -- at least one
+     * of photo/audio/description is required, since an empty report would
+     * give the Manager nothing to act on.
+     */
+    public function signalerProbleme(Request $request, MissionMenage $missionMenage): JsonResponse
+    {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
+        $validator = Validator::make($request->all(), [
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'audio' => ['nullable', 'file', 'mimes:mp3,wav,ogg,webm,m4a,aac', 'max:10240'],
+            'description' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $validator->after(function ($validator) use ($request) {
+            $hasDescription = trim((string) $request->input('description', '')) !== '';
+
+            if (! $request->hasFile('photo') && ! $request->hasFile('audio') && ! $hasDescription) {
+                $validator->errors()->add('description', 'Fournissez au moins une photo, un audio ou une description.');
+            }
+        });
+
+        $validated = $validator->validate();
+
+        $photoUrl = $request->hasFile('photo') ? $request->file('photo')->store('tickets-maintenance', 'public') : null;
+        $audioUrl = $request->hasFile('audio') ? $request->file('audio')->store('tickets-maintenance', 'public') : null;
+
+        $ticket = TicketMaintenance::create([
+            'appartement_id' => $missionMenage->sejour->appartement_id,
+            'mission_origine_id' => $missionMenage->id,
+            'description' => $validated['description'] ?? null,
+            'photo_url' => $photoUrl,
+            'audio_url' => $audioUrl,
+            'statut' => TicketMaintenance::STATUT_OUVERT,
+        ]);
+
+        return response()->json($ticket, 201);
     }
 }

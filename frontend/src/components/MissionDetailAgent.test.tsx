@@ -73,6 +73,24 @@ function mockFetch(mission: MissionMenage) {
       return new Response(JSON.stringify(updatedItem), { status: 200 })
     }
 
+    if (path === `/api/mission-menages/${mission.id}/signalements` && method === 'POST') {
+      const formData = init?.body as FormData
+      return new Response(
+        JSON.stringify({
+          id: 99,
+          appartement_id: appartement.id,
+          mission_origine_id: mission.id,
+          agent_id: null,
+          description: formData.get('description') || null,
+          photo_url: formData.get('photo') ? 'tickets-maintenance/photo.jpg' : null,
+          audio_url: formData.get('audio') ? 'tickets-maintenance/audio.webm' : null,
+          urgence: 'normale',
+          statut: 'ouvert',
+        }),
+        { status: 201 },
+      )
+    }
+
     throw new Error(`Unhandled request: ${method} ${path}`)
   })
 }
@@ -132,13 +150,52 @@ describe('MissionDetailAgent', () => {
     expect(screen.queryByRole('button', { name: /marquer terminé/i })).not.toBeInTheDocument()
   })
 
-  it('le bouton "Signaler un problème" reste désactivé avec "Bientôt disponible"', async () => {
+  it('le bouton "Signaler un problème" ouvre le formulaire de signalement', async () => {
+    const user = userEvent.setup()
     globalThis.fetch = mockFetch(missionFixture()) as typeof fetch
 
     render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
 
     await screen.findByText('Loft Bastille')
-    expect(screen.getByRole('button', { name: /signaler un problème/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /signaler un problème/i }))
+
+    expect(screen.getByRole('heading', { name: /signaler un problème/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/description/i)).toBeInTheDocument()
+  })
+
+  it('envoie un signalement avec uniquement une description et affiche une confirmation', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockFetch(missionFixture())
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText('Loft Bastille')
+    await user.click(screen.getByRole('button', { name: /signaler un problème/i }))
+    await user.type(screen.getByLabelText(/description/i), 'La chasse d\'eau ne fonctionne plus.')
+    await user.click(screen.getByRole('button', { name: /^envoyer$/i }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/mission-menages/10/signalements'),
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+    expect(await screen.findByTestId('signalement-confirmation')).toHaveTextContent(/envoyé au manager/i)
+    expect(screen.queryByLabelText(/description/i)).not.toBeInTheDocument()
+  })
+
+  it('refuse d\'envoyer un signalement sans photo, audio ni description', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch(missionFixture()) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText('Loft Bastille')
+    await user.click(screen.getByRole('button', { name: /signaler un problème/i }))
+    await user.click(screen.getByRole('button', { name: /^envoyer$/i }))
+
+    expect(await screen.findByText(/ajoutez au moins une photo, un audio ou une description/i)).toBeInTheDocument()
   })
 
   it('permet de marquer terminé une mission sans aucun item de checklist', async () => {

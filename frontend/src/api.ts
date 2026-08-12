@@ -13,6 +13,7 @@ import type {
   ProduitMenageSignale,
   Sejour,
   SejourStatut,
+  TicketMaintenance,
   Voyageur,
 } from './types'
 
@@ -148,6 +149,12 @@ export interface UpdateMissionMenageProduitsInput {
 export interface SignalerProduitInput {
   photo: File
   note?: string | null
+}
+
+export interface SignalerProblemeInput {
+  photo?: File | null
+  audio?: File | null
+  description?: string | null
 }
 
 export interface ValiderProduitSignaleInput {
@@ -599,6 +606,45 @@ export async function rejeterProduitSignale(id: number): Promise<ProduitMenageSi
   const response = await fetch(`${API_BASE_URL}/api/produits-signales/${id}/rejeter`, {
     method: 'PATCH',
     headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function signalerProbleme(
+  missionMenageId: number,
+  input: SignalerProblemeInput,
+): Promise<TicketMaintenance> {
+  const formData = new FormData()
+  if (input.photo) formData.append('photo', input.photo)
+  if (input.audio) formData.append('audio', input.audio)
+  if (input.description) formData.append('description', input.description)
+
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/signalements`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchTicketsMaintenance(statut?: string): Promise<TicketMaintenance[]> {
+  const url = new URL(`${API_BASE_URL}/api/tickets-maintenance`)
+  if (statut) url.searchParams.set('statut', statut)
+
+  const response = await fetch(url, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function assignerTicketMaintenance(id: number, agentId: number): Promise<TicketMaintenance> {
+  const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/${id}/assigner`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ agent_id: agentId }),
   })
 
   return parseJsonOrThrow(response)
