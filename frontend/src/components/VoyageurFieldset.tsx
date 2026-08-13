@@ -75,6 +75,19 @@ export function VoyageurFieldset({
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
+        <div>
+          <label htmlFor={`voyageur_telephone_${index}`} className="block text-xs font-medium text-gray-600">
+            Téléphone
+          </label>
+          <input
+            id={`voyageur_telephone_${index}`}
+            type="tel"
+            value={voyageur.telephone ?? ''}
+            onChange={(e) => onChange({ telephone: e.target.value })}
+            placeholder="Optionnel"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
       </div>
 
       {voyageur.type === 'adulte' && (

@@ -35,7 +35,7 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
     montant_mad: 0,
     appartement,
     mission_menage: null,
-    voyageurs: [{ nom: 'Jean Dupont', numero_passeport: null, est_principal: true, type: 'adulte' }],
+    voyageurs: [{ nom: 'Jean Dupont', numero_passeport: null, telephone: null, est_principal: true, type: 'adulte' }],
     voyageurs_count: 1,
     ...overrides,
   }
@@ -58,6 +58,7 @@ function dashboardFixture(overrides: Partial<DashboardData> = {}): DashboardData
     sejours_recents: [
       { id: 1, nom_voyageur: 'Jean Dupont', date_arrivee: '2026-08-01', statut: 'a_venir', appartement: { id: 1, nom: 'Loft Bastille' } },
     ],
+    departs_aujourdhui: [],
     problemes_signales: [],
     menages_a_valider: [],
     ...overrides,
@@ -453,7 +454,11 @@ describe('App', () => {
     renderApp()
 
     await screen.findByTestId('dashboard-revenus-totaux')
-    await user.click(screen.getByText('Loft Bastille'))
+    // "Loft Bastille" also appears in the "Relevés propriétaires" block
+    // further down the dashboard -- scope the click to the "Appartements"
+    // table so it doesn't collide with that unrelated row.
+    const appartementsHeading = screen.getByRole('heading', { name: 'Appartements' })
+    await user.click(within(appartementsHeading.closest('div')!).getByText('Loft Bastille'))
 
     expect(await screen.findByText(/appartements trouvés/i)).toBeInTheDocument()
   })

@@ -49,12 +49,14 @@ services:
     restart: unless-stopped
     working_dir: /var/www
     # Runs the Laravel scheduler continuously (checks every minute for due
-    # jobs) so `sejours:activer-en-cours` and `sejours:checkout-automatique`
-    # (see routes/console.php) actually fire -- `schedule:work` is the
-    # long-running dev equivalent of a real cron entry. Keeps the same
-    # entrypoint.sh as "app" (composer install, migrate, wait-for-db --
-    # all idempotent) so this container's own anonymous vendor/ volume
-    # gets populated too; only the final command differs.
+    # jobs) so `sejours:activer-en-cours` (see routes/console.php) actually
+    # fires -- `schedule:work` is the long-running dev equivalent of a real
+    # cron entry. `sejours:checkout-automatique` is defined but its schedule
+    # is commented out (décision du DG: checkout is manager-only now), so it
+    # no longer fires here either. Keeps the same entrypoint.sh as "app"
+    # (composer install, migrate, wait-for-db -- all idempotent) so this
+    # container's own anonymous vendor/ volume gets populated too; only the
+    # final command differs.
     command: ["php", "artisan", "schedule:work"]
     volumes:
       - .:/var/www

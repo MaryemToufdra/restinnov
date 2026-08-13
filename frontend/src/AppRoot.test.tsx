@@ -36,6 +36,7 @@ function mockFetch() {
           appartements: [],
           sejours_par_statut: { a_venir: 0, en_cours: 0, termine: 0 },
           sejours_recents: [],
+          departs_aujourdhui: [],
           problemes_signales: [],
           menages_a_valider: [],
         }),

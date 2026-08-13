@@ -258,8 +258,8 @@ describe('NouveauSejourForm', () => {
       plateforme_origine: 'direct',
       montant_mad: 1500,
       voyageurs: [
-        { nom: 'Jean Dupont', numero_passeport: null, est_principal: true, type: 'adulte' },
-        { nom: 'Petit Dupont', numero_passeport: null, est_principal: false, type: 'enfant' },
+        { nom: 'Jean Dupont', numero_passeport: null, telephone: null, est_principal: true, type: 'adulte' },
+        { nom: 'Petit Dupont', numero_passeport: null, telephone: null, est_principal: false, type: 'enfant' },
       ],
     })
   })
@@ -317,8 +317,8 @@ describe('NouveauSejourForm', () => {
       plateforme_origine: 'booking',
       montant_mad: 1500,
       voyageurs: [
-        { nom: 'Jean Dupont', numero_passeport: 'FR123', est_principal: true, type: 'adulte' },
-        { nom: 'Petit Dupont', numero_passeport: null, est_principal: false, type: 'enfant' },
+        { nom: 'Jean Dupont', numero_passeport: 'FR123', telephone: null, est_principal: true, type: 'adulte' },
+        { nom: 'Petit Dupont', numero_passeport: null, telephone: null, est_principal: false, type: 'enfant' },
       ],
     }
 

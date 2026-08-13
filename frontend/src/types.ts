@@ -124,6 +124,7 @@ export interface Voyageur {
   id?: number
   nom: string
   numero_passeport: string | null
+  telephone: string | null
   est_principal: boolean
   type: VoyageurType
 }
@@ -176,6 +177,14 @@ export interface DashboardSejourRecent {
   appartement: { id: number; nom: string } | null
 }
 
+export interface DashboardDepartAujourdhui {
+  id: number
+  reference: string
+  voyageur_principal: string
+  telephone_voyageur: string | null
+  appartement: { id: number; nom: string } | null
+}
+
 export interface DashboardProblemeSignale {
   id: number
   photo_url: string | null
@@ -204,6 +213,7 @@ export interface DashboardData {
     termine: number
   }
   sejours_recents: DashboardSejourRecent[]
+  departs_aujourdhui: DashboardDepartAujourdhui[]
   problemes_signales: DashboardProblemeSignale[]
   menages_a_valider: DashboardMenageAValider[]
 }

@@ -26,7 +26,7 @@ function computeNombreNuits(dateArrivee: string, dateDepart: string): number | n
 }
 
 function defaultVoyageurs(): Voyageur[] {
-  return [{ nom: '', numero_passeport: '', est_principal: true, type: 'adulte' }]
+  return [{ nom: '', numero_passeport: '', telephone: '', est_principal: true, type: 'adulte' }]
 }
 
 /** Removes the voyageur at `index`, reassigning "principal" to the first remaining adulte if needed. */
@@ -95,7 +95,10 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel, sejourToEd
   }
 
   const addVoyageur = (type: VoyageurType) => {
-    setVoyageurs((current) => [...current, { nom: '', numero_passeport: '', est_principal: false, type }])
+    setVoyageurs((current) => [
+      ...current,
+      { nom: '', numero_passeport: '', telephone: '', est_principal: false, type },
+    ])
   }
 
   const removeVoyageur = (index: number) => {
@@ -160,6 +163,7 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel, sejourToEd
         voyageurs: voyageurs.map((v) => ({
           nom: v.nom,
           numero_passeport: v.numero_passeport?.trim() ? v.numero_passeport : null,
+          telephone: v.telephone?.trim() ? v.telephone : null,
           est_principal: v.est_principal,
           type: v.type,
         })),

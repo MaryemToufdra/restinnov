@@ -102,6 +102,7 @@ class SejourController extends Controller
             'voyageurs' => ['required', 'array', 'min:1'],
             'voyageurs.*.nom' => ['required', 'string', 'max:255'],
             'voyageurs.*.numero_passeport' => ['nullable', 'string', 'max:255'],
+            'voyageurs.*.telephone' => ['nullable', 'string', 'max:255'],
             'voyageurs.*.est_principal' => ['required', 'boolean'],
             'voyageurs.*.type' => ['sometimes', 'in:adulte,enfant'],
         ]);
@@ -179,6 +180,7 @@ class SejourController extends Controller
             'voyageurs' => ['required', 'array', 'min:1'],
             'voyageurs.*.nom' => ['required', 'string', 'max:255'],
             'voyageurs.*.numero_passeport' => ['nullable', 'string', 'max:255'],
+            'voyageurs.*.telephone' => ['nullable', 'string', 'max:255'],
             'voyageurs.*.est_principal' => ['required', 'boolean'],
             'voyageurs.*.type' => ['sometimes', 'in:adulte,enfant'],
         ]);
@@ -262,6 +264,7 @@ class SejourController extends Controller
             $sejour->voyageurs()->create([
                 'nom' => $voyageur['nom'],
                 'numero_passeport' => $voyageur['numero_passeport'] ?? null,
+                'telephone' => $voyageur['telephone'] ?? null,
                 'est_principal' => filter_var($voyageur['est_principal'], FILTER_VALIDATE_BOOLEAN),
                 'type' => $voyageur['type'] ?? Voyageur::TYPE_ADULTE,
             ]);
