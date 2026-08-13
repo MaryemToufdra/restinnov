@@ -6,6 +6,7 @@ import type {
   ChecklistModeleItem,
   DashboardData,
   FraisMaintenance,
+  HistoriqueMission,
   MissionMenage,
   ModeGestion,
   PaginatedResponse,
@@ -119,7 +120,7 @@ export interface NewAppartementInput {
   nom: string
   adresse: string
   photo: File | null
-  checklist_modele_id: number | null
+  checklist_modele_ids: number[]
   agent_habituel_id: number | null
   proprietaire_id?: number | null
   mode_gestion?: ModeGestion
@@ -249,7 +250,7 @@ export async function updateAppartement(id: number, input: NewAppartementInput):
   formData.append('nom', input.nom)
   formData.append('adresse', input.adresse)
   if (input.photo) formData.append('photo', input.photo)
-  if (input.checklist_modele_id) formData.append('checklist_modele_id', String(input.checklist_modele_id))
+  input.checklist_modele_ids.forEach((id) => formData.append('checklist_modele_ids[]', String(id)))
   if (input.agent_habituel_id) formData.append('agent_habituel_id', String(input.agent_habituel_id))
   appendProprietaireFields(formData, input)
   formData.append('_method', 'PATCH')
@@ -268,7 +269,7 @@ export async function createAppartement(input: NewAppartementInput): Promise<App
   formData.append('nom', input.nom)
   formData.append('adresse', input.adresse)
   if (input.photo) formData.append('photo', input.photo)
-  if (input.checklist_modele_id) formData.append('checklist_modele_id', String(input.checklist_modele_id))
+  input.checklist_modele_ids.forEach((id) => formData.append('checklist_modele_ids[]', String(id)))
   if (input.agent_habituel_id) formData.append('agent_habituel_id', String(input.agent_habituel_id))
   appendProprietaireFields(formData, input)
 
@@ -719,6 +720,14 @@ export async function deleteFraisMaintenance(id: number): Promise<void> {
 
 export async function fetchDashboard(): Promise<DashboardData> {
   const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchAppartementHistorique(appartementId: number): Promise<HistoriqueMission[]> {
+  const response = await fetch(`${API_BASE_URL}/api/appartements/${appartementId}/historique`, {
     headers: authHeaders(),
   })
 

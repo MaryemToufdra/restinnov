@@ -27,6 +27,7 @@ export interface ChecklistItem {
   id: number
   mission_menage_id: number
   libelle: string
+  checklist_modele_nom?: string | null
   coche: boolean
   photo_url: string | null
   ordre: number
@@ -47,13 +48,12 @@ export interface Appartement {
   adresse: string
   statut: string
   photo_principale: string | null
-  checklist_modele_id: number | null
   agent_habituel_id: number | null
   proprietaire_id?: number | null
   mode_gestion?: ModeGestion
   taux_commission?: string | number | null
   loyer_fixe_mensuel?: string | number | null
-  checklist_modele?: ChecklistModele | null
+  checklist_modeles?: ChecklistModele[]
   agent_habituel?: Agent | null
   proprietaire?: Proprietaire | null
   sejours_count?: number
@@ -254,4 +254,34 @@ export interface Releve {
   sejours: ReleveSejour[]
   frais_menage_detail: ReleveFraisMenageDetail[]
   frais_maintenance_detail: ReleveFraisMaintenanceDetail[]
+}
+
+export interface HistoriqueChecklistItem {
+  libelle: string
+  checklist_modele_nom: string | null
+  coche: boolean
+  photo_url: string | null
+}
+
+export interface HistoriqueProduit {
+  nom: string
+  prix: number
+}
+
+export interface HistoriqueMission {
+  id: number
+  statut: MissionStatut
+  sejour: {
+    id: number
+    reference: string
+    date_arrivee: string
+    date_depart: string
+    nom_voyageur: string
+  }
+  checklist_modeles_utilises: string[]
+  checklist_items: HistoriqueChecklistItem[]
+  produits: HistoriqueProduit[]
+  frais_forfait: number
+  frais_produits_total: number
+  frais_total: number
 }

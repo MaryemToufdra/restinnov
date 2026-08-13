@@ -11,7 +11,6 @@ function appartementFixture(overrides: Partial<Appartement> = {}): Appartement {
     adresse: '12 rue de la Roquette',
     statut: 'disponible',
     photo_principale: null,
-    checklist_modele_id: null,
     agent_habituel_id: null,
     proprietaire: { id: 5, nom: 'Karim Alaoui', telephone: null, email: null },
     ...overrides,

@@ -23,6 +23,34 @@ interface MissionDetailAgentProps {
   onMissionTerminee: () => void
 }
 
+interface ChecklistGroup {
+  nom: string | null
+  items: ChecklistItem[]
+}
+
+/**
+ * Groups consecutive items by their origin checklist_modele_nom, preserving
+ * the backend's order (each modele's items are contiguous, in assignment
+ * order -- see SejourCheckoutService::genererChecklist). Items with no
+ * modele name (nothing assigned, or generated before this field existed)
+ * fall into a single unnamed group with no subtitle.
+ */
+function groupChecklistItems(items: ChecklistItem[]): ChecklistGroup[] {
+  const groups: ChecklistGroup[] = []
+
+  for (const item of items) {
+    const nom = item.checklist_modele_nom ?? null
+    const currentGroup = groups[groups.length - 1]
+    if (currentGroup && currentGroup.nom === nom) {
+      currentGroup.items.push(item)
+    } else {
+      groups.push({ nom, items: [item] })
+    }
+  }
+
+  return groups
+}
+
 function ChecklistItemRow({
   item,
   onToggle,
@@ -207,11 +235,20 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
             {checklistItems.length === 0 ? (
               <p className="mt-2 text-sm text-gray-500">Aucun item de checklist pour cet appartement.</p>
             ) : (
-              <ul className="mt-2 space-y-2">
-                {checklistItems.map((item) => (
-                  <ChecklistItemRow key={item.id} item={item} onToggle={handleToggle} onPhoto={handlePhoto} />
+              <div className="mt-2 space-y-4">
+                {groupChecklistItems(checklistItems).map((group, index) => (
+                  <div key={group.nom ?? `groupe-${index}`}>
+                    {group.nom && (
+                      <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{group.nom}</p>
+                    )}
+                    <ul className="space-y-2">
+                      {group.items.map((item) => (
+                        <ChecklistItemRow key={item.id} item={item} onToggle={handleToggle} onPhoto={handlePhoto} />
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
 

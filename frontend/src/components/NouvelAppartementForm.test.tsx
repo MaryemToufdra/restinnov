@@ -94,7 +94,7 @@ describe('NouvelAppartementForm', () => {
     await user.click(screen.getByRole('button', { name: /^ajouter$/i }))
 
     expect(onCreateChecklistModele).toHaveBeenCalledWith('Checklist studio')
-    expect(await screen.findByRole('combobox', { name: /checklist de ménage/i })).toHaveValue('99')
+    expect(await screen.findByRole('checkbox', { name: 'Checklist studio' })).toBeChecked()
   })
 
   it('soumet le formulaire avec le payload attendu', async () => {
@@ -106,7 +106,7 @@ describe('NouvelAppartementForm', () => {
     await user.type(screen.getByLabelText(/adresse complète/i), '10 avenue Hassan II')
     const photo = makeFile()
     await user.upload(screen.getByLabelText('Photo principale', { selector: 'input' }), photo)
-    await user.selectOptions(screen.getByRole('combobox', { name: /checklist de ménage/i }), '1')
+    await user.click(screen.getByRole('checkbox', { name: 'Checklist standard' }))
     await user.selectOptions(screen.getByRole('combobox', { name: /agent de ménage habituel/i }), '2')
 
     await user.click(screen.getByRole('button', { name: /enregistrer l'appartement/i }))
@@ -115,7 +115,7 @@ describe('NouvelAppartementForm', () => {
       nom: 'Zenith 3ème étage',
       adresse: '10 avenue Hassan II',
       photo,
-      checklist_modele_id: 1,
+      checklist_modele_ids: [1],
       agent_habituel_id: 2,
       proprietaire_id: null,
       mode_gestion: 'mandat',
@@ -185,7 +185,7 @@ describe('NouvelAppartementForm', () => {
       adresse: '12 rue de la Roquette',
       statut: 'occupe',
       photo_principale: null,
-      checklist_modele_id: 1,
+      checklist_modeles: [{ id: 1, nom: 'Checklist standard' }],
       agent_habituel_id: 2,
       proprietaire_id: 5,
       mode_gestion: 'mandat',
@@ -199,7 +199,7 @@ describe('NouvelAppartementForm', () => {
       expect(screen.getByRole('heading', { name: "Modifier l'appartement" })).toBeInTheDocument()
       expect(screen.getByLabelText(/nom d'appartement/i)).toHaveValue('Loft Bastille')
       expect(screen.getByLabelText(/adresse complète/i)).toHaveValue('12 rue de la Roquette')
-      expect(screen.getByRole('combobox', { name: /checklist de ménage/i })).toHaveValue('1')
+      expect(screen.getByRole('checkbox', { name: 'Checklist standard' })).toBeChecked()
       expect(screen.getByRole('combobox', { name: /agent de ménage habituel/i })).toHaveValue('2')
       expect(screen.getByRole('combobox', { name: /propriétaire/i })).toHaveValue('5')
       expect(screen.getByLabelText(/taux de commission/i)).toHaveValue(15)
@@ -220,7 +220,7 @@ describe('NouvelAppartementForm', () => {
         expect.objectContaining({
           nom: 'Loft Bastille rénové',
           adresse: '12 rue de la Roquette',
-          checklist_modele_id: 1,
+          checklist_modele_ids: [1],
           agent_habituel_id: 2,
           proprietaire_id: 5,
           mode_gestion: 'mandat',

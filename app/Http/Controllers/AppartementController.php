@@ -31,7 +31,7 @@ class AppartementController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        $query = Appartement::with(['checklistModele', 'agentHabituel', 'proprietaire'])
+        $query = Appartement::with(['checklistModeles', 'agentHabituel', 'proprietaire'])
             ->withCount('sejours')
             ->withMax('sejours', 'date_depart')
             ->avecStatutCalcule();
@@ -107,7 +107,8 @@ class AppartementController extends Controller
             'nom' => ['required', 'string', 'max:255'],
             'adresse' => ['required', 'string', 'max:255'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'checklist_modele_id' => ['nullable', 'exists:checklist_modeles,id'],
+            'checklist_modele_ids' => ['sometimes', 'array'],
+            'checklist_modele_ids.*' => ['integer', 'exists:checklist_modeles,id'],
             'agent_habituel_id' => [
                 'nullable',
                 // Only enforced on creation: a brand new appartement has no
@@ -126,12 +127,16 @@ class AppartementController extends Controller
         }
         unset($validated['photo']);
 
+        $checklistModeleIds = $validated['checklist_modele_ids'] ?? [];
+        unset($validated['checklist_modele_ids']);
+
         $validated['statut'] = Appartement::STATUT_DISPONIBLE;
         $validated['mode_gestion'] ??= Appartement::MODE_GESTION_MANDAT;
 
         $appartement = Appartement::create($validated);
+        $appartement->checklistModeles()->sync($checklistModeleIds);
 
-        return response()->json($appartement->load(['checklistModele', 'agentHabituel', 'proprietaire']), 201);
+        return response()->json($appartement->load(['checklistModeles', 'agentHabituel', 'proprietaire']), 201);
     }
 
     /**
@@ -145,7 +150,8 @@ class AppartementController extends Controller
             'nom' => ['required', 'string', 'max:255'],
             'adresse' => ['required', 'string', 'max:255'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'checklist_modele_id' => ['nullable', 'exists:checklist_modeles,id'],
+            'checklist_modele_ids' => ['sometimes', 'array'],
+            'checklist_modele_ids.*' => ['integer', 'exists:checklist_modeles,id'],
             // No actif=true requirement here (unlike store()): an appartement
             // may already have an agent_habituel who has since been
             // deactivated, and re-submitting the form to edit unrelated
@@ -168,9 +174,13 @@ class AppartementController extends Controller
         }
         unset($validated['photo']);
 
-        $appartement->update($validated);
+        $checklistModeleIds = $validated['checklist_modele_ids'] ?? [];
+        unset($validated['checklist_modele_ids']);
 
-        return response()->json($appartement->fresh()->load(['checklistModele', 'agentHabituel', 'proprietaire']));
+        $appartement->update($validated);
+        $appartement->checklistModeles()->sync($checklistModeleIds);
+
+        return response()->json($appartement->fresh()->load(['checklistModeles', 'agentHabituel', 'proprietaire']));
     }
 
     /**
@@ -186,6 +196,57 @@ class AppartementController extends Controller
         ]);
 
         return response()->json($this->buildReleve($appartement, $validated['mois']));
+    }
+
+    /**
+     * The appartement's full cleaning-mission history: every mission ever
+     * generated for one of its sejours, most recent first, with its
+     * checklist (grouped by the modele(s) it came from), the products used,
+     * the forfait/total cost, and its final validation statut.
+     */
+    public function historique(Appartement $appartement): JsonResponse
+    {
+        $missions = MissionMenage::query()
+            ->whereHas('sejour', fn ($q) => $q->where('appartement_id', $appartement->id))
+            ->with(['sejour', 'produits', 'checklistItems'])
+            ->get()
+            ->sortByDesc(fn (MissionMenage $mission) => $mission->sejour->date_depart)
+            ->values();
+
+        return response()->json($missions->map(function (MissionMenage $mission) {
+            $fraisForfait = (float) $mission->frais_forfait;
+            $fraisProduitsTotal = (float) $mission->produits->sum('prix');
+
+            return [
+                'id' => $mission->id,
+                'statut' => $mission->statut,
+                'sejour' => [
+                    'id' => $mission->sejour->id,
+                    'reference' => $mission->sejour->reference,
+                    'date_arrivee' => $mission->sejour->date_arrivee->toDateString(),
+                    'date_depart' => $mission->sejour->date_depart->toDateString(),
+                    'nom_voyageur' => $mission->sejour->nom_voyageur,
+                ],
+                'checklist_modeles_utilises' => $mission->checklistItems
+                    ->pluck('checklist_modele_nom')
+                    ->filter()
+                    ->unique()
+                    ->values(),
+                'checklist_items' => $mission->checklistItems->map(fn ($item) => [
+                    'libelle' => $item->libelle,
+                    'checklist_modele_nom' => $item->checklist_modele_nom,
+                    'coche' => $item->coche,
+                    'photo_url' => $item->photo_url,
+                ])->values(),
+                'produits' => $mission->produits->map(fn ($produit) => [
+                    'nom' => $produit->nom,
+                    'prix' => round((float) $produit->prix, 2),
+                ])->values(),
+                'frais_forfait' => round($fraisForfait, 2),
+                'frais_produits_total' => round($fraisProduitsTotal, 2),
+                'frais_total' => round($fraisForfait + $fraisProduitsTotal, 2),
+            ];
+        })->values());
     }
 
     /**
