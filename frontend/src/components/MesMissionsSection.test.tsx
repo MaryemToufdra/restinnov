@@ -112,6 +112,41 @@ describe('MesMissionsSection', () => {
     expect(await screen.findByText(/aucune mission/i)).toBeInTheDocument()
   })
 
+  it('le badge "Nouveau" est un indicateur visuel (rôle status), pas juste du texte à lire', async () => {
+    seedLoggedInAgent()
+    globalThis.fetch = mockFetch([missionFixture({ id: 10, vue: false })]) as typeof fetch
+
+    renderWithAuth()
+
+    await screen.findByText('Loft Bastille')
+    expect(screen.getByRole('status', { name: /nouvelle mission/i })).toBeInTheDocument()
+  })
+
+  it("affiche une vignette photo de l'appartement quand une photo existe", async () => {
+    seedLoggedInAgent()
+    globalThis.fetch = mockFetch([
+      missionFixture({
+        sejour: {
+          id: 1,
+          appartement: {
+            id: 1,
+            nom: 'Loft Bastille',
+            adresse: '12 rue de la Roquette',
+            statut: 'occupe',
+            photo_principale: 'appartements/loft.jpg',
+            checklist_modele_id: null,
+            agent_habituel_id: null,
+          },
+        },
+      }),
+    ]) as typeof fetch
+
+    renderWithAuth()
+
+    const image = await screen.findByTestId('appartement-photo-10')
+    expect(image).toHaveAttribute('src', expect.stringContaining('appartements/loft.jpg'))
+  })
+
   it('reste sur le détail de la mission (au lieu de revenir à la liste) après "Marquer terminé"', async () => {
     seedLoggedInAgent()
     const user = userEvent.setup()

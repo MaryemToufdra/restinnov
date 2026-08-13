@@ -198,6 +198,40 @@ describe('MissionDetailAgent', () => {
     expect(await screen.findByText(/ajoutez au moins une photo, un audio ou une description/i)).toBeInTheDocument()
   })
 
+  it('affiche une barre de progression (rôle ARIA) qui reflète les items cochés', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch(
+      missionFixture({
+        checklist_items: [checklistItem({ id: 1, libelle: 'Changer les draps' }), checklistItem({ id: 2, libelle: 'Passer l\'aspirateur' })],
+      }),
+    ) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText('Changer les draps')
+    const progressbar = screen.getByRole('progressbar', { name: /progression/i })
+    expect(progressbar).toHaveAttribute('aria-valuenow', '0')
+    expect(progressbar).toHaveAttribute('aria-valuemax', '2')
+
+    await user.click(screen.getByRole('checkbox', { name: 'Changer les draps' }))
+
+    await waitFor(() => expect(screen.getByRole('progressbar', { name: /progression/i })).toHaveAttribute('aria-valuenow', '1'))
+  })
+
+  it('un item coché devient une zone verte pleine (le changement de couleur est le signal principal)', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch(missionFixture()) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    const checkbox = await screen.findByRole('checkbox', { name: "Passer l'aspirateur" })
+    expect(checkbox).not.toHaveClass('bg-emerald-600')
+
+    await user.click(checkbox)
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: "Passer l'aspirateur" })).toHaveClass('bg-emerald-600'))
+  })
+
   it('permet de marquer terminé une mission sans aucun item de checklist', async () => {
     const user = userEvent.setup()
     globalThis.fetch = mockFetch(missionFixture({ checklist_items: [] })) as typeof fetch

@@ -1,5 +1,6 @@
 import type {
   Agent,
+  AgentMenagePublic,
   Appartement,
   ChecklistItem,
   ChecklistModele,
@@ -75,6 +76,14 @@ export interface LoginResponse {
   id: number
   nom: string
   role: Role
+}
+
+export async function fetchAgentsMenageActifs(): Promise<AgentMenagePublic[]> {
+  const response = await fetch(`${API_BASE_URL}/api/agents-menage-actifs`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
 }
 
 export async function login(input: LoginInput): Promise<LoginResponse> {

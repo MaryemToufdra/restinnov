@@ -117,20 +117,29 @@ export function SignalerProblemeSection({ missionMenageId, onSignaler }: Signale
 
   if (!expanded) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border-2 border-gray-200 bg-white p-4 shadow-sm">
         <button
           type="button"
           onClick={() => {
             setExpanded(true)
             setSent(false)
           }}
-          className="w-full rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-base font-medium text-amber-800 hover:bg-amber-100"
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-base font-bold text-white hover:bg-orange-700"
         >
-          🚧 Signaler un problème
+          <span aria-hidden="true" className="text-2xl">
+            ⚠️
+          </span>
+          Signaler un problème
         </button>
         {sent && (
-          <p className="mt-2 text-sm font-medium text-emerald-700" data-testid="signalement-confirmation">
-            ✓ Signalement envoyé au Manager
+          <p
+            className="mt-2 flex items-center gap-2 text-sm font-medium text-emerald-700"
+            data-testid="signalement-confirmation"
+          >
+            <span aria-hidden="true" className="text-lg">
+              ✅
+            </span>
+            Signalement envoyé au Manager
           </p>
         )}
       </div>
@@ -138,65 +147,85 @@ export function SignalerProblemeSection({ missionMenageId, onSignaler }: Signale
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="space-y-4 rounded-xl border-2 border-gray-200 bg-white p-4 shadow-sm">
       <h4 className="text-base font-semibold text-gray-900">Signaler un problème</h4>
 
-      <div>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          📷 Prendre une photo
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png"
-          capture="environment"
-          className="hidden"
-          aria-label="Photo du problème"
-          onChange={(e) => handlePhotoChange(e.target.files?.[0])}
-        />
-        {photoPreviewUrl && (
-          <img src={photoPreviewUrl} alt="Aperçu de la photo" className="mt-2 h-32 w-32 rounded-md object-cover" />
-        )}
-      </div>
+      <div className="flex justify-center gap-8">
+        <div className="flex flex-col items-center gap-1">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Ouvrir l'appareil photo"
+            className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-orange-200 bg-orange-50 text-4xl hover:bg-orange-100"
+          >
+            📷
+          </button>
+          <span className="text-xs font-medium text-gray-500">Photo</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png"
+            capture="environment"
+            className="hidden"
+            aria-label="Photo du problème"
+            onChange={(e) => handlePhotoChange(e.target.files?.[0])}
+          />
+          {photoPreviewUrl && (
+            <img src={photoPreviewUrl} alt="Aperçu de la photo" className="mt-1 h-20 w-20 rounded-lg object-cover" />
+          )}
+        </div>
 
-      <div>
-        {!micSupported ? (
-          <p className="text-sm text-gray-500">Enregistrement audio non disponible sur cet appareil.</p>
-        ) : recordingState === 'idle' ? (
-          <button
-            type="button"
-            onClick={startRecording}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            🎤 Enregistrer un message audio
-          </button>
-        ) : recordingState === 'recording' ? (
-          <button
-            type="button"
-            onClick={stopRecording}
-            className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-          >
-            ⏹ Arrêter l'enregistrement
-          </button>
-        ) : (
-          <div className="space-y-2">
-            {audioPreviewUrl && (
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <audio controls src={audioPreviewUrl} className="w-full" />
-            )}
-            <button
-              type="button"
-              onClick={resetAudio}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-            >
-              🔄 Recommencer l'enregistrement
-            </button>
-          </div>
-        )}
+        <div className="flex flex-col items-center gap-1">
+          {!micSupported ? (
+            <p className="max-w-[6rem] text-center text-xs text-gray-400">Audio non disponible</p>
+          ) : recordingState === 'idle' ? (
+            <>
+              <button
+                type="button"
+                onClick={startRecording}
+                aria-label="Enregistrer un message audio"
+                className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-orange-200 bg-orange-50 text-4xl hover:bg-orange-100"
+              >
+                🎤
+              </button>
+              <span className="text-xs font-medium text-gray-500">Audio</span>
+            </>
+          ) : recordingState === 'recording' ? (
+            <>
+              <button
+                type="button"
+                onClick={stopRecording}
+                aria-label="Arrêter l'enregistrement"
+                data-testid="recording-indicator"
+                className="relative flex h-20 w-20 items-center justify-center rounded-full bg-red-600 text-3xl text-white"
+              >
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 animate-ping rounded-full bg-red-500 opacity-75"
+                />
+                <span aria-hidden="true" className="relative">
+                  ⏹
+                </span>
+              </button>
+              <span className="text-xs font-medium text-red-600">Enregistrement...</span>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              {audioPreviewUrl && (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <audio controls src={audioPreviewUrl} className="w-40" />
+              )}
+              <button
+                type="button"
+                onClick={resetAudio}
+                aria-label="Recommencer l'enregistrement audio"
+                className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-gray-300 text-xl hover:bg-gray-50"
+              >
+                🔄
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div>
@@ -215,16 +244,21 @@ export function SignalerProblemeSection({ missionMenageId, onSignaler }: Signale
         />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+          <span aria-hidden="true">⚠️</span>
+          {error}
+        </p>
+      )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <button
           type="button"
           onClick={() => {
             resetForm()
             setExpanded(false)
           }}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="min-h-14 flex-1 rounded-xl border-2 border-gray-300 px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50"
         >
           Annuler
         </button>
@@ -232,8 +266,11 @@ export function SignalerProblemeSection({ missionMenageId, onSignaler }: Signale
           type="button"
           onClick={handleSubmit}
           disabled={submitting}
-          className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+          className="flex min-h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-base font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
+          <span aria-hidden="true" className="text-xl">
+            ✓
+          </span>
           {submitting ? 'Envoi...' : 'Envoyer'}
         </button>
       </div>

@@ -52,7 +52,7 @@ describe('SignalerProblemeSection', () => {
 
     await user.click(screen.getByRole('button', { name: /signaler un problème/i }))
 
-    expect(screen.getByText(/enregistrement audio non disponible/i)).toBeInTheDocument()
+    expect(screen.getByText(/audio non disponible/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /enregistrer un message audio/i })).not.toBeInTheDocument()
   })
 
@@ -96,6 +96,49 @@ describe('SignalerProblemeSection', () => {
 
     expect(screen.queryByLabelText(/description/i)).not.toBeInTheDocument()
     expect(onSignaler).not.toHaveBeenCalled()
+  })
+
+  it('propose de gros boutons ronds photo/micro pour signaler sans avoir à écrire', async () => {
+    const user = userEvent.setup()
+    render(<SignalerProblemeSection missionMenageId={10} onSignaler={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /signaler un problème/i }))
+
+    expect(screen.getByRole('button', { name: /ouvrir l'appareil photo/i })).toBeInTheDocument()
+  })
+
+  it('affiche un indicateur visuel pulsant pendant l\'enregistrement audio', async () => {
+    const user = userEvent.setup()
+
+    const fakeTrack = { stop: vi.fn() }
+    const fakeStream = { getTracks: () => [fakeTrack] } as unknown as MediaStream
+    const getUserMedia = vi.fn().mockResolvedValue(fakeStream)
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true })
+
+    class FakeMediaRecorder {
+      static isTypeSupported = () => true
+      ondataavailable: ((event: { data: Blob }) => void) | null = null
+      onstop: (() => void) | null = null
+      mimeType = 'audio/webm'
+      stream: MediaStream
+      constructor(stream: MediaStream) {
+        this.stream = stream
+      }
+      start() {}
+      stop() {
+        this.onstop?.()
+      }
+    }
+    // @ts-expect-error -- assigning a minimal fake for the test
+    window.MediaRecorder = FakeMediaRecorder
+
+    render(<SignalerProblemeSection missionMenageId={10} onSignaler={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /signaler un problème/i }))
+    await user.click(screen.getByRole('button', { name: /enregistrer un message audio/i }))
+
+    const indicator = await screen.findByTestId('recording-indicator')
+    expect(indicator.querySelector('.animate-ping')).toBeInTheDocument()
   })
 
   it('propose l\'enregistrement audio quand MediaRecorder est disponible, et l\'envoie', async () => {

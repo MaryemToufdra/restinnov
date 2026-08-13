@@ -13,6 +13,22 @@ use Illuminate\Validation\Rule;
 class UtilisateurController extends Controller
 {
     /**
+     * Public, unauthenticated list of active cleaning agents (id/nom/telephone
+     * only) for the login screen's avatar picker. Deliberately excludes every
+     * other field and every other role.
+     */
+    public function agentsMenageActifs(): JsonResponse
+    {
+        $agents = Utilisateur::query()
+            ->where('role', Utilisateur::ROLE_MENAGE)
+            ->where('actif', true)
+            ->orderBy('nom')
+            ->get(['id', 'nom', 'telephone']);
+
+        return response()->json($agents);
+    }
+
+    /**
      * Display a listing of utilisateurs, optionally filtered by role and/or
      * a name search, with the appartement/mission counts needed by the
      * "Liste des agents" screen. Inactive agents are excluded by default --
