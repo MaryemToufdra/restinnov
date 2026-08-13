@@ -43,6 +43,11 @@ function removeAtIndex(list: Voyageur[], index: number): Voyageur[] {
 }
 
 export function NouveauSejourForm({ appartements, onSubmit, onCancel, sejourToEdit }: NouveauSejourFormProps) {
+  // "maintenance" means an unresolved problem -- no new (or edited) booking
+  // can go on it until it's resolved, so it never appears as a choice here.
+  // The backend enforces the same rule on save as a defense-in-depth guard.
+  const appartementsSelectionnables = appartements.filter((a) => a.statut !== 'maintenance')
+
   const [appartementId, setAppartementId] = useState('')
   const [dateArrivee, setDateArrivee] = useState('')
   const [dateDepart, setDateDepart] = useState('')
@@ -177,7 +182,7 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel, sejourToEd
         <label htmlFor="appartement_id" className="block text-sm font-medium text-gray-700">
           Appartement
         </label>
-        {appartements.length > 0 ? (
+        {appartementsSelectionnables.length > 0 ? (
           <select
             id="appartement_id"
             value={appartementId}
@@ -185,7 +190,7 @@ export function NouveauSejourForm({ appartements, onSubmit, onCancel, sejourToEd
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Sélectionner un appartement</option>
-            {appartements.map((appartement) => (
+            {appartementsSelectionnables.map((appartement) => (
               <option key={appartement.id} value={appartement.id}>
                 {appartement.nom}
               </option>

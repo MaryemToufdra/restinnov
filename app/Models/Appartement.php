@@ -18,6 +18,8 @@ class Appartement extends Model
 
     public const STATUT_EN_MENAGE = 'en_menage';
 
+    public const STATUT_MAINTENANCE = 'maintenance';
+
     protected $fillable = [
         'nom',
         'adresse',
@@ -32,13 +34,19 @@ class Appartement extends Model
         return $this->hasMany(Sejour::class);
     }
 
+    public function ticketsMaintenance(): HasMany
+    {
+        return $this->hasMany(TicketMaintenance::class);
+    }
+
     /**
-     * Adds the `a_un_sejour_en_cours` and `a_une_mission_menage_active`
-     * booleans via EXISTS subqueries (works alongside a custom select(),
-     * unlike an eager-loaded relation). The stored `statut` column is only
-     * ever the default set at creation -- it is never authoritative for
-     * "occupé"/"en_menage", which must always be derived from live
-     * sejours/mission_menage data at read time. See statutCalcule().
+     * Adds the `a_un_sejour_en_cours`, `a_une_mission_menage_active` and
+     * `a_un_ticket_maintenance_ouvert` booleans via EXISTS subqueries (works
+     * alongside a custom select(), unlike an eager-loaded relation). The
+     * stored `statut` column is only ever the default set at creation -- it
+     * is never authoritative for "occupé"/"en_menage"/"maintenance", which
+     * must always be derived from live sejours/mission_menage/tickets data
+     * at read time. See statutCalcule().
      */
     public function scopeAvecStatutCalcule(Builder $query): Builder
     {
@@ -48,21 +56,31 @@ class Appartement extends Model
                 'missionMenage',
                 fn ($q2) => $q2->whereIn('statut', [MissionMenage::STATUT_A_FAIRE, MissionMenage::STATUT_EN_COURS, MissionMenage::STATUT_EN_ATTENTE_VALIDATION]),
             ),
+            'ticketsMaintenance as a_un_ticket_maintenance_ouvert' => fn ($q) => $q->whereIn(
+                'statut',
+                [TicketMaintenance::STATUT_OUVERT, TicketMaintenance::STATUT_ASSIGNE],
+            ),
         ]);
     }
 
     /**
-     * The appartement's real statut, derived from its sejours/missions
-     * rather than read from the (never-updated) `statut` column. Requires
-     * the model to have been loaded via the avecStatutCalcule() scope.
+     * The appartement's real statut, derived from its sejours/missions/
+     * tickets rather than read from the (never-updated) `statut` column.
+     * Requires the model to have been loaded via the avecStatutCalcule()
+     * scope.
      *
-     * Order matters: a fresh sejour checking in while a previous mission is
-     * still being validated is vanishingly unlikely in practice, but if it
-     * ever happens "occupé" (a guest physically present) takes priority
-     * over "en_menage".
+     * Order matters: an unresolved maintenance problem takes priority over
+     * everything else -- no booking should happen while something is
+     * broken, even if a guest currently happens to be present or a cleaning
+     * mission is ongoing. Below that, "occupé" (a guest physically present)
+     * takes priority over "en_menage".
      */
     public function statutCalcule(): string
     {
+        if ($this->a_un_ticket_maintenance_ouvert) {
+            return self::STATUT_MAINTENANCE;
+        }
+
         if ($this->a_un_sejour_en_cours) {
             return self::STATUT_OCCUPE;
         }

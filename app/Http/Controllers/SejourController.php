@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appartement;
 use App\Models\Sejour;
 use App\Models\Voyageur;
 use App\Services\SejourCheckoutService;
@@ -37,7 +38,7 @@ class SejourController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        $query = Sejour::with(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'missionMenage.checklistItems', 'voyageurs', 'fraisMaintenance'])
+        $query = Sejour::with(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'missionMenage.checklistItems', 'missionMenage.produitsSignales', 'voyageurs', 'fraisMaintenance'])
             ->withCount('voyageurs');
 
         if (! empty($validated['search'])) {
@@ -81,7 +82,7 @@ class SejourController extends Controller
     public function show(Sejour $sejour): JsonResponse
     {
         return response()->json(
-            $sejour->load(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'missionMenage.checklistItems', 'voyageurs', 'fraisMaintenance'])
+            $sejour->load(['appartement', 'missionMenage.agent', 'missionMenage.produits', 'missionMenage.checklistItems', 'missionMenage.produitsSignales', 'voyageurs', 'fraisMaintenance'])
                 ->loadCount('voyageurs'),
         );
     }
@@ -108,6 +109,10 @@ class SejourController extends Controller
         $this->validateVoyageurs($validator, $request);
 
         $validated = $validator->validate();
+
+        if ($rejection = $this->rejectIfAppartementEnMaintenance((int) $validated['appartement_id'])) {
+            return $rejection;
+        }
 
         $chevauchant = $this->findChevauchement(
             (int) $validated['appartement_id'],
@@ -291,6 +296,28 @@ class SejourController extends Controller
             $chevauchant->date_arrivee->format('Y-m-d'),
             $chevauchant->date_depart->format('Y-m-d'),
         );
+    }
+
+    /**
+     * Blocks a brand new booking on an appartement with an unresolved
+     * maintenance ticket -- mirrors the "Nouveau séjour" form, which hides
+     * such appartements from its selector, as a defense-in-depth guard
+     * against the API being called directly. Only new()/store() calls
+     * this: editing an already-existing sejour on an appartement that
+     * later developed a maintenance problem is a different, narrower
+     * concern this guard does not attempt to solve.
+     */
+    private function rejectIfAppartementEnMaintenance(int $appartementId): ?JsonResponse
+    {
+        $appartement = Appartement::avecStatutCalcule()->find($appartementId);
+
+        if ($appartement && $appartement->statutCalcule() === Appartement::STATUT_MAINTENANCE) {
+            return response()->json([
+                'message' => "Cet appartement est en maintenance et ne peut pas être réservé tant que le problème n'est pas résolu.",
+            ], 422);
+        }
+
+        return null;
     }
 
     /**

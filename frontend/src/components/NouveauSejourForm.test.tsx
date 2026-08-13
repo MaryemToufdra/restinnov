@@ -4,6 +4,19 @@ import { describe, expect, it, vi } from 'vitest'
 import { NouveauSejourForm } from './NouveauSejourForm'
 import type { Appartement, Sejour } from '../types'
 
+function appartementFixture(overrides: Partial<Appartement> = {}): Appartement {
+  return {
+    id: 1,
+    nom: 'Loft Bastille',
+    adresse: '12 rue de la Roquette',
+    statut: 'disponible',
+    photo_principale: null,
+    checklist_modele_id: null,
+    agent_habituel_id: null,
+    ...overrides,
+  }
+}
+
 const appartements: Appartement[] = [
   {
     id: 1,
@@ -24,6 +37,26 @@ async function fillMinimalForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('NouveauSejourForm', () => {
+  it('exclut les appartements "maintenance" du sélecteur, mais garde occupé/en ménage', async () => {
+    render(
+      <NouveauSejourForm
+        appartements={[
+          appartementFixture({ id: 1, nom: 'Loft Bastille', statut: 'disponible' }),
+          appartementFixture({ id: 2, nom: 'Zenith', statut: 'maintenance' }),
+          appartementFixture({ id: 3, nom: 'Marina', statut: 'occupe' }),
+          appartementFixture({ id: 4, nom: 'Riad', statut: 'en_menage' }),
+        ]}
+        onSubmit={vi.fn()}
+      />,
+    )
+
+    const select = screen.getByRole('combobox', { name: /Appartement/i })
+    expect(within(select).getByText('Loft Bastille')).toBeInTheDocument()
+    expect(within(select).getByText('Marina')).toBeInTheDocument()
+    expect(within(select).getByText('Riad')).toBeInTheDocument()
+    expect(within(select).queryByText('Zenith')).not.toBeInTheDocument()
+  })
+
   it('affiche un adulte principal par défaut, aucun enfant, et la plateforme Airbnb sélectionnée', () => {
     render(<NouveauSejourForm appartements={appartements} onSubmit={vi.fn()} />)
 

@@ -126,6 +126,44 @@ describe('SejourCard', () => {
     expect(onValiderMission).toHaveBeenCalledWith(10)
   })
 
+  it('affiche le panneau de détail (checklist + produits signalés) à côté de "Valider"', async () => {
+    const user = userEvent.setup()
+
+    renderCard(
+      sejourFixture({
+        mission_menage: {
+          id: 10,
+          sejour_id: 1,
+          agent_id: 5,
+          statut: 'en_attente_validation',
+          agent: { id: 5, nom: 'Fatima Z.', role: 'menage', telephone: null },
+          frais_forfait: 0,
+          vue: true,
+          produits: [],
+          checklist_items: [
+            { id: 1, mission_menage_id: 10, libelle: 'Changer les draps', coche: true, photo_url: null, ordre: 0 },
+          ],
+          produits_signales: [
+            {
+              id: 1,
+              mission_menage_id: 10,
+              photo_url: 'produits-signales/photo.jpg',
+              note: 'Nouveau produit',
+              statut: 'en_attente',
+              produit_catalogue_id: null,
+            },
+          ],
+        },
+      }),
+    )
+
+    await user.click(screen.getByRole('button', { name: /voir le détail/i }))
+
+    expect(screen.getByText('Changer les draps')).toBeInTheDocument()
+    expect(screen.getByText('Nouveau produit')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^valider$/i })).toBeInTheDocument()
+  })
+
   it('n\'affiche pas "Valider" quand la mission est a_faire', () => {
     renderCard(
       sejourFixture({

@@ -85,6 +85,7 @@ export interface MissionMenage {
   vue: boolean
   produits?: ProduitCatalogue[]
   checklist_items?: ChecklistItem[]
+  produits_signales?: ProduitMenageSignale[]
   sejour?: { id: number; appartement: Appartement | null } | null
 }
 

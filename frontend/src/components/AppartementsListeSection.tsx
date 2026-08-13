@@ -13,12 +13,14 @@ const STATUT_LABELS: Record<string, string> = {
   disponible: 'Disponible',
   occupe: 'Occupé',
   en_menage: 'En ménage',
+  maintenance: 'Maintenance',
 }
 
 const STATUT_STYLES: Record<string, string> = {
   disponible: 'bg-green-100 text-green-800',
   occupe: 'bg-gray-100 text-gray-600',
   en_menage: 'bg-purple-100 text-purple-800',
+  maintenance: 'bg-red-100 text-red-800',
 }
 
 function StatutBadge({ statut }: { statut: string }) {
@@ -205,6 +207,7 @@ export function AppartementsListeSection({ onNavigateToCreer, onEditAppartement 
             <option value="disponible">Disponible</option>
             <option value="occupe">Occupé</option>
             <option value="en_menage">En ménage</option>
+            <option value="maintenance">Maintenance</option>
           </select>
         </div>
       </div>

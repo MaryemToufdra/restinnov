@@ -16,7 +16,7 @@ class MissionMenageController extends Controller
 {
     use AuthorizesMissionAccess;
 
-    private const DETAIL_RELATIONS = ['sejour.appartement', 'agent', 'produits', 'checklistItems'];
+    private const DETAIL_RELATIONS = ['sejour.appartement', 'agent', 'produits', 'checklistItems', 'produitsSignales'];
 
     /**
      * "Mes missions du jour": missions assigned to a given menage agent
