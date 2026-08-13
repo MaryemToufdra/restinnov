@@ -57,12 +57,6 @@ export interface Agent {
   mission_menages_count?: number
 }
 
-export interface AgentMenagePublic {
-  id: number
-  nom: string
-  telephone: string
-}
-
 export interface ProduitCatalogue {
   id: number
   nom: string

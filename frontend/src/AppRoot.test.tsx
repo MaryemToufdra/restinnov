@@ -25,7 +25,6 @@ function mockFetch() {
     if (path === '/api/produits-catalogue') return empty()
     if (path === '/api/produits-signales') return empty()
     if (path === '/api/mission-menages') return empty()
-    if (path === '/api/agents-menage-actifs') return empty()
     if (path === '/api/dashboard') {
       return new Response(
         JSON.stringify({

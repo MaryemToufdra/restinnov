@@ -17,12 +17,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
 
-// Public and deliberately minimal (id/nom/telephone only, menage role only):
-// powers the avatar picker on the cleaning agent's login screen so an agent
-// who cannot read/write can tap their own photo instead of typing their
-// phone number. Never exposes manager/maintenance accounts.
-Route::get('/agents-menage-actifs', [UtilisateurController::class, 'agentsMenageActifs']);
-
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
