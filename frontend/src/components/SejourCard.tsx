@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ProduitCatalogue, Sejour } from '../types'
 import { FraisMaintenanceSection } from './FraisMaintenanceSection'
 import { FraisMenageSection } from './FraisMenageSection'
+import { MissionValidationDetail } from './MissionValidationDetail'
 
 const STATUT_LABELS: Record<Sejour['statut'], string> = {
   a_venir: 'À venir',
@@ -107,11 +108,12 @@ export function SejourCard({
           {sejour.mission_menage.statut === 'en_attente_validation' && (
             <div className="mt-2">
               <p className="mb-2 font-medium text-purple-700">En attente de validation</p>
+              <MissionValidationDetail mission={sejour.mission_menage} />
               <button
                 type="button"
                 onClick={handleValider}
                 disabled={validating}
-                className="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                className="mt-2 rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
               >
                 {validating ? 'Validation...' : 'Valider'}
               </button>

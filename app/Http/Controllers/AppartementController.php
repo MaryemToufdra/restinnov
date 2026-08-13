@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Appartement;
 use App\Models\MissionMenage;
 use App\Models\Sejour;
+use App\Models\TicketMaintenance;
 use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,25 +42,33 @@ class AppartementController extends Controller
         }
 
         if (! empty($validated['statut'])) {
-            // Mirrors statutCalcule() exactly: "occupé" only while a sejour
-            // is actually en_cours, "en_menage" only while a mission_menage
-            // is still active (a_faire/en_cours/en_attente_validation) with
-            // no en_cours sejour, "disponible" otherwise -- the stored
-            // `statut` column is never authoritative, filtering has to
-            // match the same live computation used for display.
+            // Mirrors statutCalcule() exactly: "maintenance" only while an
+            // open/assigned ticket exists, "occupé" only while a sejour is
+            // actually en_cours (and no such ticket), "en_menage" only
+            // while a mission_menage is still active
+            // (a_faire/en_cours/en_attente_validation) with neither of the
+            // above, "disponible" otherwise -- the stored `statut` column
+            // is never authoritative, filtering has to match the same live
+            // computation used for display.
+            $ticketOuvert = fn ($q) => $q->whereIn('statut', [TicketMaintenance::STATUT_OUVERT, TicketMaintenance::STATUT_ASSIGNE]);
             $enCours = fn ($q) => $q->where('statut', Sejour::STATUT_EN_COURS);
             $missionActive = fn ($q) => $q->whereHas(
                 'missionMenage',
                 fn ($q2) => $q2->whereIn('statut', [MissionMenage::STATUT_A_FAIRE, MissionMenage::STATUT_EN_COURS, MissionMenage::STATUT_EN_ATTENTE_VALIDATION]),
             );
 
-            if ($validated['statut'] === Appartement::STATUT_OCCUPE) {
-                $query->whereHas('sejours', $enCours);
+            if ($validated['statut'] === Appartement::STATUT_MAINTENANCE) {
+                $query->whereHas('ticketsMaintenance', $ticketOuvert);
+            } elseif ($validated['statut'] === Appartement::STATUT_OCCUPE) {
+                $query->whereDoesntHave('ticketsMaintenance', $ticketOuvert)
+                    ->whereHas('sejours', $enCours);
             } elseif ($validated['statut'] === Appartement::STATUT_EN_MENAGE) {
-                $query->whereDoesntHave('sejours', $enCours)
+                $query->whereDoesntHave('ticketsMaintenance', $ticketOuvert)
+                    ->whereDoesntHave('sejours', $enCours)
                     ->whereHas('sejours', $missionActive);
             } else {
-                $query->whereDoesntHave('sejours', $enCours)
+                $query->whereDoesntHave('ticketsMaintenance', $ticketOuvert)
+                    ->whereDoesntHave('sejours', $enCours)
                     ->whereDoesntHave('sejours', $missionActive);
             }
         }

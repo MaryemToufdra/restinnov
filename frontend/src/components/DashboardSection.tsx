@@ -34,12 +34,14 @@ const APPARTEMENT_STATUT_LABELS: Record<string, string> = {
   disponible: 'Disponible',
   occupe: 'Occupé',
   en_menage: 'En ménage',
+  maintenance: 'Maintenance',
 }
 
 const APPARTEMENT_STATUT_STYLES: Record<string, string> = {
   disponible: 'bg-green-100 text-green-800',
   occupe: 'bg-gray-100 text-gray-600',
   en_menage: 'bg-purple-100 text-purple-800',
+  maintenance: 'bg-red-100 text-red-800',
 }
 
 const STATUT_ORDER: SejourStatut[] = ['a_venir', 'en_cours', 'termine']

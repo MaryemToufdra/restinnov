@@ -212,6 +212,25 @@ function App() {
     }
   }, [activeTab])
 
+  // Refresh the appartement list every time "Nouveau séjour" opens, so its
+  // selector reflects the current computed statut (an appartement excluded
+  // for being "maintenance" must disappear as soon as that becomes true,
+  // not just at initial page load).
+  useEffect(() => {
+    if (activeTab !== 'sejour-creer') return
+
+    let cancelled = false
+    fetchAppartements()
+      .then((data) => {
+        if (!cancelled) setAppartements(data)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab])
+
   const handleSubmitSejour = async (input: NewSejourInput) => {
     if (editingSejour) {
       await updateSejour(editingSejour.id, input)

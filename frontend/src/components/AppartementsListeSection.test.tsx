@@ -125,6 +125,24 @@ describe('AppartementsListeSection', () => {
     expect(screen.getByText('Zenith')).toBeInTheDocument()
   })
 
+  it('affiche le badge "Maintenance" et permet de filtrer dessus', async () => {
+    globalThis.fetch = mockFetchAppartements([
+      appartementFixture({ id: 1, nom: 'Loft Bastille', statut: 'disponible' }),
+      appartementFixture({ id: 2, nom: 'Zenith', statut: 'maintenance' }),
+    ]) as typeof fetch
+    const user = userEvent.setup()
+
+    render(<AppartementsListeSection onNavigateToCreer={vi.fn()} onEditAppartement={vi.fn()} />)
+
+    await screen.findByText('2 appartements trouvés')
+    expect(within(screen.getByRole('table')).getByText('Maintenance')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText(/statut/i), 'maintenance')
+
+    expect(await screen.findByText('1 appartements trouvés')).toBeInTheDocument()
+    expect(screen.getByText('Zenith')).toBeInTheDocument()
+  })
+
   it('trie par nom et inverse le sens au second clic', async () => {
     globalThis.fetch = mockFetchAppartements([
       appartementFixture({ id: 1, nom: 'Zenith' }),

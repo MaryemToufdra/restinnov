@@ -118,6 +118,18 @@ describe('DashboardSection', () => {
     expect(screen.getByText('En ménage')).toBeInTheDocument()
   })
 
+  it('affiche le badge "Maintenance" pour un appartement en maintenance', () => {
+    render(
+      <DashboardSection
+        data={{ ...data, appartements: [{ id: 1, nom: 'Loft Bastille', statut: 'maintenance', sejours_count: 1, dernier_sejour: '2026-03-05' }] }}
+        loading={false}
+        error={null}
+      />,
+    )
+
+    expect(screen.getByText('Maintenance')).toBeInTheDocument()
+  })
+
   it('précise que le résultat net n\'inclut pas la commission propriétaire', () => {
     render(<DashboardSection data={data} loading={false} error={null} />)
 
