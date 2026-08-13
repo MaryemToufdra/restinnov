@@ -39,7 +39,7 @@ export function NouvelAppartementForm({
   const [nom, setNom] = useState('')
   const [adresse, setAdresse] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
-  const [checklistModeleId, setChecklistModeleId] = useState('')
+  const [checklistModeleIds, setChecklistModeleIds] = useState<number[]>([])
   const [agentHabituelId, setAgentHabituelId] = useState('')
   const [showNewChecklistInput, setShowNewChecklistInput] = useState(false)
   const [newChecklistNom, setNewChecklistNom] = useState('')
@@ -62,7 +62,7 @@ export function NouvelAppartementForm({
     setNom('')
     setAdresse('')
     setPhoto(null)
-    setChecklistModeleId('')
+    setChecklistModeleIds([])
     setAgentHabituelId('')
     setShowNewChecklistInput(false)
     setNewChecklistNom('')
@@ -82,7 +82,7 @@ export function NouvelAppartementForm({
       setNom(appartementToEdit.nom)
       setAdresse(appartementToEdit.adresse)
       setPhoto(null)
-      setChecklistModeleId(appartementToEdit.checklist_modele_id ? String(appartementToEdit.checklist_modele_id) : '')
+      setChecklistModeleIds((appartementToEdit.checklist_modeles ?? []).map((modele) => modele.id))
       setAgentHabituelId(appartementToEdit.agent_habituel_id ? String(appartementToEdit.agent_habituel_id) : '')
       setProprietaireId(appartementToEdit.proprietaire_id ? String(appartementToEdit.proprietaire_id) : '')
       setModeGestion(appartementToEdit.mode_gestion ?? 'mandat')
@@ -115,12 +115,18 @@ export function NouvelAppartementForm({
     acceptFile(event.dataTransfer.files[0])
   }
 
+  const toggleChecklistModele = (modeleId: number) => {
+    setChecklistModeleIds((current) =>
+      current.includes(modeleId) ? current.filter((id) => id !== modeleId) : [...current, modeleId],
+    )
+  }
+
   const handleCreateChecklistModele = async () => {
     if (!newChecklistNom.trim()) return
     setCreatingChecklist(true)
     try {
       const created = await onCreateChecklistModele(newChecklistNom.trim())
-      setChecklistModeleId(String(created.id))
+      setChecklistModeleIds((current) => [...current, created.id])
       setShowNewChecklistInput(false)
       setNewChecklistNom('')
     } catch (err) {
@@ -166,7 +172,7 @@ export function NouvelAppartementForm({
         nom,
         adresse,
         photo,
-        checklist_modele_id: checklistModeleId ? Number(checklistModeleId) : null,
+        checklist_modele_ids: checklistModeleIds,
         agent_habituel_id: agentHabituelId ? Number(agentHabituelId) : null,
         proprietaire_id: proprietaireId ? Number(proprietaireId) : null,
         mode_gestion: modeGestion,
@@ -249,22 +255,24 @@ export function NouvelAppartementForm({
       </div>
 
       <div>
-        <label htmlFor="checklist_modele_id" className="block text-sm font-medium text-gray-700">
-          Checklist de ménage
-        </label>
-        <select
-          id="checklist_modele_id"
-          value={checklistModeleId}
-          onChange={(e) => setChecklistModeleId(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">Aucune checklist</option>
+        <span className="block text-sm font-medium text-gray-700">Checklists de ménage</span>
+        <p className="mt-1 text-xs text-gray-500">
+          Un ou plusieurs modèles peuvent être assignés ; leurs items seront tous générés à chaque nouvelle mission.
+        </p>
+        <div className="mt-2 space-y-1">
+          {checklistModeles.length === 0 && <p className="text-sm text-gray-400">Aucun modèle pour l'instant.</p>}
           {checklistModeles.map((modele) => (
-            <option key={modele.id} value={modele.id}>
+            <label key={modele.id} className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={checklistModeleIds.includes(modele.id)}
+                onChange={() => toggleChecklistModele(modele.id)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
               {modele.nom}
-            </option>
+            </label>
           ))}
-        </select>
+        </div>
 
         {showNewChecklistInput ? (
           <div className="mt-2 flex gap-2">
@@ -294,18 +302,17 @@ export function NouvelAppartementForm({
           </button>
         )}
 
-        {checklistModeleId &&
-          (() => {
-            const selectedModele = checklistModeles.find((m) => m.id === Number(checklistModeleId))
-            return selectedModele ? (
-              <ChecklistModeleItemsEditor
-                checklistModele={selectedModele}
-                onAddItem={onAddChecklistModeleItem}
-                onDeplacerItem={onDeplacerChecklistModeleItem}
-                onDeleteItem={onDeleteChecklistModeleItem}
-              />
-            ) : null
-          })()}
+        {checklistModeles
+          .filter((modele) => checklistModeleIds.includes(modele.id))
+          .map((modele) => (
+            <ChecklistModeleItemsEditor
+              key={modele.id}
+              checklistModele={modele}
+              onAddItem={onAddChecklistModeleItem}
+              onDeplacerItem={onDeplacerChecklistModeleItem}
+              onDeleteItem={onDeleteChecklistModeleItem}
+            />
+          ))}
       </div>
 
       <div>

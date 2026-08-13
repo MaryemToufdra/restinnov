@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Appartement extends Model
@@ -29,7 +30,6 @@ class Appartement extends Model
         'adresse',
         'statut',
         'photo_principale',
-        'checklist_modele_id',
         'agent_habituel_id',
         'proprietaire_id',
         'mode_gestion',
@@ -110,9 +110,10 @@ class Appartement extends Model
         return self::STATUT_DISPONIBLE;
     }
 
-    public function checklistModele(): BelongsTo
+    public function checklistModeles(): BelongsToMany
     {
-        return $this->belongsTo(ChecklistModele::class);
+        return $this->belongsToMany(ChecklistModele::class, 'appartement_checklist_modele')
+            ->orderBy('appartement_checklist_modele.id');
     }
 
     public function agentHabituel(): BelongsTo

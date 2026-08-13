@@ -11,7 +11,6 @@ const appartements: Appartement[] = [
     adresse: '12 rue de la Roquette',
     statut: 'disponible',
     photo_principale: null,
-    checklist_modele_id: null,
     agent_habituel_id: null,
   },
   {
@@ -20,7 +19,6 @@ const appartements: Appartement[] = [
     adresse: '10 avenue Hassan II',
     statut: 'disponible',
     photo_principale: null,
-    checklist_modele_id: null,
     agent_habituel_id: 7,
     agent_habituel: { id: 7, nom: 'Karim B.', role: 'menage', telephone: null },
   },

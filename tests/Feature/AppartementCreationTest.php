@@ -23,11 +23,11 @@ class AppartementCreationTest extends TestCase
 
         $response->assertCreated();
         $response->assertJsonPath('statut', 'disponible');
+        $response->assertJsonPath('checklist_modeles', []);
         $this->assertDatabaseHas('appartements', [
             'nom' => 'Zenith 3ème étage',
             'adresse' => '10 avenue Hassan II, Casablanca',
             'statut' => 'disponible',
-            'checklist_modele_id' => null,
             'agent_habituel_id' => null,
         ]);
     }
@@ -44,18 +44,35 @@ class AppartementCreationTest extends TestCase
         $response = $this->post('/api/appartements', [
             'nom' => 'Zenith 3ème étage',
             'adresse' => '10 avenue Hassan II, Casablanca',
-            'checklist_modele_id' => $checklist->id,
+            'checklist_modele_ids' => [$checklist->id],
             'agent_habituel_id' => $agent->id,
             'photo' => $photo,
         ], ['Accept' => 'application/json']);
 
         $response->assertCreated();
-        $response->assertJsonPath('checklist_modele.nom', 'Checklist standard');
+        $response->assertJsonPath('checklist_modeles.0.nom', 'Checklist standard');
         $response->assertJsonPath('agent_habituel.nom', 'Fatima Z.');
 
         $appartement = $this->getJson('/api/appartements')->json()[0];
         $this->assertNotNull($appartement['photo_principale']);
         Storage::disk('public')->assertExists($appartement['photo_principale']);
+    }
+
+    public function test_it_creates_an_appartement_with_several_checklist_modeles(): void
+    {
+        $standard = ChecklistModele::create(['nom' => 'Standard']);
+        $fenetres = ChecklistModele::create(['nom' => 'Fenêtres']);
+
+        $response = $this->postJson('/api/appartements', [
+            'nom' => 'Zenith 3ème étage',
+            'adresse' => '10 avenue Hassan II, Casablanca',
+            'checklist_modele_ids' => [$standard->id, $fenetres->id],
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonCount(2, 'checklist_modeles');
+        $response->assertJsonPath('checklist_modeles.0.nom', 'Standard');
+        $response->assertJsonPath('checklist_modeles.1.nom', 'Fenêtres');
     }
 
     public function test_statut_cannot_be_set_manually_and_defaults_to_disponible(): void

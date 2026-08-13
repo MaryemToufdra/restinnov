@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppartementsListeSection } from './AppartementsListeSection'
-import type { Appartement } from '../types'
+import type { Appartement, HistoriqueMission } from '../types'
 
 function appartementFixture(overrides: Partial<Appartement> = {}): Appartement {
   return {
@@ -11,9 +11,8 @@ function appartementFixture(overrides: Partial<Appartement> = {}): Appartement {
     adresse: '12 rue de la Roquette',
     statut: 'disponible',
     photo_principale: null,
-    checklist_modele_id: null,
     agent_habituel_id: null,
-    checklist_modele: null,
+    checklist_modeles: [],
     agent_habituel: null,
     sejours_count: 3,
     dernier_sejour: '2026-03-05',
@@ -22,9 +21,16 @@ function appartementFixture(overrides: Partial<Appartement> = {}): Appartement {
 }
 
 /** Fakes the backend's filter/sort/pagination behaviour over an in-memory list of appartements. */
-function mockFetchAppartements(all: Appartement[]) {
+function mockFetchAppartements(all: Appartement[], historique: Record<number, HistoriqueMission[]> = {}) {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = new URL(String(input))
+
+    const historiqueMatch = url.pathname.match(/^\/api\/appartements\/(\d+)\/historique$/)
+    if (historiqueMatch) {
+      const id = Number(historiqueMatch[1])
+      return new Response(JSON.stringify(historique[id] ?? []), { status: 200 })
+    }
+
     let result = [...all]
 
     const search = url.searchParams.get('search')
@@ -217,11 +223,66 @@ describe('AppartementsListeSection', () => {
     await screen.findByText('1 appartements trouvés')
     await user.click(screen.getByRole('button', { name: /voir le détail de l'appartement loft bastille/i }))
 
-    expect(await screen.findByText('Checklist assignée')).toBeInTheDocument()
+    expect(await screen.findByText('Checklists assignées')).toBeInTheDocument()
     expect(screen.getByText('Nombre de séjours')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /retour à la liste/i })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /retour à la liste/i }))
     expect(await screen.findByText('1 appartements trouvés')).toBeInTheDocument()
+  })
+
+  describe('onglet "Historique ménage"', () => {
+    const mission: HistoriqueMission = {
+      id: 5,
+      statut: 'conforme',
+      sejour: {
+        id: 1,
+        reference: 'SEJ-0001',
+        date_arrivee: '2026-01-01',
+        date_depart: '2026-01-05',
+        nom_voyageur: 'Jean Dupont',
+      },
+      checklist_modeles_utilises: ['Standard'],
+      checklist_items: [{ libelle: "Passer l'aspirateur", checklist_modele_nom: 'Standard', coche: true, photo_url: null }],
+      produits: [{ nom: 'Javel', prix: 12.5 }],
+      frais_forfait: 50,
+      frais_produits_total: 12.5,
+      frais_total: 62.5,
+    }
+
+    it('affiche la liste chronologique des missions passées, dépliable ligne par ligne', async () => {
+      globalThis.fetch = mockFetchAppartements([appartementFixture()], { 1: [mission] }) as typeof fetch
+      const user = userEvent.setup()
+
+      render(<AppartementsListeSection onNavigateToCreer={vi.fn()} onEditAppartement={vi.fn()} />)
+
+      await screen.findByText('1 appartements trouvés')
+      await user.click(screen.getByRole('button', { name: /voir le détail de l'appartement loft bastille/i }))
+      await user.click(screen.getByRole('button', { name: 'Historique ménage' }))
+
+      expect(await screen.findByText('SEJ-0001')).toBeInTheDocument()
+      expect(screen.getByText('Jean Dupont')).toBeInTheDocument()
+      expect(screen.getByText('Conforme')).toBeInTheDocument()
+      expect(screen.queryByText("Passer l'aspirateur")).not.toBeInTheDocument()
+
+      await user.click(screen.getByText('Jean Dupont'))
+
+      expect(await screen.findByText("Passer l'aspirateur")).toBeInTheDocument()
+      expect(screen.getByText(/Javel/)).toBeInTheDocument()
+      expect(screen.getByText('Total : 62.50 MAD')).toBeInTheDocument()
+    })
+
+    it('affiche un message quand l\'appartement n\'a aucune mission passée', async () => {
+      globalThis.fetch = mockFetchAppartements([appartementFixture()], { 1: [] }) as typeof fetch
+      const user = userEvent.setup()
+
+      render(<AppartementsListeSection onNavigateToCreer={vi.fn()} onEditAppartement={vi.fn()} />)
+
+      await screen.findByText('1 appartements trouvés')
+      await user.click(screen.getByRole('button', { name: /voir le détail de l'appartement loft bastille/i }))
+      await user.click(screen.getByRole('button', { name: 'Historique ménage' }))
+
+      expect(await screen.findByText(/aucune mission de ménage/i)).toBeInTheDocument()
+    })
   })
 })

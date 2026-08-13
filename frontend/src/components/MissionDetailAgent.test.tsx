@@ -10,7 +10,6 @@ const appartement = {
   adresse: '12 rue de la Roquette',
   statut: 'occupe',
   photo_principale: null,
-  checklist_modele_id: null,
   agent_habituel_id: null,
 }
 
@@ -230,6 +229,37 @@ describe('MissionDetailAgent', () => {
     await user.click(checkbox)
 
     await waitFor(() => expect(screen.getByRole('checkbox', { name: "Passer l'aspirateur" })).toHaveClass('bg-emerald-600'))
+  })
+
+  it('regroupe les items de checklist par modèle d\'origine avec un sous-titre par groupe', async () => {
+    globalThis.fetch = mockFetch(
+      missionFixture({
+        checklist_items: [
+          checklistItem({ id: 1, libelle: 'Passer l\'aspirateur', checklist_modele_nom: 'Standard' }),
+          checklistItem({ id: 2, libelle: 'Changer les draps', checklist_modele_nom: 'Standard' }),
+          checklistItem({ id: 3, libelle: 'Laver les vitres', checklist_modele_nom: 'Fenêtres' }),
+        ],
+      }),
+    ) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText("Passer l'aspirateur")
+
+    const subtitles = screen.getAllByText(/^(Standard|Fenêtres)$/)
+    expect(subtitles.map((el) => el.textContent)).toEqual(['Standard', 'Fenêtres'])
+    expect(screen.getByText('Changer les draps')).toBeInTheDocument()
+    expect(screen.getByText('Laver les vitres')).toBeInTheDocument()
+  })
+
+  it('n\'affiche aucun sous-titre quand les items n\'ont pas de modèle d\'origine', async () => {
+    globalThis.fetch = mockFetch(missionFixture()) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText("Passer l'aspirateur")
+
+    expect(screen.queryByText('Standard')).not.toBeInTheDocument()
   })
 
   it('permet de marquer terminé une mission sans aucun item de checklist', async () => {
