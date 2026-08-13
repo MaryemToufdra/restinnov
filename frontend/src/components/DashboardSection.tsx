@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { DashboardData, SejourStatut } from '../types'
 
 interface DashboardSectionProps {
@@ -7,6 +8,7 @@ interface DashboardSectionProps {
   onNavigateToAppartements?: () => void
   onNavigateToSejour?: (sejourId: number) => void
   onNavigateToSejoursListe?: (statut?: SejourStatut) => void
+  onCheckout?: (sejourId: number) => Promise<void>
 }
 
 // Canonical séjour statut labels/colors, kept identical to SejourCard.tsx
@@ -101,6 +103,90 @@ function ScaleIcon({ className }: { className?: string }) {
   )
 }
 
+function SuitcaseIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2m-9 0h10a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2zM4 12h16"
+      />
+    </svg>
+  )
+}
+
+interface DepartsAujourdhuiBannerProps {
+  departs: DashboardData['departs_aujourdhui']
+  onCheckout?: (sejourId: number) => Promise<void>
+}
+
+function DepartsAujourdhuiBanner({ departs, onCheckout }: DepartsAujourdhuiBannerProps) {
+  const [expanded, setExpanded] = useState(false)
+  const [checkingOutId, setCheckingOutId] = useState<number | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+
+  if (departs.length === 0) return null
+
+  const handleCheckout = async (sejourId: number) => {
+    setCheckoutError(null)
+    setCheckingOutId(sejourId)
+    try {
+      await onCheckout?.(sejourId)
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : 'Une erreur est survenue.')
+    } finally {
+      setCheckingOutId(null)
+    }
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-orange-300 bg-orange-50 shadow-sm">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={expanded}
+      >
+        <span className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-200 text-orange-700">
+            <SuitcaseIcon className="h-5 w-5" />
+          </span>
+          <span className="font-semibold text-orange-900">
+            {departs.length} départ{departs.length > 1 ? 's' : ''} prévu{departs.length > 1 ? 's' : ''} aujourd'hui
+          </span>
+        </span>
+        <span className="text-orange-700">{expanded ? '▲' : '▼'}</span>
+      </button>
+
+      {expanded && (
+        <ul className="divide-y divide-orange-200 border-t border-orange-200 bg-white">
+          {departs.map((depart) => (
+            <li key={depart.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-400">{depart.reference}</p>
+                <p className="font-medium text-gray-900">{depart.voyageur_principal}</p>
+                <p className="text-sm text-gray-500">
+                  {depart.appartement?.nom ?? 'Appartement supprimé'}
+                  {depart.telephone_voyageur ? ` · ${depart.telephone_voyageur}` : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCheckout(depart.id)}
+                disabled={checkingOutId === depart.id}
+                className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {checkingOutId === depart.id ? 'Confirmation...' : 'Confirmer le checkout'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {checkoutError && <p className="border-t border-orange-200 bg-white px-4 py-2 text-sm text-red-600">{checkoutError}</p>}
+    </div>
+  )
+}
+
 export function DashboardSection({
   data,
   loading,
@@ -108,6 +194,7 @@ export function DashboardSection({
   onNavigateToAppartements,
   onNavigateToSejour,
   onNavigateToSejoursListe,
+  onCheckout,
 }: DashboardSectionProps) {
   if (loading) {
     return <p className="text-sm text-gray-500">Chargement du dashboard...</p>
@@ -123,6 +210,8 @@ export function DashboardSection({
 
   return (
     <div className="space-y-6">
+      <DepartsAujourdhuiBanner departs={data.departs_aujourdhui} onCheckout={onCheckout} />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
           <div className="flex items-center gap-3">

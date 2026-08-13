@@ -7,6 +7,7 @@ use App\Models\FraisMaintenance;
 use App\Models\MissionMenage;
 use App\Models\ProduitMenageCatalogue;
 use App\Models\Sejour;
+use App\Models\Voyageur;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -28,6 +29,7 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('sejours_par_statut.en_cours', 0);
         $response->assertJsonPath('sejours_par_statut.termine', 0);
         $response->assertJsonPath('sejours_recents', []);
+        $response->assertJsonPath('departs_aujourdhui', []);
     }
 
     public function test_it_aggregates_revenus_frais_and_resultat_net(): void
@@ -175,5 +177,62 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('sejours_recents.0.date_arrivee', '2026-01-12');
         $response->assertJsonPath('sejours_recents.0.statut', 'a_venir');
         $response->assertJsonPath('sejours_recents.9.nom_voyageur', 'Voyageur 3');
+    }
+
+    public function test_it_lists_en_cours_sejours_departing_today_with_voyageur_principal_and_telephone(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+
+        // Departs today, en_cours -- must appear.
+        $departToday = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => now()->subDays(2)->toDateString(),
+            'date_depart' => now()->toDateString(),
+            'nom_voyageur' => 'Jean Dupont',
+            'statut' => 'en_cours',
+            'montant_mad' => 300,
+        ]);
+        Voyageur::create([
+            'sejour_id' => $departToday->id,
+            'nom' => 'Jean Dupont',
+            'est_principal' => true,
+            'type' => 'adulte',
+            'telephone' => '+212600000000',
+        ]);
+        Voyageur::create([
+            'sejour_id' => $departToday->id,
+            'nom' => 'Petit Dupont',
+            'est_principal' => false,
+            'type' => 'enfant',
+        ]);
+
+        // Departs today but not en_cours -- must be excluded.
+        Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => now()->subDays(2)->toDateString(),
+            'date_depart' => now()->toDateString(),
+            'nom_voyageur' => 'Marie Curie',
+            'statut' => 'a_venir',
+            'montant_mad' => 300,
+        ]);
+
+        // en_cours but departs tomorrow -- must be excluded.
+        Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => now()->subDay()->toDateString(),
+            'date_depart' => now()->addDay()->toDateString(),
+            'nom_voyageur' => 'Paul Martin',
+            'statut' => 'en_cours',
+            'montant_mad' => 300,
+        ]);
+
+        $response = $this->getJson('/api/dashboard');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'departs_aujourdhui');
+        $response->assertJsonPath('departs_aujourdhui.0.reference', $departToday->reference);
+        $response->assertJsonPath('departs_aujourdhui.0.voyageur_principal', 'Jean Dupont');
+        $response->assertJsonPath('departs_aujourdhui.0.telephone_voyageur', '+212600000000');
+        $response->assertJsonPath('departs_aujourdhui.0.appartement.nom', 'Loft Bastille');
     }
 }

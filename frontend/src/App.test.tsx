@@ -36,7 +36,7 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
     montant_mad: 0,
     appartement,
     mission_menage: null,
-    voyageurs: [{ nom: 'Jean Dupont', numero_passeport: null, est_principal: true, type: 'adulte' }],
+    voyageurs: [{ nom: 'Jean Dupont', numero_passeport: null, telephone: null, est_principal: true, type: 'adulte' }],
     voyageurs_count: 1,
     ...overrides,
   }
@@ -59,6 +59,7 @@ function dashboardFixture(overrides: Partial<DashboardData> = {}): DashboardData
     sejours_recents: [
       { id: 1, nom_voyageur: 'Jean Dupont', date_arrivee: '2026-08-01', statut: 'a_venir', appartement: { id: 1, nom: 'Loft Bastille' } },
     ],
+    departs_aujourdhui: [],
     ...overrides,
   }
 }

@@ -30,6 +30,7 @@ const data: DashboardData = {
       appartement: { id: 2, nom: 'Zenith' },
     },
   ],
+  departs_aujourdhui: [],
 }
 
 describe('DashboardSection', () => {
@@ -217,5 +218,90 @@ describe('DashboardSection', () => {
 
     expect(grid).toHaveClass('lg:grid-cols-2')
     expect(grid).toContainElement(appartementsHeading)
+  })
+
+  describe('bandeau "Départs prévus aujourd\'hui"', () => {
+    const departsAujourdhui: DashboardData['departs_aujourdhui'] = [
+      {
+        id: 20,
+        reference: 'SEJ-0020',
+        voyageur_principal: 'Karim Benali',
+        telephone_voyageur: '+212600000000',
+        appartement: { id: 1, nom: 'Loft Bastille' },
+      },
+    ]
+
+    it('ne s\'affiche pas quand il n\'y a aucun départ aujourd\'hui', () => {
+      render(<DashboardSection data={data} loading={false} error={null} />)
+
+      expect(screen.queryByText(/départ.*prévu.*aujourd'hui/i)).not.toBeInTheDocument()
+    })
+
+    it('affiche le nombre de départs prévus aujourd\'hui', () => {
+      render(
+        <DashboardSection
+          data={{ ...data, departs_aujourdhui: departsAujourdhui }}
+          loading={false}
+          error={null}
+        />,
+      )
+
+      expect(screen.getByText(/1 départ prévu aujourd'hui/i)).toBeInTheDocument()
+    })
+
+    it('affiche le pluriel quand il y a plusieurs départs', () => {
+      render(
+        <DashboardSection
+          data={{
+            ...data,
+            departs_aujourdhui: [
+              ...departsAujourdhui,
+              { ...departsAujourdhui[0], id: 21, reference: 'SEJ-0021', voyageur_principal: 'Sara Idrissi' },
+            ],
+          }}
+          loading={false}
+          error={null}
+        />,
+      )
+
+      expect(screen.getByText(/2 départs prévus aujourd'hui/i)).toBeInTheDocument()
+    })
+
+    it('déplie la liste des départs au clic sur le bandeau', async () => {
+      const user = userEvent.setup()
+      render(
+        <DashboardSection
+          data={{ ...data, departs_aujourdhui: departsAujourdhui }}
+          loading={false}
+          error={null}
+        />,
+      )
+
+      expect(screen.queryByText('Karim Benali')).not.toBeInTheDocument()
+
+      await user.click(screen.getByText(/1 départ prévu aujourd'hui/i))
+
+      expect(screen.getByText('Karim Benali')).toBeInTheDocument()
+      expect(screen.getByText('SEJ-0020')).toBeInTheDocument()
+      expect(screen.getByText(/Loft Bastille · \+212600000000/)).toBeInTheDocument()
+    })
+
+    it('déclenche le checkout au clic sur "Confirmer le checkout" d\'une ligne de départ', async () => {
+      const user = userEvent.setup()
+      const onCheckout = vi.fn().mockResolvedValue(undefined)
+      render(
+        <DashboardSection
+          data={{ ...data, departs_aujourdhui: departsAujourdhui }}
+          loading={false}
+          error={null}
+          onCheckout={onCheckout}
+        />,
+      )
+
+      await user.click(screen.getByText(/1 départ prévu aujourd'hui/i))
+      await user.click(screen.getByRole('button', { name: 'Confirmer le checkout' }))
+
+      expect(onCheckout).toHaveBeenCalledWith(20)
+    })
   })
 })

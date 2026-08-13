@@ -58,6 +58,24 @@ class DashboardController extends Controller
             ->take(10)
             ->get();
 
+        $departsAujourdhui = Sejour::query()
+            ->select('id', 'reference', 'appartement_id', 'nom_voyageur', 'date_depart')
+            ->where('statut', Sejour::STATUT_EN_COURS)
+            ->whereDate('date_depart', now())
+            ->with(['appartement:id,nom', 'voyageurs' => fn ($query) => $query->where('est_principal', true)])
+            ->orderBy('date_depart')
+            ->get()
+            ->map(fn (Sejour $sejour) => [
+                'id' => $sejour->id,
+                'reference' => $sejour->reference,
+                'voyageur_principal' => $sejour->nom_voyageur,
+                'telephone_voyageur' => $sejour->voyageurs->first()?->telephone,
+                'appartement' => $sejour->appartement ? [
+                    'id' => $sejour->appartement->id,
+                    'nom' => $sejour->appartement->nom,
+                ] : null,
+            ]);
+
         return response()->json([
             'revenus_totaux' => $revenusTotaux,
             'frais_menage_totaux' => $fraisMenageTotaux,
@@ -66,6 +84,7 @@ class DashboardController extends Controller
             'appartements' => $appartements,
             'sejours_par_statut' => $sejoursParStatut,
             'sejours_recents' => $sejoursRecents,
+            'departs_aujourdhui' => $departsAujourdhui,
         ]);
     }
 }

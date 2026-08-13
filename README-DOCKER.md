@@ -32,8 +32,9 @@ That's it. On first run this will:
 3. Inside `frontend`, automatically run `npm install`, then start the Vite
    dev server with hot reload.
 4. `scheduler` then starts `php artisan schedule:work`, which fires the
-   app's scheduled jobs (`sejours:activer-en-cours` daily,
-   `sejours:checkout-automatique` daily at 11:00) for as long as it runs.
+   app's scheduled jobs (`sejours:activer-en-cours` daily) for as long as
+   it runs. `sejours:checkout-automatique` exists but is not scheduled
+   (checkout is manager-only, see below).
 
 The first run takes a few minutes (dependency installs). Subsequent runs are
 fast — those steps are skipped once `vendor/` and `node_modules/` already
@@ -87,17 +88,21 @@ docker compose up -d
 | `db`        | `mysql:8.0`     | MySQL database, data persisted in a named volume            | `3306`       |
 | `frontend`  | built locally   | Vite dev server for the React app, hot reload                | `5173`       |
 
-`scheduler` is what makes the two scheduled jobs in `routes/console.php` actually
+`scheduler` is what makes the scheduled job in `routes/console.php` actually
 run on a real clock:
 
 - `sejours:activer-en-cours` (daily) — moves "à venir" séjours to "en cours"
   once their arrival date has passed.
-- `sejours:checkout-automatique` (daily at 11:00) — checks out "en cours"
-  séjours whose departure date is today or already passed (catches up on
-  missed days, e.g. if `scheduler` was down), exactly like the manual
-  "Confirmer le checkout" button.
 
-Without this service running, those commands still exist and can be run
+`sejours:checkout-automatique` (checks out "en cours" séjours whose departure
+date is today or already passed) still exists in the codebase but its
+schedule is commented out — per a DG decision, an automatic checkout is too
+risky (a late-arriving or extending traveler would wrongly flip the
+appartement to "disponible"). Checkout is now manager-only, via the
+"Confirmer le checkout" button on the séjour. Re-enabling the schedule is a
+one-line uncomment in `routes/console.php` if this is revisited.
+
+Without this service running, `sejours:activer-en-cours` still exists and can be run
 by hand (`docker compose exec app php artisan sejours:activer-en-cours`),
 but nothing triggers them on a schedule.
 
@@ -155,8 +160,9 @@ docker compose logs -f nginx
 docker compose logs -f scheduler
 ```
 
-Trigger one of the scheduled jobs on demand, instead of waiting for its
-scheduled time:
+Trigger the scheduled job on demand, instead of waiting for its scheduled
+time (and run the checkout command manually, since it's no longer
+scheduled — checkout is manager-only, see above):
 
 ```bash
 docker compose exec app php artisan sejours:activer-en-cours

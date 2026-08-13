@@ -37,7 +37,7 @@ function sejourFixture(overrides: Partial<Sejour> = {}): Sejour {
     montant_mad: 1000,
     appartement: appartementLoft,
     mission_menage: null,
-    voyageurs: [{ nom: 'Jean Dupont', numero_passeport: null, est_principal: true, type: 'adulte' }],
+    voyageurs: [{ nom: 'Jean Dupont', numero_passeport: null, telephone: null, est_principal: true, type: 'adulte' }],
     voyageurs_count: 1,
     ...overrides,
   }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  checkoutSejour,
   createAppartement,
   createChecklistModele,
   createChecklistModeleItem,
@@ -211,6 +212,15 @@ function App() {
       cancelled = true
     }
   }, [activeTab])
+
+  // Used after a checkout from the Dashboard's "Départs prévus aujourd'hui"
+  // banner, so the departed sejour disappears from the list right away
+  // instead of waiting for the next tab switch.
+  const handleDashboardCheckout = async (sejourId: number) => {
+    await checkoutSejour(sejourId)
+    const data = await fetchDashboard()
+    setDashboardData(data)
+  }
 
   // Refresh the appartement list every time "Nouveau séjour" opens, so its
   // selector reflects the current computed statut (an appartement excluded
@@ -495,6 +505,7 @@ function App() {
               onNavigateToAppartements={() => navigateTo('appartement-liste')}
               onNavigateToSejour={handleNavigateToSejourDetail}
               onNavigateToSejoursListe={handleNavigateToSejoursListe}
+              onCheckout={handleDashboardCheckout}
             />
           )}
           {activeTab === 'sejour-creer' && (

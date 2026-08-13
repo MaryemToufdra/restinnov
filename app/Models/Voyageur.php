@@ -17,6 +17,7 @@ class Voyageur extends Model
         'sejour_id',
         'nom',
         'numero_passeport',
+        'telephone',
         'est_principal',
         'type',
     ];

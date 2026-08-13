@@ -110,6 +110,7 @@ export interface Voyageur {
   id?: number
   nom: string
   numero_passeport: string | null
+  telephone: string | null
   est_principal: boolean
   type: VoyageurType
 }
@@ -162,6 +163,14 @@ export interface DashboardSejourRecent {
   appartement: { id: number; nom: string } | null
 }
 
+export interface DashboardDepartAujourdhui {
+  id: number
+  reference: string
+  voyageur_principal: string
+  telephone_voyageur: string | null
+  appartement: { id: number; nom: string } | null
+}
+
 export interface DashboardData {
   revenus_totaux: number
   frais_menage_totaux: number
@@ -174,4 +183,5 @@ export interface DashboardData {
     termine: number
   }
   sejours_recents: DashboardSejourRecent[]
+  departs_aujourdhui: DashboardDepartAujourdhui[]
 }

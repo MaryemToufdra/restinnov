@@ -52,11 +52,15 @@ chmod -R ugo+rwX storage bootstrap/cache || true
 
 # Catch up any scheduled jobs that may have missed their slot while Docker
 # was stopped (common in local dev: closing your laptop overnight skips
-# `scheduler`'s daily runs entirely). Both commands are idempotent --
-# they're no-ops when nothing is overdue -- so running them unconditionally
-# on every `app` start is always safe, whether or not catch-up was needed.
+# `scheduler`'s daily runs entirely). This command is idempotent -- it's a
+# no-op when nothing is overdue -- so running it unconditionally on every
+# `app` start is always safe, whether or not catch-up was needed.
+#
+# sejours:checkout-automatique is deliberately NOT run here: automatic
+# checkout is disabled per décision du DG (see routes/console.php) -- the
+# Manager is the sole decision-maker for checkout now, so this catch-up
+# must never trigger one behind their back on container restart either.
 echo "[entrypoint] Catching up any overdue scheduled jobs"
 php artisan sejours:activer-en-cours
-php artisan sejours:checkout-automatique
 
 exec "$@"
