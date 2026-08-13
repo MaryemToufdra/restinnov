@@ -5,6 +5,7 @@ import {
   createChecklistModele,
   createChecklistModeleItem,
   createProduitCatalogue,
+  createProprietaire,
   createSejour,
   createUtilisateur,
   deleteChecklistModeleItem,
@@ -14,6 +15,7 @@ import {
   fetchDashboard,
   fetchProduitsCatalogue,
   fetchProduitsSignales,
+  fetchProprietaires,
   fetchUtilisateurs,
   rejeterProduitSignale,
   updateAppartement,
@@ -22,6 +24,7 @@ import {
   validerProduitSignale,
   type NewAppartementInput,
   type NewProduitCatalogueInput,
+  type NewProprietaireInput,
   type NewSejourInput,
   type NewUtilisateurInput,
   type ValiderProduitSignaleInput,
@@ -46,6 +49,7 @@ import type {
   DashboardData,
   ProduitCatalogue,
   ProduitMenageSignale,
+  Proprietaire,
   Sejour,
   SejourStatut,
 } from './types'
@@ -128,6 +132,7 @@ function groupKeyForTab(tab: Tab): string | null {
 
 function App() {
   const [appartements, setAppartements] = useState<Appartement[]>([])
+  const [proprietaires, setProprietaires] = useState<Proprietaire[]>([])
   const [checklistModeles, setChecklistModeles] = useState<ChecklistModele[]>([])
   const [agentsMenage, setAgentsMenage] = useState<Agent[]>([])
   const [produitsCatalogue, setProduitsCatalogue] = useState<ProduitCatalogue[]>([])
@@ -167,15 +172,23 @@ function App() {
   const loadData = async () => {
     setLoadError(null)
     try {
-      const [appartementsData, checklistModelesData, agentsMenageData, produitsCatalogueData, produitsSignalesData] =
-        await Promise.all([
-          fetchAppartements(),
-          fetchChecklistModeles(),
-          fetchUtilisateurs({ role: 'menage' }),
-          fetchProduitsCatalogue(),
-          fetchProduitsSignales('en_attente'),
-        ])
+      const [
+        appartementsData,
+        proprietairesData,
+        checklistModelesData,
+        agentsMenageData,
+        produitsCatalogueData,
+        produitsSignalesData,
+      ] = await Promise.all([
+        fetchAppartements(),
+        fetchProprietaires(),
+        fetchChecklistModeles(),
+        fetchUtilisateurs({ role: 'menage' }),
+        fetchProduitsCatalogue(),
+        fetchProduitsSignales('en_attente'),
+      ])
       setAppartements(appartementsData)
+      setProprietaires(proprietairesData)
       setChecklistModeles(checklistModelesData)
       setAgentsMenage(agentsMenageData)
       setProduitsCatalogue(produitsCatalogueData)
@@ -287,6 +300,12 @@ function App() {
   const handleEditAppartement = (appartement: Appartement) => {
     setEditingAppartement(appartement)
     navigateTo('appartement-creer')
+  }
+
+  const handleCreateProprietaire = async (input: NewProprietaireInput) => {
+    const proprietaire = await createProprietaire(input)
+    setProprietaires((current) => [...current, proprietaire].sort((a, b) => a.nom.localeCompare(b.nom)))
+    return proprietaire
   }
 
   const handleCreateChecklistModele = async (nom: string) => {
@@ -506,6 +525,7 @@ function App() {
               onNavigateToSejour={handleNavigateToSejourDetail}
               onNavigateToSejoursListe={handleNavigateToSejoursListe}
               onCheckout={handleDashboardCheckout}
+              onNavigateToTicketsMaintenance={() => navigateTo('maintenance-tickets')}
             />
           )}
           {activeTab === 'sejour-creer' && (
@@ -533,7 +553,9 @@ function App() {
             <NouvelAppartementForm
               checklistModeles={checklistModeles}
               agentsMenage={agentsMenage}
+              proprietaires={proprietaires}
               onSubmit={handleSubmitAppartement}
+              onCreateProprietaire={handleCreateProprietaire}
               onCreateChecklistModele={handleCreateChecklistModele}
               onAddChecklistModeleItem={handleAddChecklistModeleItem}
               onDeplacerChecklistModeleItem={handleDeplacerChecklistModeleItem}

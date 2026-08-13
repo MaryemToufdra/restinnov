@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Appartement extends Model
@@ -20,18 +21,35 @@ class Appartement extends Model
 
     public const STATUT_MAINTENANCE = 'maintenance';
 
+    public const MODE_GESTION_MANDAT = 'mandat';
+
+    public const MODE_GESTION_SOUS_LOCATION = 'sous_location';
+
     protected $fillable = [
         'nom',
         'adresse',
         'statut',
         'photo_principale',
-        'checklist_modele_id',
         'agent_habituel_id',
+        'proprietaire_id',
+        'mode_gestion',
+        'taux_commission',
+        'loyer_fixe_mensuel',
+    ];
+
+    protected $casts = [
+        'taux_commission' => 'decimal:2',
+        'loyer_fixe_mensuel' => 'decimal:2',
     ];
 
     public function sejours(): HasMany
     {
         return $this->hasMany(Sejour::class);
+    }
+
+    public function proprietaire(): BelongsTo
+    {
+        return $this->belongsTo(Proprietaire::class);
     }
 
     public function ticketsMaintenance(): HasMany
@@ -92,9 +110,10 @@ class Appartement extends Model
         return self::STATUT_DISPONIBLE;
     }
 
-    public function checklistModele(): BelongsTo
+    public function checklistModeles(): BelongsToMany
     {
-        return $this->belongsTo(ChecklistModele::class);
+        return $this->belongsToMany(ChecklistModele::class, 'appartement_checklist_modele')
+            ->orderBy('appartement_checklist_modele.id');
     }
 
     public function agentHabituel(): BelongsTo

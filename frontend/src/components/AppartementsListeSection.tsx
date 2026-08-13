@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchAppartementsListe, resolveStorageUrl } from '../api'
 import type { Appartement } from '../types'
+import { AppartementHistoriqueSection } from './AppartementHistoriqueSection'
 
 interface AppartementsListeSectionProps {
   onNavigateToCreer: () => void
@@ -68,6 +69,7 @@ export function AppartementsListeSection({ onNavigateToCreer, onEditAppartement 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedAppartementId, setSelectedAppartementId] = useState<number | null>(null)
+  const [detailTab, setDetailTab] = useState<'infos' | 'historique'>('infos')
 
   useEffect(() => {
     let cancelled = false
@@ -134,24 +136,55 @@ export function AppartementsListeSection({ onNavigateToCreer, onEditAppartement 
             </div>
           </div>
 
-          <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-gray-500">Checklist assignée</dt>
-              <dd className="text-gray-900">{selectedAppartement.checklist_modele?.nom ?? 'Aucune'}</dd>
+          <div className="mt-4 flex gap-4 border-b border-gray-200">
+            <button
+              type="button"
+              onClick={() => setDetailTab('infos')}
+              className={`-mb-px border-b-2 px-1 pb-2 text-sm font-medium ${
+                detailTab === 'infos' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Infos
+            </button>
+            <button
+              type="button"
+              onClick={() => setDetailTab('historique')}
+              className={`-mb-px border-b-2 px-1 pb-2 text-sm font-medium ${
+                detailTab === 'historique' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Historique ménage
+            </button>
+          </div>
+
+          {detailTab === 'infos' ? (
+            <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-gray-500">Checklists assignées</dt>
+                <dd className="text-gray-900">
+                  {selectedAppartement.checklist_modeles && selectedAppartement.checklist_modeles.length > 0
+                    ? selectedAppartement.checklist_modeles.map((modele) => modele.nom).join(', ')
+                    : 'Aucune'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Agent habituel</dt>
+                <dd className="text-gray-900">{selectedAppartement.agent_habituel?.nom ?? 'Aucun'}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Nombre de séjours</dt>
+                <dd className="text-gray-900">{selectedAppartement.sejours_count ?? 0}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Dernier séjour</dt>
+                <dd className="text-gray-900">{formatDate(selectedAppartement.dernier_sejour)}</dd>
+              </div>
+            </dl>
+          ) : (
+            <div className="mt-4">
+              <AppartementHistoriqueSection appartementId={selectedAppartement.id} />
             </div>
-            <div>
-              <dt className="text-gray-500">Agent habituel</dt>
-              <dd className="text-gray-900">{selectedAppartement.agent_habituel?.nom ?? 'Aucun'}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Nombre de séjours</dt>
-              <dd className="text-gray-900">{selectedAppartement.sejours_count ?? 0}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Dernier séjour</dt>
-              <dd className="text-gray-900">{formatDate(selectedAppartement.dernier_sejour)}</dd>
-            </div>
-          </dl>
+          )}
         </div>
       </div>
     )
@@ -261,7 +294,11 @@ export function AppartementsListeSection({ onNavigateToCreer, onEditAppartement 
                   <td className="px-4 py-3">
                     <StatutBadge statut={appartement.statut} />
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{appartement.checklist_modele?.nom ?? 'Aucune'}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {appartement.checklist_modeles && appartement.checklist_modeles.length > 0
+                      ? appartement.checklist_modeles.map((modele) => modele.nom).join(', ')
+                      : 'Aucune'}
+                  </td>
                   <td className="px-4 py-3 text-gray-700">{appartement.agent_habituel?.nom ?? 'Aucun'}</td>
                   <td className="px-4 py-3 text-gray-700">{appartement.sejours_count ?? 0}</td>
                   <td className="px-4 py-3 text-gray-700">{formatDate(appartement.dernier_sejour)}</td>
@@ -278,7 +315,10 @@ export function AppartementsListeSection({ onNavigateToCreer, onEditAppartement 
                       <button
                         type="button"
                         aria-label={`Voir le détail de l'appartement ${appartement.nom}`}
-                        onClick={() => setSelectedAppartementId(appartement.id)}
+                        onClick={() => {
+                          setSelectedAppartementId(appartement.id)
+                          setDetailTab('infos')
+                        }}
                         className="text-gray-500 hover:text-indigo-600"
                       >
                         <EyeIcon />

@@ -7,6 +7,7 @@ use App\Models\FraisMaintenance;
 use App\Models\MissionMenage;
 use App\Models\ProduitMenageCatalogue;
 use App\Models\Sejour;
+use App\Models\TicketMaintenance;
 use App\Models\Voyageur;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -30,6 +31,8 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('sejours_par_statut.termine', 0);
         $response->assertJsonPath('sejours_recents', []);
         $response->assertJsonPath('departs_aujourdhui', []);
+        $response->assertJsonPath('problemes_signales', []);
+        $response->assertJsonPath('menages_a_valider', []);
     }
 
     public function test_it_aggregates_revenus_frais_and_resultat_net(): void
@@ -234,5 +237,69 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('departs_aujourdhui.0.voyageur_principal', 'Jean Dupont');
         $response->assertJsonPath('departs_aujourdhui.0.telephone_voyageur', '+212600000000');
         $response->assertJsonPath('departs_aujourdhui.0.appartement.nom', 'Loft Bastille');
+    }
+
+    public function test_it_lists_unresolved_tickets_as_problemes_signales(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => '12 rue de la Roquette', 'statut' => 'disponible']);
+        TicketMaintenance::create([
+            'appartement_id' => $appartement->id,
+            'photo_url' => 'tickets-maintenance/photo.jpg',
+            'description' => 'La chasse d\'eau ne fonctionne plus.',
+            'urgence' => 'haute',
+            'statut' => 'ouvert',
+        ]);
+        TicketMaintenance::create([
+            'appartement_id' => $appartement->id,
+            'statut' => 'assigne',
+        ]);
+        // Resolved tickets are not a problem to surface anymore.
+        TicketMaintenance::create([
+            'appartement_id' => $appartement->id,
+            'statut' => 'resolu',
+        ]);
+
+        $response = $this->getJson('/api/dashboard');
+
+        $response->assertOk();
+        $response->assertJsonCount(2, 'problemes_signales');
+        $response->assertJsonFragment([
+            'photo_url' => 'tickets-maintenance/photo.jpg',
+            'description' => 'La chasse d\'eau ne fonctionne plus.',
+            'urgence' => 'haute',
+            'statut' => 'ouvert',
+        ]);
+        $response->assertJsonPath('problemes_signales.0.appartement.adresse', '12 rue de la Roquette');
+    }
+
+    public function test_it_lists_en_attente_validation_missions_as_menages_a_valider(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => '12 rue de la Roquette', 'statut' => 'disponible']);
+        $sejour = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-08-01',
+            'date_depart' => '2026-08-05',
+            'nom_voyageur' => 'Jean Dupont',
+            'statut' => 'termine',
+            'montant_mad' => 1000,
+        ]);
+        MissionMenage::create(['sejour_id' => $sejour->id, 'statut' => 'en_attente_validation']);
+        // Missions in other statuts are not awaiting validation.
+        $autreSejour = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-09-01',
+            'date_depart' => '2026-09-05',
+            'nom_voyageur' => 'Marie Curie',
+            'statut' => 'termine',
+            'montant_mad' => 500,
+        ]);
+        MissionMenage::create(['sejour_id' => $autreSejour->id, 'statut' => 'a_faire']);
+
+        $response = $this->getJson('/api/dashboard');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'menages_a_valider');
+        $response->assertJsonPath('menages_a_valider.0.nom_voyageur', 'Jean Dupont');
+        $response->assertJsonPath('menages_a_valider.0.appartement.adresse', '12 rue de la Roquette');
     }
 }

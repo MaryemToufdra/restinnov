@@ -10,7 +10,6 @@ const appartement = {
   adresse: 'A',
   statut: 'disponible',
   photo_principale: null,
-  checklist_modele_id: null,
   agent_habituel_id: null,
 }
 

@@ -19,7 +19,6 @@ const appartement: Appartement = {
   adresse: '12 rue de la Roquette',
   statut: 'disponible',
   photo_principale: null,
-  checklist_modele_id: null,
   agent_habituel_id: null,
 }
 
@@ -60,6 +59,8 @@ function dashboardFixture(overrides: Partial<DashboardData> = {}): DashboardData
       { id: 1, nom_voyageur: 'Jean Dupont', date_arrivee: '2026-08-01', statut: 'a_venir', appartement: { id: 1, nom: 'Loft Bastille' } },
     ],
     departs_aujourdhui: [],
+    problemes_signales: [],
+    menages_a_valider: [],
     ...overrides,
   }
 }
@@ -110,6 +111,30 @@ function mockFetch(handlers: {
 
     if (url === '/api/checklist-modeles' && method === 'GET') {
       return new Response(JSON.stringify([]), { status: 200 })
+    }
+
+    if (url === '/api/proprietaires' && method === 'GET') {
+      return new Response(JSON.stringify([]), { status: 200 })
+    }
+
+    if (/^\/api\/appartements\/\d+\/releve$/.test(url) && method === 'GET') {
+      const id = Number(url.split('/')[3])
+      return new Response(
+        JSON.stringify({
+          appartement: { id, nom: 'Loft Bastille', adresse: 'A', mode_gestion: 'mandat', taux_commission: null, loyer_fixe_mensuel: null, proprietaire: null },
+          mois: urlObj.searchParams.get('mois'),
+          revenus_bruts: 0,
+          frais_menage_total: 0,
+          frais_maintenance_total: 0,
+          resultat_net: 0,
+          montant_proprietaire: 0,
+          commission_restinnov: 0,
+          sejours: [],
+          frais_menage_detail: [],
+          frais_maintenance_detail: [],
+        }),
+        { status: 200 },
+      )
     }
 
     if (url === '/api/utilisateurs' && method === 'GET') {
@@ -429,7 +454,11 @@ describe('App', () => {
     renderApp()
 
     await screen.findByTestId('dashboard-revenus-totaux')
-    await user.click(screen.getByText('Loft Bastille'))
+    // "Loft Bastille" also appears in the "Relevés propriétaires" block
+    // further down the dashboard -- scope the click to the "Appartements"
+    // table so it doesn't collide with that unrelated row.
+    const appartementsHeading = screen.getByRole('heading', { name: 'Appartements' })
+    await user.click(within(appartementsHeading.closest('div')!).getByText('Loft Bastille'))
 
     expect(await screen.findByText(/appartements trouvés/i)).toBeInTheDocument()
   })

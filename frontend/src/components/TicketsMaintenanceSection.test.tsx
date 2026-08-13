@@ -15,7 +15,7 @@ function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMainte
     audio_url: null,
     urgence: 'normale',
     statut: 'ouvert',
-    appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'disponible', photo_principale: null, checklist_modele_id: null, agent_habituel_id: null },
+    appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'disponible', photo_principale: null, agent_habituel_id: null },
     mission_origine: {
       id: 1,
       sejour_id: 1,

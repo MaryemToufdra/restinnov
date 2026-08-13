@@ -27,9 +27,19 @@ export interface ChecklistItem {
   id: number
   mission_menage_id: number
   libelle: string
+  checklist_modele_nom?: string | null
   coche: boolean
   photo_url: string | null
   ordre: number
+}
+
+export type ModeGestion = 'mandat' | 'sous_location'
+
+export interface Proprietaire {
+  id: number
+  nom: string
+  telephone: string | null
+  email: string | null
 }
 
 export interface Appartement {
@@ -38,10 +48,14 @@ export interface Appartement {
   adresse: string
   statut: string
   photo_principale: string | null
-  checklist_modele_id: number | null
   agent_habituel_id: number | null
-  checklist_modele?: ChecklistModele | null
+  proprietaire_id?: number | null
+  mode_gestion?: ModeGestion
+  taux_commission?: string | number | null
+  loyer_fixe_mensuel?: string | number | null
+  checklist_modeles?: ChecklistModele[]
   agent_habituel?: Agent | null
+  proprietaire?: Proprietaire | null
   sejours_count?: number
   dernier_sejour?: string | null
 }
@@ -171,6 +185,22 @@ export interface DashboardDepartAujourdhui {
   appartement: { id: number; nom: string } | null
 }
 
+export interface DashboardProblemeSignale {
+  id: number
+  photo_url: string | null
+  description: string | null
+  urgence: TicketMaintenanceUrgence
+  statut: TicketMaintenanceStatut
+  appartement: { id: number; nom: string; adresse: string } | null
+}
+
+export interface DashboardMenageAValider {
+  id: number
+  sejour_id: number
+  nom_voyageur: string | null
+  appartement: { id: number; nom: string; adresse: string } | null
+}
+
 export interface DashboardData {
   revenus_totaux: number
   frais_menage_totaux: number
@@ -184,4 +214,84 @@ export interface DashboardData {
   }
   sejours_recents: DashboardSejourRecent[]
   departs_aujourdhui: DashboardDepartAujourdhui[]
+  problemes_signales: DashboardProblemeSignale[]
+  menages_a_valider: DashboardMenageAValider[]
+}
+
+export interface ReleveSejour {
+  id: number
+  nom_voyageur: string
+  date_arrivee: string
+  date_depart: string
+  montant_mad: number
+}
+
+export interface ReleveProduitDetail {
+  nom: string
+  prix: number
+}
+
+export interface ReleveFraisMenageDetail {
+  sejour_id: number
+  nom_voyageur: string
+  forfait: number
+  produits: ReleveProduitDetail[]
+}
+
+export interface ReleveFraisMaintenanceDetail {
+  sejour_id: number
+  description: string | null
+  prix: number
+}
+
+export interface Releve {
+  appartement: {
+    id: number
+    nom: string
+    adresse: string
+    mode_gestion: ModeGestion
+    taux_commission: string | number | null
+    loyer_fixe_mensuel: string | number | null
+    proprietaire: Proprietaire | null
+  }
+  mois: string
+  revenus_bruts: number
+  frais_menage_total: number
+  frais_maintenance_total: number
+  resultat_net: number
+  montant_proprietaire: number
+  commission_restinnov: number
+  sejours: ReleveSejour[]
+  frais_menage_detail: ReleveFraisMenageDetail[]
+  frais_maintenance_detail: ReleveFraisMaintenanceDetail[]
+}
+
+export interface HistoriqueChecklistItem {
+  libelle: string
+  checklist_modele_nom: string | null
+  coche: boolean
+  photo_url: string | null
+}
+
+export interface HistoriqueProduit {
+  nom: string
+  prix: number
+}
+
+export interface HistoriqueMission {
+  id: number
+  statut: MissionStatut
+  sejour: {
+    id: number
+    reference: string
+    date_arrivee: string
+    date_depart: string
+    nom_voyageur: string
+  }
+  checklist_modeles_utilises: string[]
+  checklist_items: HistoriqueChecklistItem[]
+  produits: HistoriqueProduit[]
+  frais_forfait: number
+  frais_produits_total: number
+  frais_total: number
 }

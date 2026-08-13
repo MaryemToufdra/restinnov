@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
-import type { NewAppartementInput } from '../api'
-import type { Agent, Appartement, ChecklistModele } from '../types'
+import type { NewAppartementInput, NewProprietaireInput } from '../api'
+import type { Agent, Appartement, ChecklistModele, ModeGestion, Proprietaire } from '../types'
 import { ChecklistModeleItemsEditor } from './ChecklistModeleItemsEditor'
 
 interface NouvelAppartementFormProps {
   checklistModeles: ChecklistModele[]
   agentsMenage: Agent[]
+  proprietaires: Proprietaire[]
   onSubmit: (input: NewAppartementInput) => Promise<void>
+  onCreateProprietaire: (input: NewProprietaireInput) => Promise<Proprietaire>
   onCreateChecklistModele: (nom: string) => Promise<ChecklistModele>
   onAddChecklistModeleItem: (checklistModeleId: number, libelle: string) => Promise<void>
   onDeplacerChecklistModeleItem: (itemId: number, direction: 'haut' | 'bas') => Promise<void>
@@ -24,7 +26,9 @@ const STATUT_LABELS: Record<string, string> = {
 export function NouvelAppartementForm({
   checklistModeles,
   agentsMenage,
+  proprietaires,
   onSubmit,
+  onCreateProprietaire,
   onCreateChecklistModele,
   onAddChecklistModeleItem,
   onDeplacerChecklistModeleItem,
@@ -35,11 +39,20 @@ export function NouvelAppartementForm({
   const [nom, setNom] = useState('')
   const [adresse, setAdresse] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
-  const [checklistModeleId, setChecklistModeleId] = useState('')
+  const [checklistModeleIds, setChecklistModeleIds] = useState<number[]>([])
   const [agentHabituelId, setAgentHabituelId] = useState('')
   const [showNewChecklistInput, setShowNewChecklistInput] = useState(false)
   const [newChecklistNom, setNewChecklistNom] = useState('')
   const [creatingChecklist, setCreatingChecklist] = useState(false)
+  const [proprietaireId, setProprietaireId] = useState('')
+  const [showNewProprietaireInput, setShowNewProprietaireInput] = useState(false)
+  const [newProprietaireNom, setNewProprietaireNom] = useState('')
+  const [newProprietaireTelephone, setNewProprietaireTelephone] = useState('')
+  const [newProprietaireEmail, setNewProprietaireEmail] = useState('')
+  const [creatingProprietaire, setCreatingProprietaire] = useState(false)
+  const [modeGestion, setModeGestion] = useState<ModeGestion>('mandat')
+  const [tauxCommission, setTauxCommission] = useState('')
+  const [loyerFixeMensuel, setLoyerFixeMensuel] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -49,10 +62,18 @@ export function NouvelAppartementForm({
     setNom('')
     setAdresse('')
     setPhoto(null)
-    setChecklistModeleId('')
+    setChecklistModeleIds([])
     setAgentHabituelId('')
     setShowNewChecklistInput(false)
     setNewChecklistNom('')
+    setProprietaireId('')
+    setShowNewProprietaireInput(false)
+    setNewProprietaireNom('')
+    setNewProprietaireTelephone('')
+    setNewProprietaireEmail('')
+    setModeGestion('mandat')
+    setTauxCommission('')
+    setLoyerFixeMensuel('')
     setError(null)
   }
 
@@ -61,8 +82,16 @@ export function NouvelAppartementForm({
       setNom(appartementToEdit.nom)
       setAdresse(appartementToEdit.adresse)
       setPhoto(null)
-      setChecklistModeleId(appartementToEdit.checklist_modele_id ? String(appartementToEdit.checklist_modele_id) : '')
+      setChecklistModeleIds((appartementToEdit.checklist_modeles ?? []).map((modele) => modele.id))
       setAgentHabituelId(appartementToEdit.agent_habituel_id ? String(appartementToEdit.agent_habituel_id) : '')
+      setProprietaireId(appartementToEdit.proprietaire_id ? String(appartementToEdit.proprietaire_id) : '')
+      setModeGestion(appartementToEdit.mode_gestion ?? 'mandat')
+      setTauxCommission(
+        appartementToEdit.taux_commission != null ? String(appartementToEdit.taux_commission) : '',
+      )
+      setLoyerFixeMensuel(
+        appartementToEdit.loyer_fixe_mensuel != null ? String(appartementToEdit.loyer_fixe_mensuel) : '',
+      )
       setError(null)
     } else {
       resetForm()
@@ -86,18 +115,45 @@ export function NouvelAppartementForm({
     acceptFile(event.dataTransfer.files[0])
   }
 
+  const toggleChecklistModele = (modeleId: number) => {
+    setChecklistModeleIds((current) =>
+      current.includes(modeleId) ? current.filter((id) => id !== modeleId) : [...current, modeleId],
+    )
+  }
+
   const handleCreateChecklistModele = async () => {
     if (!newChecklistNom.trim()) return
     setCreatingChecklist(true)
     try {
       const created = await onCreateChecklistModele(newChecklistNom.trim())
-      setChecklistModeleId(String(created.id))
+      setChecklistModeleIds((current) => [...current, created.id])
       setShowNewChecklistInput(false)
       setNewChecklistNom('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossible de créer ce modèle.')
     } finally {
       setCreatingChecklist(false)
+    }
+  }
+
+  const handleCreateProprietaire = async () => {
+    if (!newProprietaireNom.trim()) return
+    setCreatingProprietaire(true)
+    try {
+      const created = await onCreateProprietaire({
+        nom: newProprietaireNom.trim(),
+        telephone: newProprietaireTelephone.trim() || null,
+        email: newProprietaireEmail.trim() || null,
+      })
+      setProprietaireId(String(created.id))
+      setShowNewProprietaireInput(false)
+      setNewProprietaireNom('')
+      setNewProprietaireTelephone('')
+      setNewProprietaireEmail('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossible de créer ce propriétaire.')
+    } finally {
+      setCreatingProprietaire(false)
     }
   }
 
@@ -116,8 +172,12 @@ export function NouvelAppartementForm({
         nom,
         adresse,
         photo,
-        checklist_modele_id: checklistModeleId ? Number(checklistModeleId) : null,
+        checklist_modele_ids: checklistModeleIds,
         agent_habituel_id: agentHabituelId ? Number(agentHabituelId) : null,
+        proprietaire_id: proprietaireId ? Number(proprietaireId) : null,
+        mode_gestion: modeGestion,
+        taux_commission: modeGestion === 'mandat' && tauxCommission ? Number(tauxCommission) : null,
+        loyer_fixe_mensuel: modeGestion === 'sous_location' && loyerFixeMensuel ? Number(loyerFixeMensuel) : null,
       })
       resetForm()
     } catch (err) {
@@ -195,22 +255,24 @@ export function NouvelAppartementForm({
       </div>
 
       <div>
-        <label htmlFor="checklist_modele_id" className="block text-sm font-medium text-gray-700">
-          Checklist de ménage
-        </label>
-        <select
-          id="checklist_modele_id"
-          value={checklistModeleId}
-          onChange={(e) => setChecklistModeleId(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">Aucune checklist</option>
+        <span className="block text-sm font-medium text-gray-700">Checklists de ménage</span>
+        <p className="mt-1 text-xs text-gray-500">
+          Un ou plusieurs modèles peuvent être assignés ; leurs items seront tous générés à chaque nouvelle mission.
+        </p>
+        <div className="mt-2 space-y-1">
+          {checklistModeles.length === 0 && <p className="text-sm text-gray-400">Aucun modèle pour l'instant.</p>}
           {checklistModeles.map((modele) => (
-            <option key={modele.id} value={modele.id}>
+            <label key={modele.id} className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={checklistModeleIds.includes(modele.id)}
+                onChange={() => toggleChecklistModele(modele.id)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
               {modele.nom}
-            </option>
+            </label>
           ))}
-        </select>
+        </div>
 
         {showNewChecklistInput ? (
           <div className="mt-2 flex gap-2">
@@ -240,18 +302,17 @@ export function NouvelAppartementForm({
           </button>
         )}
 
-        {checklistModeleId &&
-          (() => {
-            const selectedModele = checklistModeles.find((m) => m.id === Number(checklistModeleId))
-            return selectedModele ? (
-              <ChecklistModeleItemsEditor
-                checklistModele={selectedModele}
-                onAddItem={onAddChecklistModeleItem}
-                onDeplacerItem={onDeplacerChecklistModeleItem}
-                onDeleteItem={onDeleteChecklistModeleItem}
-              />
-            ) : null
-          })()}
+        {checklistModeles
+          .filter((modele) => checklistModeleIds.includes(modele.id))
+          .map((modele) => (
+            <ChecklistModeleItemsEditor
+              key={modele.id}
+              checklistModele={modele}
+              onAddItem={onAddChecklistModeleItem}
+              onDeplacerItem={onDeplacerChecklistModeleItem}
+              onDeleteItem={onDeleteChecklistModeleItem}
+            />
+          ))}
       </div>
 
       <div>
@@ -271,6 +332,137 @@ export function NouvelAppartementForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label htmlFor="proprietaire_id" className="block text-sm font-medium text-gray-700">
+          Propriétaire
+        </label>
+        <select
+          id="proprietaire_id"
+          value={proprietaireId}
+          onChange={(e) => setProprietaireId(e.target.value)}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="">Aucun propriétaire</option>
+          {proprietaires.map((proprietaire) => (
+            <option key={proprietaire.id} value={proprietaire.id}>
+              {proprietaire.nom}
+            </option>
+          ))}
+        </select>
+
+        {showNewProprietaireInput ? (
+          <div className="mt-2 space-y-2 rounded-md border border-gray-200 p-3">
+            <input
+              type="text"
+              value={newProprietaireNom}
+              onChange={(e) => setNewProprietaireNom(e.target.value)}
+              placeholder="Nom du propriétaire"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="tel"
+              value={newProprietaireTelephone}
+              onChange={(e) => setNewProprietaireTelephone(e.target.value)}
+              placeholder="Téléphone (optionnel)"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="email"
+              value={newProprietaireEmail}
+              onChange={(e) => setNewProprietaireEmail(e.target.value)}
+              placeholder="Email (optionnel)"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowNewProprietaireInput(false)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateProprietaire}
+                disabled={creatingProprietaire}
+                className="shrink-0 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Créer
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowNewProprietaireInput(true)}
+            className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          >
+            + Créer un nouveau propriétaire
+          </button>
+        )}
+      </div>
+
+      <div>
+        <span className="block text-sm font-medium text-gray-700">Mode de gestion</span>
+        <div className="mt-1 flex gap-2">
+          <button
+            type="button"
+            aria-pressed={modeGestion === 'mandat'}
+            onClick={() => setModeGestion('mandat')}
+            className={`rounded-md px-3 py-2 text-sm font-medium ${
+              modeGestion === 'mandat' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Mandat
+          </button>
+          <button
+            type="button"
+            aria-pressed={modeGestion === 'sous_location'}
+            onClick={() => setModeGestion('sous_location')}
+            className={`rounded-md px-3 py-2 text-sm font-medium ${
+              modeGestion === 'sous_location'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Sous-location
+          </button>
+        </div>
+
+        {modeGestion === 'mandat' ? (
+          <div className="mt-2">
+            <label htmlFor="taux_commission" className="block text-sm font-medium text-gray-700">
+              Taux de commission (%)
+            </label>
+            <input
+              id="taux_commission"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={tauxCommission}
+              onChange={(e) => setTauxCommission(e.target.value)}
+              className="mt-1 block w-32 rounded-md border border-gray-300 px-3 py-2 text-sm [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+          </div>
+        ) : (
+          <div className="mt-2">
+            <label htmlFor="loyer_fixe_mensuel" className="block text-sm font-medium text-gray-700">
+              Loyer fixe mensuel (MAD)
+            </label>
+            <input
+              id="loyer_fixe_mensuel"
+              type="number"
+              min="0"
+              step="0.01"
+              value={loyerFixeMensuel}
+              onChange={(e) => setLoyerFixeMensuel(e.target.value)}
+              className="mt-1 block w-32 rounded-md border border-gray-300 px-3 py-2 text-sm [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+          </div>
+        )}
       </div>
 
       <div>

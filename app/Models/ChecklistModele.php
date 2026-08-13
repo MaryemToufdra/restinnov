@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ChecklistModele extends Model
@@ -14,9 +15,9 @@ class ChecklistModele extends Model
         'nom',
     ];
 
-    public function appartements(): HasMany
+    public function appartements(): BelongsToMany
     {
-        return $this->hasMany(Appartement::class);
+        return $this->belongsToMany(Appartement::class, 'appartement_checklist_modele');
     }
 
     public function items(): HasMany

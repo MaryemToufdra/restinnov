@@ -6,11 +6,15 @@ import type {
   ChecklistModeleItem,
   DashboardData,
   FraisMaintenance,
+  HistoriqueMission,
   MissionMenage,
+  ModeGestion,
   PaginatedResponse,
   PlateformeOrigine,
   ProduitCatalogue,
   ProduitMenageSignale,
+  Proprietaire,
+  Releve,
   Sejour,
   SejourStatut,
   TicketMaintenance,
@@ -116,8 +120,18 @@ export interface NewAppartementInput {
   nom: string
   adresse: string
   photo: File | null
-  checklist_modele_id: number | null
+  checklist_modele_ids: number[]
   agent_habituel_id: number | null
+  proprietaire_id?: number | null
+  mode_gestion?: ModeGestion
+  taux_commission?: number | null
+  loyer_fixe_mensuel?: number | null
+}
+
+export interface NewProprietaireInput {
+  nom: string
+  telephone?: string | null
+  email?: string | null
 }
 
 export interface NewUtilisateurInput {
@@ -224,13 +238,21 @@ export async function fetchAppartementsListe(
   return parseJsonOrThrow(response)
 }
 
+function appendProprietaireFields(formData: FormData, input: NewAppartementInput): void {
+  if (input.proprietaire_id) formData.append('proprietaire_id', String(input.proprietaire_id))
+  if (input.mode_gestion) formData.append('mode_gestion', input.mode_gestion)
+  if (input.taux_commission != null) formData.append('taux_commission', String(input.taux_commission))
+  if (input.loyer_fixe_mensuel != null) formData.append('loyer_fixe_mensuel', String(input.loyer_fixe_mensuel))
+}
+
 export async function updateAppartement(id: number, input: NewAppartementInput): Promise<Appartement> {
   const formData = new FormData()
   formData.append('nom', input.nom)
   formData.append('adresse', input.adresse)
   if (input.photo) formData.append('photo', input.photo)
-  if (input.checklist_modele_id) formData.append('checklist_modele_id', String(input.checklist_modele_id))
+  input.checklist_modele_ids.forEach((id) => formData.append('checklist_modele_ids[]', String(id)))
   if (input.agent_habituel_id) formData.append('agent_habituel_id', String(input.agent_habituel_id))
+  appendProprietaireFields(formData, input)
   formData.append('_method', 'PATCH')
 
   const response = await fetch(`${API_BASE_URL}/api/appartements/${id}`, {
@@ -247,13 +269,32 @@ export async function createAppartement(input: NewAppartementInput): Promise<App
   formData.append('nom', input.nom)
   formData.append('adresse', input.adresse)
   if (input.photo) formData.append('photo', input.photo)
-  if (input.checklist_modele_id) formData.append('checklist_modele_id', String(input.checklist_modele_id))
+  input.checklist_modele_ids.forEach((id) => formData.append('checklist_modele_ids[]', String(id)))
   if (input.agent_habituel_id) formData.append('agent_habituel_id', String(input.agent_habituel_id))
+  appendProprietaireFields(formData, input)
 
   const response = await fetch(`${API_BASE_URL}/api/appartements`, {
     method: 'POST',
     headers: authHeaders(),
     body: formData,
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchProprietaires(): Promise<Proprietaire[]> {
+  const response = await fetch(`${API_BASE_URL}/api/proprietaires`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function createProprietaire(input: NewProprietaireInput): Promise<Proprietaire> {
+  const response = await fetch(`${API_BASE_URL}/api/proprietaires`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(input),
   })
 
   return parseJsonOrThrow(response)
@@ -683,4 +724,48 @@ export async function fetchDashboard(): Promise<DashboardData> {
   })
 
   return parseJsonOrThrow(response)
+}
+
+export async function fetchAppartementHistorique(appartementId: number): Promise<HistoriqueMission[]> {
+  const response = await fetch(`${API_BASE_URL}/api/appartements/${appartementId}/historique`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchReleve(appartementId: number, mois: string): Promise<Releve> {
+  const response = await fetch(`${API_BASE_URL}/api/appartements/${appartementId}/releve?mois=${mois}`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+/**
+ * The PDF endpoint requires the same bearer-token auth as everything else,
+ * so a plain <a href> can't be used -- fetch it as a blob and trigger the
+ * browser download manually via a throwaway anchor element.
+ */
+export async function downloadRelevePdf(appartementId: number, mois: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/appartements/${appartementId}/releve/pdf?mois=${mois}`, {
+    headers: authHeaders(),
+  })
+
+  handleUnauthorized(response)
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new ApiError(data?.message ?? 'Une erreur est survenue.', data?.errors)
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `releve-${mois}.pdf`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Appartement;
 use App\Models\ChecklistModele;
+use App\Models\Proprietaire;
 use App\Models\Utilisateur;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -36,13 +37,47 @@ class AppartementUpdateTest extends TestCase
         $response = $this->patchJson("/api/appartements/{$appartement->id}", [
             'nom' => 'Loft Bastille',
             'adresse' => 'A',
-            'checklist_modele_id' => $checklist->id,
+            'checklist_modele_ids' => [$checklist->id],
             'agent_habituel_id' => $agent->id,
         ]);
 
         $response->assertOk();
-        $response->assertJsonPath('checklist_modele.nom', 'Checklist standard');
+        $response->assertJsonPath('checklist_modeles.0.nom', 'Checklist standard');
         $response->assertJsonPath('agent_habituel.nom', 'Fatima Z.');
+    }
+
+    public function test_it_replaces_the_checklist_modeles_set_when_changed(): void
+    {
+        $standard = ChecklistModele::create(['nom' => 'Standard']);
+        $fenetres = ChecklistModele::create(['nom' => 'Fenêtres']);
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $appartement->checklistModeles()->sync([$standard->id]);
+
+        $response = $this->patchJson("/api/appartements/{$appartement->id}", [
+            'nom' => 'Loft Bastille',
+            'adresse' => 'A',
+            'checklist_modele_ids' => [$standard->id, $fenetres->id],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonCount(2, 'checklist_modeles');
+        $this->assertDatabaseCount('appartement_checklist_modele', 2);
+    }
+
+    public function test_it_clears_the_checklist_modeles_when_none_are_sent(): void
+    {
+        $standard = ChecklistModele::create(['nom' => 'Standard']);
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $appartement->checklistModeles()->sync([$standard->id]);
+
+        $response = $this->patchJson("/api/appartements/{$appartement->id}", [
+            'nom' => 'Loft Bastille',
+            'adresse' => 'A',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('checklist_modeles', []);
+        $this->assertDatabaseCount('appartement_checklist_modele', 0);
     }
 
     public function test_it_replaces_the_agent_habituel_when_changed(): void
@@ -108,5 +143,49 @@ class AppartementUpdateTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['nom', 'adresse']);
+    }
+
+    public function test_it_updates_proprietaire_mode_gestion_and_switches_from_commission_to_loyer_fixe(): void
+    {
+        $proprietaire = Proprietaire::create(['nom' => 'Karim Alaoui']);
+        $appartement = Appartement::create([
+            'nom' => 'Loft Bastille',
+            'adresse' => 'A',
+            'statut' => 'disponible',
+            'mode_gestion' => 'mandat',
+            'taux_commission' => 15,
+        ]);
+
+        $response = $this->patchJson("/api/appartements/{$appartement->id}", [
+            'nom' => 'Loft Bastille',
+            'adresse' => 'A',
+            'proprietaire_id' => $proprietaire->id,
+            'mode_gestion' => 'sous_location',
+            'loyer_fixe_mensuel' => 4000,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('proprietaire.nom', 'Karim Alaoui');
+        $response->assertJsonPath('mode_gestion', 'sous_location');
+        $response->assertJsonPath('loyer_fixe_mensuel', '4000.00');
+        $this->assertDatabaseHas('appartements', [
+            'id' => $appartement->id,
+            'proprietaire_id' => $proprietaire->id,
+            'mode_gestion' => 'sous_location',
+        ]);
+    }
+
+    public function test_mode_gestion_must_be_mandat_or_sous_location_on_update(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+
+        $response = $this->patchJson("/api/appartements/{$appartement->id}", [
+            'nom' => 'Loft Bastille',
+            'adresse' => 'A',
+            'mode_gestion' => 'autre',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('mode_gestion');
     }
 }
