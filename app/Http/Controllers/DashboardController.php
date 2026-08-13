@@ -6,6 +6,7 @@ use App\Models\Appartement;
 use App\Models\FraisMaintenance;
 use App\Models\MissionMenage;
 use App\Models\Sejour;
+use App\Models\TicketMaintenance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -58,6 +59,28 @@ class DashboardController extends Controller
             ->take(10)
             ->get();
 
+        $problemesSignales = TicketMaintenance::query()
+            ->select('id', 'appartement_id', 'photo_url', 'description', 'urgence', 'statut')
+            ->whereIn('statut', [TicketMaintenance::STATUT_OUVERT, TicketMaintenance::STATUT_ASSIGNE])
+            ->with('appartement:id,nom,adresse')
+            ->latest()
+            ->latest('id')
+            ->get();
+
+        $menagesAValider = MissionMenage::query()
+            ->select('id', 'sejour_id')
+            ->where('statut', MissionMenage::STATUT_EN_ATTENTE_VALIDATION)
+            ->with('sejour:id,appartement_id,nom_voyageur', 'sejour.appartement:id,nom,adresse')
+            ->latest()
+            ->latest('id')
+            ->get()
+            ->map(fn (MissionMenage $mission) => [
+                'id' => $mission->id,
+                'sejour_id' => $mission->sejour_id,
+                'nom_voyageur' => $mission->sejour?->nom_voyageur,
+                'appartement' => $mission->sejour?->appartement,
+            ]);
+
         return response()->json([
             'revenus_totaux' => $revenusTotaux,
             'frais_menage_totaux' => $fraisMenageTotaux,
@@ -66,6 +89,8 @@ class DashboardController extends Controller
             'appartements' => $appartements,
             'sejours_par_statut' => $sejoursParStatut,
             'sejours_recents' => $sejoursRecents,
+            'problemes_signales' => $problemesSignales,
+            'menages_a_valider' => $menagesAValider,
         ]);
     }
 }

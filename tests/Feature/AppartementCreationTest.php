@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ChecklistModele;
+use App\Models\Proprietaire;
 use App\Models\Utilisateur;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -111,5 +112,108 @@ class AppartementCreationTest extends TestCase
         $response->assertOk();
         $response->assertJsonCount(1);
         $response->assertJsonPath('0.nom', 'Fatima Z.');
+    }
+
+    public function test_mode_gestion_defaults_to_mandat_when_not_specified(): void
+    {
+        $response = $this->postJson('/api/appartements', [
+            'nom' => 'Zenith 3ème étage',
+            'adresse' => '10 avenue Hassan II, Casablanca',
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('mode_gestion', 'mandat');
+    }
+
+    public function test_it_creates_an_appartement_in_mandat_mode_with_an_existing_proprietaire_and_commission(): void
+    {
+        $proprietaire = Proprietaire::create(['nom' => 'Karim Alaoui', 'telephone' => '0600000001']);
+
+        $response = $this->postJson('/api/appartements', [
+            'nom' => 'Zenith 3ème étage',
+            'adresse' => '10 avenue Hassan II, Casablanca',
+            'proprietaire_id' => $proprietaire->id,
+            'mode_gestion' => 'mandat',
+            'taux_commission' => 15,
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('proprietaire.nom', 'Karim Alaoui');
+        $response->assertJsonPath('mode_gestion', 'mandat');
+        $response->assertJsonPath('taux_commission', '15.00');
+        $this->assertDatabaseHas('appartements', [
+            'nom' => 'Zenith 3ème étage',
+            'proprietaire_id' => $proprietaire->id,
+            'mode_gestion' => 'mandat',
+        ]);
+    }
+
+    public function test_it_creates_an_appartement_in_sous_location_mode_with_a_loyer_fixe(): void
+    {
+        $proprietaire = Proprietaire::create(['nom' => 'Karim Alaoui']);
+
+        $response = $this->postJson('/api/appartements', [
+            'nom' => 'Zenith 3ème étage',
+            'adresse' => '10 avenue Hassan II, Casablanca',
+            'proprietaire_id' => $proprietaire->id,
+            'mode_gestion' => 'sous_location',
+            'loyer_fixe_mensuel' => 4000,
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('mode_gestion', 'sous_location');
+        $response->assertJsonPath('loyer_fixe_mensuel', '4000.00');
+    }
+
+    public function test_proprietaire_id_must_exist(): void
+    {
+        $response = $this->postJson('/api/appartements', [
+            'nom' => 'Zenith 3ème étage',
+            'adresse' => '10 avenue Hassan II, Casablanca',
+            'proprietaire_id' => 999,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('proprietaire_id');
+    }
+
+    public function test_mode_gestion_must_be_mandat_or_sous_location(): void
+    {
+        $response = $this->postJson('/api/appartements', [
+            'nom' => 'Zenith 3ème étage',
+            'adresse' => '10 avenue Hassan II, Casablanca',
+            'mode_gestion' => 'autre',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('mode_gestion');
+    }
+
+    public function test_it_lists_and_creates_proprietaires(): void
+    {
+        Proprietaire::create(['nom' => 'Karim Alaoui']);
+
+        $response = $this->getJson('/api/proprietaires');
+        $response->assertOk();
+        $response->assertJsonCount(1);
+
+        $createResponse = $this->postJson('/api/proprietaires', [
+            'nom' => 'Sara Bennani',
+            'telephone' => '0611111111',
+            'email' => 'sara.bennani@example.com',
+        ]);
+        $createResponse->assertCreated();
+        $createResponse->assertJsonPath('nom', 'Sara Bennani');
+
+        $this->assertDatabaseHas('proprietaires', ['nom' => 'Sara Bennani', 'email' => 'sara.bennani@example.com']);
+        $this->getJson('/api/proprietaires')->assertJsonCount(2);
+    }
+
+    public function test_proprietaire_nom_is_required(): void
+    {
+        $response = $this->postJson('/api/proprietaires', ['telephone' => '0611111111']);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('nom');
     }
 }

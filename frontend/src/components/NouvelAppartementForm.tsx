@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
-import type { NewAppartementInput } from '../api'
-import type { Agent, Appartement, ChecklistModele } from '../types'
+import type { NewAppartementInput, NewProprietaireInput } from '../api'
+import type { Agent, Appartement, ChecklistModele, ModeGestion, Proprietaire } from '../types'
 import { ChecklistModeleItemsEditor } from './ChecklistModeleItemsEditor'
 
 interface NouvelAppartementFormProps {
   checklistModeles: ChecklistModele[]
   agentsMenage: Agent[]
+  proprietaires: Proprietaire[]
   onSubmit: (input: NewAppartementInput) => Promise<void>
+  onCreateProprietaire: (input: NewProprietaireInput) => Promise<Proprietaire>
   onCreateChecklistModele: (nom: string) => Promise<ChecklistModele>
   onAddChecklistModeleItem: (checklistModeleId: number, libelle: string) => Promise<void>
   onDeplacerChecklistModeleItem: (itemId: number, direction: 'haut' | 'bas') => Promise<void>
@@ -24,7 +26,9 @@ const STATUT_LABELS: Record<string, string> = {
 export function NouvelAppartementForm({
   checklistModeles,
   agentsMenage,
+  proprietaires,
   onSubmit,
+  onCreateProprietaire,
   onCreateChecklistModele,
   onAddChecklistModeleItem,
   onDeplacerChecklistModeleItem,
@@ -40,6 +44,15 @@ export function NouvelAppartementForm({
   const [showNewChecklistInput, setShowNewChecklistInput] = useState(false)
   const [newChecklistNom, setNewChecklistNom] = useState('')
   const [creatingChecklist, setCreatingChecklist] = useState(false)
+  const [proprietaireId, setProprietaireId] = useState('')
+  const [showNewProprietaireInput, setShowNewProprietaireInput] = useState(false)
+  const [newProprietaireNom, setNewProprietaireNom] = useState('')
+  const [newProprietaireTelephone, setNewProprietaireTelephone] = useState('')
+  const [newProprietaireEmail, setNewProprietaireEmail] = useState('')
+  const [creatingProprietaire, setCreatingProprietaire] = useState(false)
+  const [modeGestion, setModeGestion] = useState<ModeGestion>('mandat')
+  const [tauxCommission, setTauxCommission] = useState('')
+  const [loyerFixeMensuel, setLoyerFixeMensuel] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -53,6 +66,14 @@ export function NouvelAppartementForm({
     setAgentHabituelId('')
     setShowNewChecklistInput(false)
     setNewChecklistNom('')
+    setProprietaireId('')
+    setShowNewProprietaireInput(false)
+    setNewProprietaireNom('')
+    setNewProprietaireTelephone('')
+    setNewProprietaireEmail('')
+    setModeGestion('mandat')
+    setTauxCommission('')
+    setLoyerFixeMensuel('')
     setError(null)
   }
 
@@ -63,6 +84,14 @@ export function NouvelAppartementForm({
       setPhoto(null)
       setChecklistModeleId(appartementToEdit.checklist_modele_id ? String(appartementToEdit.checklist_modele_id) : '')
       setAgentHabituelId(appartementToEdit.agent_habituel_id ? String(appartementToEdit.agent_habituel_id) : '')
+      setProprietaireId(appartementToEdit.proprietaire_id ? String(appartementToEdit.proprietaire_id) : '')
+      setModeGestion(appartementToEdit.mode_gestion ?? 'mandat')
+      setTauxCommission(
+        appartementToEdit.taux_commission != null ? String(appartementToEdit.taux_commission) : '',
+      )
+      setLoyerFixeMensuel(
+        appartementToEdit.loyer_fixe_mensuel != null ? String(appartementToEdit.loyer_fixe_mensuel) : '',
+      )
       setError(null)
     } else {
       resetForm()
@@ -101,6 +130,27 @@ export function NouvelAppartementForm({
     }
   }
 
+  const handleCreateProprietaire = async () => {
+    if (!newProprietaireNom.trim()) return
+    setCreatingProprietaire(true)
+    try {
+      const created = await onCreateProprietaire({
+        nom: newProprietaireNom.trim(),
+        telephone: newProprietaireTelephone.trim() || null,
+        email: newProprietaireEmail.trim() || null,
+      })
+      setProprietaireId(String(created.id))
+      setShowNewProprietaireInput(false)
+      setNewProprietaireNom('')
+      setNewProprietaireTelephone('')
+      setNewProprietaireEmail('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossible de créer ce propriétaire.')
+    } finally {
+      setCreatingProprietaire(false)
+    }
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
@@ -118,6 +168,10 @@ export function NouvelAppartementForm({
         photo,
         checklist_modele_id: checklistModeleId ? Number(checklistModeleId) : null,
         agent_habituel_id: agentHabituelId ? Number(agentHabituelId) : null,
+        proprietaire_id: proprietaireId ? Number(proprietaireId) : null,
+        mode_gestion: modeGestion,
+        taux_commission: modeGestion === 'mandat' && tauxCommission ? Number(tauxCommission) : null,
+        loyer_fixe_mensuel: modeGestion === 'sous_location' && loyerFixeMensuel ? Number(loyerFixeMensuel) : null,
       })
       resetForm()
     } catch (err) {
@@ -271,6 +325,137 @@ export function NouvelAppartementForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label htmlFor="proprietaire_id" className="block text-sm font-medium text-gray-700">
+          Propriétaire
+        </label>
+        <select
+          id="proprietaire_id"
+          value={proprietaireId}
+          onChange={(e) => setProprietaireId(e.target.value)}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="">Aucun propriétaire</option>
+          {proprietaires.map((proprietaire) => (
+            <option key={proprietaire.id} value={proprietaire.id}>
+              {proprietaire.nom}
+            </option>
+          ))}
+        </select>
+
+        {showNewProprietaireInput ? (
+          <div className="mt-2 space-y-2 rounded-md border border-gray-200 p-3">
+            <input
+              type="text"
+              value={newProprietaireNom}
+              onChange={(e) => setNewProprietaireNom(e.target.value)}
+              placeholder="Nom du propriétaire"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="tel"
+              value={newProprietaireTelephone}
+              onChange={(e) => setNewProprietaireTelephone(e.target.value)}
+              placeholder="Téléphone (optionnel)"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="email"
+              value={newProprietaireEmail}
+              onChange={(e) => setNewProprietaireEmail(e.target.value)}
+              placeholder="Email (optionnel)"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowNewProprietaireInput(false)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateProprietaire}
+                disabled={creatingProprietaire}
+                className="shrink-0 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Créer
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowNewProprietaireInput(true)}
+            className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          >
+            + Créer un nouveau propriétaire
+          </button>
+        )}
+      </div>
+
+      <div>
+        <span className="block text-sm font-medium text-gray-700">Mode de gestion</span>
+        <div className="mt-1 flex gap-2">
+          <button
+            type="button"
+            aria-pressed={modeGestion === 'mandat'}
+            onClick={() => setModeGestion('mandat')}
+            className={`rounded-md px-3 py-2 text-sm font-medium ${
+              modeGestion === 'mandat' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Mandat
+          </button>
+          <button
+            type="button"
+            aria-pressed={modeGestion === 'sous_location'}
+            onClick={() => setModeGestion('sous_location')}
+            className={`rounded-md px-3 py-2 text-sm font-medium ${
+              modeGestion === 'sous_location'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Sous-location
+          </button>
+        </div>
+
+        {modeGestion === 'mandat' ? (
+          <div className="mt-2">
+            <label htmlFor="taux_commission" className="block text-sm font-medium text-gray-700">
+              Taux de commission (%)
+            </label>
+            <input
+              id="taux_commission"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={tauxCommission}
+              onChange={(e) => setTauxCommission(e.target.value)}
+              className="mt-1 block w-32 rounded-md border border-gray-300 px-3 py-2 text-sm [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+          </div>
+        ) : (
+          <div className="mt-2">
+            <label htmlFor="loyer_fixe_mensuel" className="block text-sm font-medium text-gray-700">
+              Loyer fixe mensuel (MAD)
+            </label>
+            <input
+              id="loyer_fixe_mensuel"
+              type="number"
+              min="0"
+              step="0.01"
+              value={loyerFixeMensuel}
+              onChange={(e) => setLoyerFixeMensuel(e.target.value)}
+              className="mt-1 block w-32 rounded-md border border-gray-300 px-3 py-2 text-sm [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+          </div>
+        )}
       </div>
 
       <div>

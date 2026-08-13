@@ -30,6 +30,8 @@ const data: DashboardData = {
       appartement: { id: 2, nom: 'Zenith' },
     },
   ],
+  problemes_signales: [],
+  menages_a_valider: [],
 }
 
 describe('DashboardSection', () => {
@@ -128,6 +130,80 @@ describe('DashboardSection', () => {
     )
 
     expect(screen.getByText('Maintenance')).toBeInTheDocument()
+  })
+
+  it('affiche les problèmes signalés avec adresse et badge d\'urgence, cliquable', async () => {
+    const user = userEvent.setup()
+    const onNavigateToTicketsMaintenance = vi.fn()
+
+    render(
+      <DashboardSection
+        data={{
+          ...data,
+          problemes_signales: [
+            {
+              id: 1,
+              photo_url: 'tickets-maintenance/photo.jpg',
+              description: 'La chasse d\'eau ne fonctionne plus.',
+              urgence: 'haute',
+              statut: 'ouvert',
+              appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
+            },
+          ],
+        }}
+        loading={false}
+        error={null}
+        onNavigateToTicketsMaintenance={onNavigateToTicketsMaintenance}
+      />,
+    )
+
+    expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
+    expect(screen.getByText('Haute')).toBeInTheDocument()
+
+    await user.click(screen.getByText('12 rue de la Roquette'))
+    expect(onNavigateToTicketsMaintenance).toHaveBeenCalledTimes(1)
+  })
+
+  it('affiche un message quand aucun problème n\'est signalé', () => {
+    render(<DashboardSection data={{ ...data, problemes_signales: [] }} loading={false} error={null} />)
+
+    expect(screen.getByText('Aucun problème signalé.')).toBeInTheDocument()
+  })
+
+  it('affiche les ménages à valider avec adresse et voyageur, cliquable vers le séjour', async () => {
+    const user = userEvent.setup()
+    const onNavigateToSejour = vi.fn()
+
+    render(
+      <DashboardSection
+        data={{
+          ...data,
+          menages_a_valider: [
+            {
+              id: 10,
+              sejour_id: 42,
+              nom_voyageur: 'Amina Bennani',
+              appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
+            },
+          ],
+        }}
+        loading={false}
+        error={null}
+        onNavigateToSejour={onNavigateToSejour}
+      />,
+    )
+
+    expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
+    expect(screen.getByText('Amina Bennani')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Amina Bennani'))
+    expect(onNavigateToSejour).toHaveBeenCalledWith(42)
+  })
+
+  it('affiche un message quand aucun ménage n\'est en attente de validation', () => {
+    render(<DashboardSection data={{ ...data, menages_a_valider: [] }} loading={false} error={null} />)
+
+    expect(screen.getByText('Aucun ménage en attente.')).toBeInTheDocument()
   })
 
   it('précise que le résultat net n\'inclut pas la commission propriétaire', () => {

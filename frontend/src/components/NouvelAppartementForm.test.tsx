@@ -3,10 +3,25 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { NouvelAppartementForm } from './NouvelAppartementForm'
-import type { Agent, Appartement, ChecklistModele } from '../types'
+import type { Agent, Appartement, ChecklistModele, Proprietaire } from '../types'
 
 const checklistModeles: ChecklistModele[] = [{ id: 1, nom: 'Checklist standard' }]
 const agentsMenage: Agent[] = [{ id: 2, nom: 'Fatima Z.', role: 'menage', telephone: null }]
+const proprietaires: Proprietaire[] = [{ id: 5, nom: 'Karim Alaoui', telephone: null, email: null }]
+
+function baseProps() {
+  return {
+    checklistModeles,
+    agentsMenage,
+    proprietaires,
+    onSubmit: vi.fn(),
+    onCreateProprietaire: vi.fn(),
+    onCreateChecklistModele: vi.fn(),
+    onAddChecklistModeleItem: vi.fn(),
+    onDeplacerChecklistModeleItem: vi.fn(),
+    onDeleteChecklistModeleItem: vi.fn(),
+  }
+}
 
 /** Mirrors how App.tsx owns the checklist list, so a newly created modele becomes a selectable option. */
 function ManagedForm({ onCreateChecklistModele }: { onCreateChecklistModele: (nom: string) => Promise<ChecklistModele> }) {
@@ -14,17 +29,34 @@ function ManagedForm({ onCreateChecklistModele }: { onCreateChecklistModele: (no
 
   return (
     <NouvelAppartementForm
+      {...baseProps()}
       checklistModeles={modeles}
-      agentsMenage={agentsMenage}
-      onSubmit={vi.fn()}
       onCreateChecklistModele={async (nom) => {
         const created = await onCreateChecklistModele(nom)
         setModeles((current) => [...current, created])
         return created
       }}
-      onAddChecklistModeleItem={vi.fn()}
-      onDeplacerChecklistModeleItem={vi.fn()}
-      onDeleteChecklistModeleItem={vi.fn()}
+    />
+  )
+}
+
+/** Mirrors how App.tsx owns the proprietaire list, so a newly created one becomes a selectable option. */
+function ManagedFormWithProprietaire({
+  onCreateProprietaire,
+}: {
+  onCreateProprietaire: (input: { nom: string; telephone?: string | null; email?: string | null }) => Promise<Proprietaire>
+}) {
+  const [proprietairesState, setProprietairesState] = useState(proprietaires)
+
+  return (
+    <NouvelAppartementForm
+      {...baseProps()}
+      proprietaires={proprietairesState}
+      onCreateProprietaire={async (input) => {
+        const created = await onCreateProprietaire(input)
+        setProprietairesState((current) => [...current, created])
+        return created
+      }}
     />
   )
 }
@@ -35,17 +67,7 @@ function makeFile(name = 'photo.jpg', type = 'image/jpeg') {
 
 describe('NouvelAppartementForm', () => {
   it('affiche le statut en lecture seule avec la mention explicative', () => {
-    render(
-      <NouvelAppartementForm
-        checklistModeles={checklistModeles}
-        agentsMenage={agentsMenage}
-        onSubmit={vi.fn()}
-        onCreateChecklistModele={vi.fn()}
-        onAddChecklistModeleItem={vi.fn()}
-        onDeplacerChecklistModeleItem={vi.fn()}
-        onDeleteChecklistModeleItem={vi.fn()}
-      />,
-    )
+    render(<NouvelAppartementForm {...baseProps()} />)
 
     expect(screen.getByText('Disponible')).toBeInTheDocument()
     expect(screen.getByText(/géré automatiquement/i)).toBeInTheDocument()
@@ -54,17 +76,7 @@ describe('NouvelAppartementForm', () => {
 
   it('met à jour la zone de dépôt quand un fichier est choisi', async () => {
     const user = userEvent.setup()
-    render(
-      <NouvelAppartementForm
-        checklistModeles={checklistModeles}
-        agentsMenage={agentsMenage}
-        onSubmit={vi.fn()}
-        onCreateChecklistModele={vi.fn()}
-        onAddChecklistModeleItem={vi.fn()}
-        onDeplacerChecklistModeleItem={vi.fn()}
-        onDeleteChecklistModeleItem={vi.fn()}
-      />,
-    )
+    render(<NouvelAppartementForm {...baseProps()} />)
 
     const input = screen.getByLabelText('Photo principale', { selector: 'input' })
     await user.upload(input, makeFile())
@@ -88,17 +100,7 @@ describe('NouvelAppartementForm', () => {
   it('soumet le formulaire avec le payload attendu', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)
-    render(
-      <NouvelAppartementForm
-        checklistModeles={checklistModeles}
-        agentsMenage={agentsMenage}
-        onSubmit={onSubmit}
-        onCreateChecklistModele={vi.fn()}
-        onAddChecklistModeleItem={vi.fn()}
-        onDeplacerChecklistModeleItem={vi.fn()}
-        onDeleteChecklistModeleItem={vi.fn()}
-      />,
-    )
+    render(<NouvelAppartementForm {...baseProps()} onSubmit={onSubmit} />)
 
     await user.type(screen.getByLabelText(/nom d'appartement/i), 'Zenith 3ème étage')
     await user.type(screen.getByLabelText(/adresse complète/i), '10 avenue Hassan II')
@@ -115,21 +117,15 @@ describe('NouvelAppartementForm', () => {
       photo,
       checklist_modele_id: 1,
       agent_habituel_id: 2,
+      proprietaire_id: null,
+      mode_gestion: 'mandat',
+      taux_commission: null,
+      loyer_fixe_mensuel: null,
     })
   })
 
   it('refuse un fichier qui n\'est pas au format JPG/PNG', async () => {
-    render(
-      <NouvelAppartementForm
-        checklistModeles={checklistModeles}
-        agentsMenage={agentsMenage}
-        onSubmit={vi.fn()}
-        onCreateChecklistModele={vi.fn()}
-        onAddChecklistModeleItem={vi.fn()}
-        onDeplacerChecklistModeleItem={vi.fn()}
-        onDeleteChecklistModeleItem={vi.fn()}
-      />,
-    )
+    render(<NouvelAppartementForm {...baseProps()} />)
 
     const input = screen.getByLabelText('Photo principale', { selector: 'input' })
     // fireEvent bypasses the input's `accept` filter, exercising the JS-level validation
@@ -142,17 +138,7 @@ describe('NouvelAppartementForm', () => {
   it('exige un nom et une adresse', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
-    const { container } = render(
-      <NouvelAppartementForm
-        checklistModeles={checklistModeles}
-        agentsMenage={agentsMenage}
-        onSubmit={onSubmit}
-        onCreateChecklistModele={vi.fn()}
-        onAddChecklistModeleItem={vi.fn()}
-        onDeplacerChecklistModeleItem={vi.fn()}
-        onDeleteChecklistModeleItem={vi.fn()}
-      />,
-    )
+    const { container } = render(<NouvelAppartementForm {...baseProps()} onSubmit={onSubmit} />)
 
     // bypass native HTML5 "required" blocking to exercise the JS-level check
     container.querySelector('form')?.removeAttribute('required')
@@ -166,6 +152,32 @@ describe('NouvelAppartementForm', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
+  it('bascule entre taux de commission (mandat) et loyer fixe (sous-location)', async () => {
+    const user = userEvent.setup()
+    render(<NouvelAppartementForm {...baseProps()} />)
+
+    expect(screen.getByLabelText(/taux de commission/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/loyer fixe mensuel/i)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Sous-location' }))
+
+    expect(screen.queryByLabelText(/taux de commission/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/loyer fixe mensuel/i)).toBeInTheDocument()
+  })
+
+  it('permet de créer un nouveau propriétaire à la volée et le sélectionne', async () => {
+    const user = userEvent.setup()
+    const onCreateProprietaire = vi.fn().mockResolvedValue({ id: 42, nom: 'Sara Bennani', telephone: null, email: null })
+    render(<ManagedFormWithProprietaire onCreateProprietaire={onCreateProprietaire} />)
+
+    await user.click(screen.getByRole('button', { name: /créer un nouveau propriétaire/i }))
+    await user.type(screen.getByPlaceholderText(/nom du propriétaire/i), 'Sara Bennani')
+    await user.click(screen.getByRole('button', { name: /^créer$/i }))
+
+    expect(onCreateProprietaire).toHaveBeenCalledWith({ nom: 'Sara Bennani', telephone: null, email: null })
+    expect(await screen.findByRole('combobox', { name: /propriétaire/i })).toHaveValue('42')
+  })
+
   describe('mode édition', () => {
     const appartementToEdit: Appartement = {
       id: 3,
@@ -175,27 +187,22 @@ describe('NouvelAppartementForm', () => {
       photo_principale: null,
       checklist_modele_id: 1,
       agent_habituel_id: 2,
+      proprietaire_id: 5,
+      mode_gestion: 'mandat',
+      taux_commission: 15,
+      loyer_fixe_mensuel: null,
     }
 
     it('préremplit le formulaire et affiche le statut réel (lecture seule)', () => {
-      render(
-        <NouvelAppartementForm
-          checklistModeles={checklistModeles}
-          agentsMenage={agentsMenage}
-          onSubmit={vi.fn()}
-          onCreateChecklistModele={vi.fn()}
-          onAddChecklistModeleItem={vi.fn()}
-          onDeplacerChecklistModeleItem={vi.fn()}
-          onDeleteChecklistModeleItem={vi.fn()}
-          appartementToEdit={appartementToEdit}
-        />,
-      )
+      render(<NouvelAppartementForm {...baseProps()} appartementToEdit={appartementToEdit} />)
 
       expect(screen.getByRole('heading', { name: "Modifier l'appartement" })).toBeInTheDocument()
       expect(screen.getByLabelText(/nom d'appartement/i)).toHaveValue('Loft Bastille')
       expect(screen.getByLabelText(/adresse complète/i)).toHaveValue('12 rue de la Roquette')
       expect(screen.getByRole('combobox', { name: /checklist de ménage/i })).toHaveValue('1')
       expect(screen.getByRole('combobox', { name: /agent de ménage habituel/i })).toHaveValue('2')
+      expect(screen.getByRole('combobox', { name: /propriétaire/i })).toHaveValue('5')
+      expect(screen.getByLabelText(/taux de commission/i)).toHaveValue(15)
       expect(screen.getByText('Occupé')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /enregistrer les modifications/i })).toBeInTheDocument()
     })
@@ -203,18 +210,7 @@ describe('NouvelAppartementForm', () => {
     it('soumet le payload modifié sans statut', async () => {
       const user = userEvent.setup()
       const onSubmit = vi.fn().mockResolvedValue(undefined)
-      render(
-        <NouvelAppartementForm
-          checklistModeles={checklistModeles}
-          agentsMenage={agentsMenage}
-          onSubmit={onSubmit}
-          onCreateChecklistModele={vi.fn()}
-          onAddChecklistModeleItem={vi.fn()}
-          onDeplacerChecklistModeleItem={vi.fn()}
-          onDeleteChecklistModeleItem={vi.fn()}
-          appartementToEdit={appartementToEdit}
-        />,
-      )
+      render(<NouvelAppartementForm {...baseProps()} onSubmit={onSubmit} appartementToEdit={appartementToEdit} />)
 
       await user.clear(screen.getByLabelText(/nom d'appartement/i))
       await user.type(screen.getByLabelText(/nom d'appartement/i), 'Loft Bastille rénové')
@@ -226,37 +222,18 @@ describe('NouvelAppartementForm', () => {
           adresse: '12 rue de la Roquette',
           checklist_modele_id: 1,
           agent_habituel_id: 2,
+          proprietaire_id: 5,
+          mode_gestion: 'mandat',
+          taux_commission: 15,
         }),
       )
     })
 
     it('revient à un formulaire vierge quand appartementToEdit redevient null', () => {
-      const { rerender } = render(
-        <NouvelAppartementForm
-          checklistModeles={checklistModeles}
-          agentsMenage={agentsMenage}
-          onSubmit={vi.fn()}
-          onCreateChecklistModele={vi.fn()}
-          onAddChecklistModeleItem={vi.fn()}
-          onDeplacerChecklistModeleItem={vi.fn()}
-          onDeleteChecklistModeleItem={vi.fn()}
-          appartementToEdit={appartementToEdit}
-        />,
-      )
+      const { rerender } = render(<NouvelAppartementForm {...baseProps()} appartementToEdit={appartementToEdit} />)
       expect(screen.getByLabelText(/nom d'appartement/i)).toHaveValue('Loft Bastille')
 
-      rerender(
-        <NouvelAppartementForm
-          checklistModeles={checklistModeles}
-          agentsMenage={agentsMenage}
-          onSubmit={vi.fn()}
-          onCreateChecklistModele={vi.fn()}
-          onAddChecklistModeleItem={vi.fn()}
-          onDeplacerChecklistModeleItem={vi.fn()}
-          onDeleteChecklistModeleItem={vi.fn()}
-          appartementToEdit={null}
-        />,
-      )
+      rerender(<NouvelAppartementForm {...baseProps()} appartementToEdit={null} />)
 
       expect(screen.getByRole('heading', { name: 'Nouvel appartement' })).toBeInTheDocument()
       expect(screen.getByLabelText(/nom d'appartement/i)).toHaveValue('')
