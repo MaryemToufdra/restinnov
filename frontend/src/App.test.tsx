@@ -59,6 +59,8 @@ function dashboardFixture(overrides: Partial<DashboardData> = {}): DashboardData
     sejours_recents: [
       { id: 1, nom_voyageur: 'Jean Dupont', date_arrivee: '2026-08-01', statut: 'a_venir', appartement: { id: 1, nom: 'Loft Bastille' } },
     ],
+    problemes_signales: [],
+    menages_a_valider: [],
     ...overrides,
   }
 }
@@ -109,6 +111,30 @@ function mockFetch(handlers: {
 
     if (url === '/api/checklist-modeles' && method === 'GET') {
       return new Response(JSON.stringify([]), { status: 200 })
+    }
+
+    if (url === '/api/proprietaires' && method === 'GET') {
+      return new Response(JSON.stringify([]), { status: 200 })
+    }
+
+    if (/^\/api\/appartements\/\d+\/releve$/.test(url) && method === 'GET') {
+      const id = Number(url.split('/')[3])
+      return new Response(
+        JSON.stringify({
+          appartement: { id, nom: 'Loft Bastille', adresse: 'A', mode_gestion: 'mandat', taux_commission: null, loyer_fixe_mensuel: null, proprietaire: null },
+          mois: urlObj.searchParams.get('mois'),
+          revenus_bruts: 0,
+          frais_menage_total: 0,
+          frais_maintenance_total: 0,
+          resultat_net: 0,
+          montant_proprietaire: 0,
+          commission_restinnov: 0,
+          sejours: [],
+          frais_menage_detail: [],
+          frais_maintenance_detail: [],
+        }),
+        { status: 200 },
+      )
     }
 
     if (url === '/api/utilisateurs' && method === 'GET') {

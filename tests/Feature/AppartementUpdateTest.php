@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Appartement;
 use App\Models\ChecklistModele;
+use App\Models\Proprietaire;
 use App\Models\Utilisateur;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -108,5 +109,49 @@ class AppartementUpdateTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['nom', 'adresse']);
+    }
+
+    public function test_it_updates_proprietaire_mode_gestion_and_switches_from_commission_to_loyer_fixe(): void
+    {
+        $proprietaire = Proprietaire::create(['nom' => 'Karim Alaoui']);
+        $appartement = Appartement::create([
+            'nom' => 'Loft Bastille',
+            'adresse' => 'A',
+            'statut' => 'disponible',
+            'mode_gestion' => 'mandat',
+            'taux_commission' => 15,
+        ]);
+
+        $response = $this->patchJson("/api/appartements/{$appartement->id}", [
+            'nom' => 'Loft Bastille',
+            'adresse' => 'A',
+            'proprietaire_id' => $proprietaire->id,
+            'mode_gestion' => 'sous_location',
+            'loyer_fixe_mensuel' => 4000,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('proprietaire.nom', 'Karim Alaoui');
+        $response->assertJsonPath('mode_gestion', 'sous_location');
+        $response->assertJsonPath('loyer_fixe_mensuel', '4000.00');
+        $this->assertDatabaseHas('appartements', [
+            'id' => $appartement->id,
+            'proprietaire_id' => $proprietaire->id,
+            'mode_gestion' => 'sous_location',
+        ]);
+    }
+
+    public function test_mode_gestion_must_be_mandat_or_sous_location_on_update(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+
+        $response = $this->patchJson("/api/appartements/{$appartement->id}", [
+            'nom' => 'Loft Bastille',
+            'adresse' => 'A',
+            'mode_gestion' => 'autre',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('mode_gestion');
     }
 }

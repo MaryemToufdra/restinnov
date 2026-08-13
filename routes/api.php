@@ -10,6 +10,7 @@ use App\Http\Controllers\FraisMaintenanceController;
 use App\Http\Controllers\MissionMenageController;
 use App\Http\Controllers\ProduitCatalogueController;
 use App\Http\Controllers\ProduitSignaleController;
+use App\Http\Controllers\ProprietaireController;
 use App\Http\Controllers\SejourController;
 use App\Http\Controllers\TicketMaintenanceController;
 use App\Http\Controllers\UtilisateurController;
@@ -29,6 +30,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/appartements', [AppartementController::class, 'index']);
         Route::post('/appartements', [AppartementController::class, 'store']);
         Route::patch('/appartements/{appartement}', [AppartementController::class, 'update']);
+        Route::get('/appartements/{appartement}/releve', [AppartementController::class, 'releve']);
+        Route::get('/appartements/{appartement}/releve/pdf', [AppartementController::class, 'relevePdf']);
+
+        Route::get('/proprietaires', [ProprietaireController::class, 'index']);
+        Route::post('/proprietaires', [ProprietaireController::class, 'store']);
 
         Route::get('/checklist-modeles', [ChecklistModeleController::class, 'index']);
         Route::post('/checklist-modeles', [ChecklistModeleController::class, 'store']);

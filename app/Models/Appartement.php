@@ -20,6 +20,10 @@ class Appartement extends Model
 
     public const STATUT_MAINTENANCE = 'maintenance';
 
+    public const MODE_GESTION_MANDAT = 'mandat';
+
+    public const MODE_GESTION_SOUS_LOCATION = 'sous_location';
+
     protected $fillable = [
         'nom',
         'adresse',
@@ -27,11 +31,25 @@ class Appartement extends Model
         'photo_principale',
         'checklist_modele_id',
         'agent_habituel_id',
+        'proprietaire_id',
+        'mode_gestion',
+        'taux_commission',
+        'loyer_fixe_mensuel',
+    ];
+
+    protected $casts = [
+        'taux_commission' => 'decimal:2',
+        'loyer_fixe_mensuel' => 'decimal:2',
     ];
 
     public function sejours(): HasMany
     {
         return $this->hasMany(Sejour::class);
+    }
+
+    public function proprietaire(): BelongsTo
+    {
+        return $this->belongsTo(Proprietaire::class);
     }
 
     public function ticketsMaintenance(): HasMany

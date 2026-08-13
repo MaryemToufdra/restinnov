@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Proprietaire;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class ProprietaireController extends Controller
+{
+    /**
+     * Display a listing of proprietaires, for the appartement form's
+     * "select an existing owner" dropdown.
+     */
+    public function index(): JsonResponse
+    {
+        return response()->json(Proprietaire::orderBy('nom')->get());
+    }
+
+    /**
+     * Quick-create a proprietaire from the appartement form, mirroring the
+     * checklist modele's "+ Créer un nouveau modèle" pattern.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'nom' => ['required', 'string', 'max:255'],
+            'telephone' => ['nullable', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
+        ]);
+
+        $proprietaire = Proprietaire::create($validated);
+
+        return response()->json($proprietaire, 201);
+    }
+}

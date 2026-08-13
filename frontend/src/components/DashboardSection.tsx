@@ -1,4 +1,5 @@
-import type { DashboardData, SejourStatut } from '../types'
+import type { DashboardData, SejourStatut, TicketMaintenanceUrgence } from '../types'
+import { RelevesProprietairesSection } from './RelevesProprietairesSection'
 
 interface DashboardSectionProps {
   data: DashboardData | null
@@ -7,6 +8,19 @@ interface DashboardSectionProps {
   onNavigateToAppartements?: () => void
   onNavigateToSejour?: (sejourId: number) => void
   onNavigateToSejoursListe?: (statut?: SejourStatut) => void
+  onNavigateToTicketsMaintenance?: () => void
+}
+
+const URGENCE_LABELS: Record<TicketMaintenanceUrgence, string> = {
+  basse: 'Basse',
+  normale: 'Normale',
+  haute: 'Haute',
+}
+
+const URGENCE_STYLES: Record<TicketMaintenanceUrgence, string> = {
+  basse: 'bg-gray-100 text-gray-600',
+  normale: 'bg-blue-100 text-blue-800',
+  haute: 'bg-red-100 text-red-800',
 }
 
 // Canonical séjour statut labels/colors, kept identical to SejourCard.tsx
@@ -108,6 +122,7 @@ export function DashboardSection({
   onNavigateToAppartements,
   onNavigateToSejour,
   onNavigateToSejoursListe,
+  onNavigateToTicketsMaintenance,
 }: DashboardSectionProps) {
   if (loading) {
     return <p className="text-sm text-gray-500">Chargement du dashboard...</p>
@@ -290,6 +305,64 @@ export function DashboardSection({
           )}
         </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-700">Problèmes signalés</h3>
+          {data.problemes_signales.length === 0 ? (
+            <p className="mt-2 text-sm text-gray-500">Aucun problème signalé.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-gray-100">
+              {data.problemes_signales.map((probleme) => (
+                <li key={probleme.id}>
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToTicketsMaintenance?.()}
+                    className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {probleme.appartement?.adresse ?? 'Appartement supprimé'}
+                    </p>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${URGENCE_STYLES[probleme.urgence]}`}
+                    >
+                      {URGENCE_LABELS[probleme.urgence]}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-700">Ménages à valider</h3>
+          {data.menages_a_valider.length === 0 ? (
+            <p className="mt-2 text-sm text-gray-500">Aucun ménage en attente.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-gray-100">
+              {data.menages_a_valider.map((menage) => (
+                <li key={menage.id}>
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToSejour?.(menage.sejour_id)}
+                    className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">
+                        {menage.appartement?.adresse ?? 'Appartement supprimé'}
+                      </p>
+                      <p className="truncate text-xs text-gray-500">{menage.nom_voyageur}</p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <RelevesProprietairesSection />
     </div>
   )
 }

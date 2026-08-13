@@ -7,8 +7,11 @@ use App\Models\MissionMenage;
 use App\Models\Sejour;
 use App\Models\TicketMaintenance;
 use App\Models\Utilisateur;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
 
 class AppartementController extends Controller
@@ -28,7 +31,7 @@ class AppartementController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        $query = Appartement::with(['checklistModele', 'agentHabituel'])
+        $query = Appartement::with(['checklistModele', 'agentHabituel', 'proprietaire'])
             ->withCount('sejours')
             ->withMax('sejours', 'date_depart')
             ->avecStatutCalcule();
@@ -112,6 +115,10 @@ class AppartementController extends Controller
                 // preserve -- an inactive agent simply cannot be picked.
                 Rule::exists('utilisateurs', 'id')->where('role', Utilisateur::ROLE_MENAGE)->where('actif', true),
             ],
+            'proprietaire_id' => ['nullable', 'exists:proprietaires,id'],
+            'mode_gestion' => ['sometimes', Rule::in([Appartement::MODE_GESTION_MANDAT, Appartement::MODE_GESTION_SOUS_LOCATION])],
+            'taux_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'loyer_fixe_mensuel' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         if ($request->hasFile('photo')) {
@@ -120,10 +127,11 @@ class AppartementController extends Controller
         unset($validated['photo']);
 
         $validated['statut'] = Appartement::STATUT_DISPONIBLE;
+        $validated['mode_gestion'] ??= Appartement::MODE_GESTION_MANDAT;
 
         $appartement = Appartement::create($validated);
 
-        return response()->json($appartement->load(['checklistModele', 'agentHabituel']), 201);
+        return response()->json($appartement->load(['checklistModele', 'agentHabituel', 'proprietaire']), 201);
     }
 
     /**
@@ -149,6 +157,10 @@ class AppartementController extends Controller
                 'nullable',
                 Rule::exists('utilisateurs', 'id')->where('role', Utilisateur::ROLE_MENAGE),
             ],
+            'proprietaire_id' => ['nullable', 'exists:proprietaires,id'],
+            'mode_gestion' => ['sometimes', Rule::in([Appartement::MODE_GESTION_MANDAT, Appartement::MODE_GESTION_SOUS_LOCATION])],
+            'taux_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'loyer_fixe_mensuel' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         if ($request->hasFile('photo')) {
@@ -158,6 +170,133 @@ class AppartementController extends Controller
 
         $appartement->update($validated);
 
-        return response()->json($appartement->fresh()->load(['checklistModele', 'agentHabituel']));
+        return response()->json($appartement->fresh()->load(['checklistModele', 'agentHabituel', 'proprietaire']));
+    }
+
+    /**
+     * The appartement's monthly owner statement: gross revenue, cleaning/
+     * maintenance costs, net result, and the resulting owner payout --
+     * mandat mode deducts a commission from the net result, sous_location
+     * mode pays the fixed rent regardless of how the month performed.
+     */
+    public function releve(Request $request, Appartement $appartement): JsonResponse
+    {
+        $validated = $request->validate([
+            'mois' => ['required', 'date_format:Y-m'],
+        ]);
+
+        return response()->json($this->buildReleve($appartement, $validated['mois']));
+    }
+
+    /**
+     * The same monthly releve as a downloadable PDF invoice.
+     */
+    public function relevePdf(Request $request, Appartement $appartement): Response
+    {
+        $validated = $request->validate([
+            'mois' => ['required', 'date_format:Y-m'],
+        ]);
+
+        $releve = $this->buildReleve($appartement, $validated['mois']);
+
+        $pdf = Pdf::loadView('releves.pdf', $releve);
+
+        $nomFichier = sprintf('releve-%s-%s.pdf', str_replace(' ', '-', $appartement->nom), $validated['mois']);
+
+        return $pdf->download($nomFichier);
+    }
+
+    /**
+     * Shared by releve() and relevePdf() so the JSON summary and the PDF
+     * are always computed from the exact same numbers.
+     */
+    private function buildReleve(Appartement $appartement, string $mois): array
+    {
+        $debut = Carbon::createFromFormat('Y-m-d', $mois.'-01')->startOfMonth();
+        $fin = $debut->copy()->endOfMonth();
+
+        $sejours = Sejour::where('appartement_id', $appartement->id)
+            ->where('date_arrivee', '<', $fin->toDateString())
+            ->where('date_depart', '>', $debut->toDateString())
+            ->with(['missionMenage.produits', 'fraisMaintenance'])
+            ->orderBy('date_arrivee')
+            ->get();
+
+        $revenusBruts = (float) $sejours->sum('montant_mad');
+
+        $fraisMenageTotal = 0.0;
+        $fraisMenageDetail = [];
+        foreach ($sejours as $sejour) {
+            $mission = $sejour->missionMenage;
+            if (! $mission) {
+                continue;
+            }
+
+            $forfait = (float) $mission->frais_forfait;
+            $produitsTotal = (float) $mission->produits->sum('prix');
+            $fraisMenageTotal += $forfait + $produitsTotal;
+
+            $fraisMenageDetail[] = [
+                'sejour_id' => $sejour->id,
+                'nom_voyageur' => $sejour->nom_voyageur,
+                'forfait' => round($forfait, 2),
+                'produits' => $mission->produits->map(fn ($produit) => [
+                    'nom' => $produit->nom,
+                    'prix' => round((float) $produit->prix, 2),
+                ])->values(),
+            ];
+        }
+
+        $fraisMaintenanceTotal = 0.0;
+        $fraisMaintenanceDetail = [];
+        foreach ($sejours as $sejour) {
+            foreach ($sejour->fraisMaintenance as $frais) {
+                $fraisMaintenanceTotal += (float) $frais->prix;
+                $fraisMaintenanceDetail[] = [
+                    'sejour_id' => $sejour->id,
+                    'description' => $frais->description,
+                    'prix' => round((float) $frais->prix, 2),
+                ];
+            }
+        }
+
+        $resultatNet = $revenusBruts - $fraisMenageTotal - $fraisMaintenanceTotal;
+
+        if ($appartement->mode_gestion === Appartement::MODE_GESTION_SOUS_LOCATION) {
+            $montantProprietaire = (float) ($appartement->loyer_fixe_mensuel ?? 0);
+        } else {
+            $tauxCommission = (float) ($appartement->taux_commission ?? 0);
+            $montantProprietaire = $resultatNet * (1 - $tauxCommission / 100);
+        }
+
+        $commissionRestinnov = $resultatNet - $montantProprietaire;
+
+        return [
+            'appartement' => [
+                'id' => $appartement->id,
+                'nom' => $appartement->nom,
+                'adresse' => $appartement->adresse,
+                'mode_gestion' => $appartement->mode_gestion,
+                'taux_commission' => $appartement->taux_commission,
+                'loyer_fixe_mensuel' => $appartement->loyer_fixe_mensuel,
+                'proprietaire' => $appartement->proprietaire,
+            ],
+            'mois' => $mois,
+            'revenus_bruts' => round($revenusBruts, 2),
+            'frais_menage_total' => round($fraisMenageTotal, 2),
+            'frais_maintenance_total' => round($fraisMaintenanceTotal, 2),
+            'resultat_net' => round($resultatNet, 2),
+            'montant_proprietaire' => round($montantProprietaire, 2),
+            'commission_restinnov' => round($commissionRestinnov, 2),
+            'sejours' => $sejours->map(fn (Sejour $sejour) => [
+                'id' => $sejour->id,
+                'nom_voyageur' => $sejour->nom_voyageur,
+                'date_arrivee' => $sejour->date_arrivee->toDateString(),
+                'date_depart' => $sejour->date_depart->toDateString(),
+                'montant_mad' => round((float) $sejour->montant_mad, 2),
+            ])->values(),
+            'frais_menage_detail' => $fraisMenageDetail,
+            'frais_maintenance_detail' => $fraisMaintenanceDetail,
+        ];
     }
 }

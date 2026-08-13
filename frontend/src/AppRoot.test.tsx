@@ -20,6 +20,7 @@ function mockFetch() {
     const empty = () => new Response(JSON.stringify([]), { status: 200 })
 
     if (path === '/api/appartements') return empty()
+    if (path === '/api/proprietaires') return empty()
     if (path === '/api/checklist-modeles') return empty()
     if (path === '/api/utilisateurs') return empty()
     if (path === '/api/produits-catalogue') return empty()
@@ -35,6 +36,8 @@ function mockFetch() {
           appartements: [],
           sejours_par_statut: { a_venir: 0, en_cours: 0, termine: 0 },
           sejours_recents: [],
+          problemes_signales: [],
+          menages_a_valider: [],
         }),
         { status: 200 },
       )
