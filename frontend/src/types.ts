@@ -228,6 +228,20 @@ export interface DashboardResolutionAValider {
   appartement: { id: number; nom: string; adresse: string } | null
 }
 
+export interface NotificationProblemeSignale {
+  id: number
+  urgence: TicketMaintenanceUrgence
+  statut: TicketMaintenanceStatut
+  appartement: { id: number; nom: string; adresse: string } | null
+}
+
+export interface NotificationsData {
+  problemes_signales_count: number
+  menages_a_valider_count: number
+  problemes_signales: NotificationProblemeSignale[]
+  menages_a_valider: DashboardMenageAValider[]
+}
+
 export interface DashboardData {
   revenus_totaux: number
   frais_menage_totaux: number

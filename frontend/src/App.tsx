@@ -33,6 +33,7 @@ import { AgentsMenageListeSection } from './components/AgentsMenageListeSection'
 import { AppartementsListeSection } from './components/AppartementsListeSection'
 import { CatalogueProduitsSection } from './components/CatalogueProduitsSection'
 import { DashboardSection } from './components/DashboardSection'
+import { NotificationBell } from './components/NotificationBell'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
 import { NouvelAgentForm } from './components/NouvelAgentForm'
 import { NouvelAgentMaintenanceForm } from './components/NouvelAgentMaintenanceForm'
@@ -516,7 +517,13 @@ function App() {
       </nav>
 
       <main className="min-w-0 flex-1 px-6 py-8">
-        <h2 className="text-2xl font-bold text-gray-900">{SECTION_TITLES[activeTab]}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">{SECTION_TITLES[activeTab]}</h2>
+          <NotificationBell
+            onNavigateToSejour={handleNavigateToSejourDetail}
+            onNavigateToTicketsMaintenance={() => navigateTo('maintenance-tickets')}
+          />
+        </div>
         {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
 
         <div className="mt-6 space-y-6">

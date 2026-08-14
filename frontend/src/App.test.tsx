@@ -175,6 +175,18 @@ function mockFetch(handlers: {
       return new Response(JSON.stringify(dashboard), { status: 200 })
     }
 
+    if (url === '/api/notifications' && method === 'GET') {
+      return new Response(
+        JSON.stringify({
+          menages_a_valider_count: 0,
+          problemes_signales_count: 0,
+          menages_a_valider: [],
+          problemes_signales: [],
+        }),
+        { status: 200 },
+      )
+    }
+
     if (url === '/api/sejours' && method === 'GET') {
       return new Response(JSON.stringify(paginate(sejours)), { status: 200 })
     }
