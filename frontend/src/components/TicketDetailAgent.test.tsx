@@ -1,0 +1,74 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { TicketDetailAgent } from './TicketDetailAgent'
+import type { MonTicketMaintenance } from '../types'
+
+const TICKET: MonTicketMaintenance = {
+  id: 1,
+  statut: 'assigne',
+  urgence: 'haute',
+  description_manager: 'Changer le joint du robinet.',
+  appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
+}
+
+function mockFetch() {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input))
+    const method = init?.method ?? 'GET'
+
+    if (url.pathname === '/api/tickets-maintenance/1/resoudre' && method === 'POST') {
+      return new Response(JSON.stringify({ ...TICKET, statut: 'resolu_en_attente_validation' }), { status: 200 })
+    }
+
+    throw new Error(`Unhandled request: ${method} ${url.pathname}`)
+  })
+}
+
+describe('TicketDetailAgent', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('affiche les informations du ticket : appartement, urgence, description_manager', () => {
+    render(<TicketDetailAgent ticket={TICKET} onBack={vi.fn()} onResolu={vi.fn()} />)
+
+    expect(screen.getByText('Loft Bastille')).toBeInTheDocument()
+    expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
+    expect(screen.getByText('Changer le joint du robinet.')).toBeInTheDocument()
+    expect(screen.getByText('Urgence Haute')).toBeInTheDocument()
+  })
+
+  it('refuse la résolution sans photo ni prix', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch() as typeof fetch
+
+    render(<TicketDetailAgent ticket={TICKET} onBack={vi.fn()} onResolu={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /marquer résolu/i }))
+
+    expect(await screen.findByText(/prenez une photo/i)).toBeInTheDocument()
+  })
+
+  it('envoie la résolution avec photo + prix et affiche la confirmation, sans redirection automatique', async () => {
+    const user = userEvent.setup()
+    const onResolu = vi.fn()
+    const fetchMock = mockFetch()
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(<TicketDetailAgent ticket={TICKET} onBack={vi.fn()} onResolu={onResolu} />)
+
+    const photo = new File(['x'], 'reparation.jpg', { type: 'image/jpeg' })
+    await user.upload(screen.getByLabelText(/photo de la réparation/i), photo)
+    await user.type(screen.getByLabelText(/prix de la réparation/i), '45')
+    await user.click(screen.getByRole('button', { name: /marquer résolu/i }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(await screen.findByTestId('resolution-confirmation')).toHaveTextContent(
+      'Envoyé au Manager pour validation',
+    )
+    expect(onResolu).toHaveBeenCalledTimes(1)
+    // Stays visible -- no redirect back to the list.
+    expect(screen.getByRole('button', { name: /retour à mes tickets/i })).toBeInTheDocument()
+  })
+})

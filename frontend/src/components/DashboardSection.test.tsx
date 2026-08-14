@@ -33,6 +33,7 @@ const data: DashboardData = {
   departs_aujourdhui: [],
   problemes_signales: [],
   menages_a_valider: [],
+  resolutions_a_valider: [],
 }
 
 describe('DashboardSection', () => {
@@ -205,6 +206,44 @@ describe('DashboardSection', () => {
     render(<DashboardSection data={{ ...data, menages_a_valider: [] }} loading={false} error={null} />)
 
     expect(screen.getByText('Aucun ménage en attente.')).toBeInTheDocument()
+  })
+
+  it('affiche les résolutions à valider avec adresse et coût, cliquable', async () => {
+    const user = userEvent.setup()
+    const onNavigateToResolutionsAValider = vi.fn()
+
+    render(
+      <DashboardSection
+        data={{
+          ...data,
+          resolutions_a_valider: [
+            {
+              id: 1,
+              photo_apres: 'tickets-maintenance/apres.jpg',
+              cout_reparation: '45.50',
+              description_manager: 'Changer le joint du robinet.',
+              statut: 'resolu_en_attente_validation',
+              appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
+            },
+          ],
+        }}
+        loading={false}
+        error={null}
+        onNavigateToResolutionsAValider={onNavigateToResolutionsAValider}
+      />,
+    )
+
+    expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
+    expect(screen.getByText('45.50 MAD')).toBeInTheDocument()
+
+    await user.click(screen.getByText('12 rue de la Roquette'))
+    expect(onNavigateToResolutionsAValider).toHaveBeenCalledTimes(1)
+  })
+
+  it('affiche un message quand aucune résolution n\'est à valider', () => {
+    render(<DashboardSection data={{ ...data, resolutions_a_valider: [] }} loading={false} error={null} />)
+
+    expect(screen.getByText('Aucune résolution en attente.')).toBeInTheDocument()
   })
 
   it('précise que le résultat net n\'inclut pas la commission propriétaire', () => {

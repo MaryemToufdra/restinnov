@@ -8,7 +8,7 @@ export type ProduitSignaleStatut = 'en_attente' | 'valide' | 'rejete'
 
 export type TicketMaintenanceUrgence = 'basse' | 'normale' | 'haute'
 
-export type TicketMaintenanceStatut = 'ouvert' | 'assigne' | 'resolu'
+export type TicketMaintenanceStatut = 'ouvert' | 'assigne' | 'resolu_en_attente_validation' | 'resolu'
 
 export interface ChecklistModeleItem {
   id: number
@@ -109,13 +109,31 @@ export interface TicketMaintenance {
   mission_origine_id: number | null
   agent_id: number | null
   description: string | null
+  description_manager: string | null
   photo_url: string | null
   audio_url: string | null
+  photo_apres: string | null
+  cout_reparation: string | number | null
+  note_resolution: string | null
   urgence: TicketMaintenanceUrgence
   statut: TicketMaintenanceStatut
   appartement?: Appartement | null
   agent?: Agent | null
   mission_origine?: (Omit<MissionMenage, 'sejour'> & { sejour?: Sejour | null }) | null
+}
+
+/**
+ * The curated shape returned by GET /api/tickets-maintenance/mes-tickets --
+ * deliberately narrower than TicketMaintenance: the menage agent's
+ * description/photo_url/audio_url signalement fields are never sent to a
+ * maintenance agent, only the Manager-authored description_manager is.
+ */
+export interface MonTicketMaintenance {
+  id: number
+  statut: TicketMaintenanceStatut
+  urgence: TicketMaintenanceUrgence
+  description_manager: string | null
+  appartement: { id: number; nom: string; adresse: string } | null
 }
 
 export type VoyageurType = 'adulte' | 'enfant'
@@ -201,6 +219,15 @@ export interface DashboardMenageAValider {
   appartement: { id: number; nom: string; adresse: string } | null
 }
 
+export interface DashboardResolutionAValider {
+  id: number
+  photo_apres: string | null
+  cout_reparation: string | number | null
+  description_manager: string | null
+  statut: TicketMaintenanceStatut
+  appartement: { id: number; nom: string; adresse: string } | null
+}
+
 export interface DashboardData {
   revenus_totaux: number
   frais_menage_totaux: number
@@ -216,6 +243,7 @@ export interface DashboardData {
   departs_aujourdhui: DashboardDepartAujourdhui[]
   problemes_signales: DashboardProblemeSignale[]
   menages_a_valider: DashboardMenageAValider[]
+  resolutions_a_valider: DashboardResolutionAValider[]
 }
 
 export interface ReleveSejour {

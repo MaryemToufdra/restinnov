@@ -69,12 +69,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/tickets-maintenance', [TicketMaintenanceController::class, 'index']);
         Route::patch('/tickets-maintenance/{ticketMaintenance}/assigner', [TicketMaintenanceController::class, 'assigner']);
+        Route::patch('/tickets-maintenance/{ticketMaintenance}/valider-resolution', [TicketMaintenanceController::class, 'validerResolution']);
     });
 
     // "menage" (and "manager") -- the cleaning mission workspace: checklist
     // execution and the frais-de-menage flow (forfait/produits/signalement).
-    // Prepared the same way for "maintenance" below, ready for whenever that
-    // agent workspace gets built -- no maintenance routes exist yet.
     Route::middleware('role:menage,manager')->group(function () {
         Route::get('/produits-catalogue', [ProduitCatalogueController::class, 'index']);
 
@@ -90,7 +89,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/checklist-items/{checklistItem}', [ChecklistItemController::class, 'update']);
     });
 
-    // Route::middleware('role:maintenance,manager')->group(function () {
-    //     // No maintenance agent workspace yet -- routes land here once it exists.
-    // });
+    // "maintenance" (and "manager") -- the maintenance agent workspace: only
+    // the agent's own assigned tickets, resolved with a photo proof + cost.
+    Route::middleware('role:maintenance,manager')->group(function () {
+        Route::get('/tickets-maintenance/mes-tickets', [TicketMaintenanceController::class, 'mesTickets']);
+        Route::patch('/tickets-maintenance/{ticketMaintenance}/resoudre', [TicketMaintenanceController::class, 'resoudre']);
+    });
 });

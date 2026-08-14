@@ -1,0 +1,12 @@
+{
+  "id": "/maintenance",
+  "name": "Maintenance — Mes tickets",
+  "short_name": "Maintenance",
+  "description": "Espace agent de maintenance : tickets assignés et résolution.",
+  "start_url": "/maintenance",
+  "scope": "/maintenance",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#d97706",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

@@ -11,6 +11,7 @@ interface DashboardSectionProps {
   onNavigateToSejoursListe?: (statut?: SejourStatut) => void
   onCheckout?: (sejourId: number) => Promise<void>
   onNavigateToTicketsMaintenance?: () => void
+  onNavigateToResolutionsAValider?: () => void
 }
 
 const URGENCE_LABELS: Record<TicketMaintenanceUrgence, string> = {
@@ -210,6 +211,7 @@ export function DashboardSection({
   onNavigateToSejoursListe,
   onCheckout,
   onNavigateToTicketsMaintenance,
+  onNavigateToResolutionsAValider,
 }: DashboardSectionProps) {
   if (loading) {
     return <p className="text-sm text-gray-500">Chargement du dashboard...</p>
@@ -395,7 +397,7 @@ export function DashboardSection({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-700">Problèmes signalés</h3>
           {data.problemes_signales.length === 0 ? (
@@ -442,6 +444,34 @@ export function DashboardSection({
                         {menage.appartement?.adresse ?? 'Appartement supprimé'}
                       </p>
                       <p className="truncate text-xs text-gray-500">{menage.nom_voyageur}</p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-700">Résolutions à valider</h3>
+          {data.resolutions_a_valider.length === 0 ? (
+            <p className="mt-2 text-sm text-gray-500">Aucune résolution en attente.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-gray-100">
+              {data.resolutions_a_valider.map((resolution) => (
+                <li key={resolution.id}>
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToResolutionsAValider?.()}
+                    className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">
+                        {resolution.appartement?.adresse ?? 'Appartement supprimé'}
+                      </p>
+                      {resolution.cout_reparation != null && (
+                        <p className="truncate text-xs text-gray-500">{resolution.cout_reparation} MAD</p>
+                      )}
                     </div>
                   </button>
                 </li>

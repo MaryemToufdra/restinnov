@@ -38,6 +38,7 @@ import { NouvelAgentForm } from './components/NouvelAgentForm'
 import { NouvelAgentMaintenanceForm } from './components/NouvelAgentMaintenanceForm'
 import { NouvelAppartementForm } from './components/NouvelAppartementForm'
 import { ProduitsSignalesSection } from './components/ProduitsSignalesSection'
+import { ResolutionsAValiderSection } from './components/ResolutionsAValiderSection'
 import { SejoursListeSection } from './components/SejoursListeSection'
 import { TicketsMaintenanceSection } from './components/TicketsMaintenanceSection'
 import { useAuth } from './auth/AuthContext'
@@ -65,6 +66,7 @@ type Tab =
   | 'menage-catalogue'
   | 'maintenance-agent'
   | 'maintenance-tickets'
+  | 'maintenance-resolutions'
 
 interface NavGroup {
   key: string
@@ -108,6 +110,7 @@ const NAV_GROUPS: NavGroup[] = [
     tabs: [
       ['maintenance-agent', 'Ajouter un agent maintenance'],
       ['maintenance-tickets', 'Tickets de maintenance'],
+      ['maintenance-resolutions', 'Résolutions à valider'],
     ],
     defaultTab: 'maintenance-agent',
   },
@@ -124,6 +127,7 @@ const SECTION_TITLES: Record<Tab, string> = {
   'menage-catalogue': 'Ménage',
   'maintenance-agent': 'Maintenance',
   'maintenance-tickets': 'Maintenance',
+  'maintenance-resolutions': 'Maintenance',
 }
 
 function groupKeyForTab(tab: Tab): string | null {
@@ -526,6 +530,7 @@ function App() {
               onNavigateToSejoursListe={handleNavigateToSejoursListe}
               onCheckout={handleDashboardCheckout}
               onNavigateToTicketsMaintenance={() => navigateTo('maintenance-tickets')}
+              onNavigateToResolutionsAValider={() => navigateTo('maintenance-resolutions')}
             />
           )}
           {activeTab === 'sejour-creer' && (
@@ -598,6 +603,7 @@ function App() {
             <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
           )}
           {activeTab === 'maintenance-tickets' && <TicketsMaintenanceSection />}
+          {activeTab === 'maintenance-resolutions' && <ResolutionsAValiderSection />}
         </div>
       </main>
     </div>

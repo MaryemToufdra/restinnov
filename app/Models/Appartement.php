@@ -76,7 +76,11 @@ class Appartement extends Model
             ),
             'ticketsMaintenance as a_un_ticket_maintenance_ouvert' => fn ($q) => $q->whereIn(
                 'statut',
-                [TicketMaintenance::STATUT_OUVERT, TicketMaintenance::STATUT_ASSIGNE],
+                [
+                    TicketMaintenance::STATUT_OUVERT,
+                    TicketMaintenance::STATUT_ASSIGNE,
+                    TicketMaintenance::STATUT_RESOLU_EN_ATTENTE_VALIDATION,
+                ],
             ),
         ]);
     }

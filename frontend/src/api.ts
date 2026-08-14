@@ -9,6 +9,7 @@ import type {
   HistoriqueMission,
   MissionMenage,
   ModeGestion,
+  MonTicketMaintenance,
   PaginatedResponse,
   PlateformeOrigine,
   ProduitCatalogue,
@@ -169,6 +170,17 @@ export interface SignalerProblemeInput {
   photo?: File | null
   audio?: File | null
   description?: string | null
+}
+
+export interface AssignerTicketMaintenanceInput {
+  agentId: number
+  descriptionManager?: string | null
+}
+
+export interface ResoudreTicketMaintenanceInput {
+  photoApres: File
+  coutReparation: number
+  note?: string | null
 }
 
 export interface ValiderProduitSignaleInput {
@@ -681,11 +693,50 @@ export async function fetchTicketsMaintenance(statut?: string): Promise<TicketMa
   return parseJsonOrThrow(response)
 }
 
-export async function assignerTicketMaintenance(id: number, agentId: number): Promise<TicketMaintenance> {
+export async function assignerTicketMaintenance(
+  id: number,
+  input: AssignerTicketMaintenanceInput,
+): Promise<TicketMaintenance> {
   const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/${id}/assigner`, {
     method: 'PATCH',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ agent_id: agentId }),
+    body: JSON.stringify({ agent_id: input.agentId, description_manager: input.descriptionManager ?? null }),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchMesTicketsMaintenance(): Promise<MonTicketMaintenance[]> {
+  const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/mes-tickets`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function resoudreTicketMaintenance(
+  id: number,
+  input: ResoudreTicketMaintenanceInput,
+): Promise<TicketMaintenance> {
+  const formData = new FormData()
+  formData.append('photo_apres', input.photoApres)
+  formData.append('cout_reparation', String(input.coutReparation))
+  if (input.note) formData.append('note', input.note)
+  formData.append('_method', 'PATCH')
+
+  const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/${id}/resoudre`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function validerResolutionTicketMaintenance(id: number): Promise<TicketMaintenance> {
+  const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/${id}/valider-resolution`, {
+    method: 'PATCH',
+    headers: authHeaders(),
   })
 
   return parseJsonOrThrow(response)

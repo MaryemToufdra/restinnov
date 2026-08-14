@@ -21,9 +21,10 @@ function TicketMaintenanceCard({
 }: {
   ticket: TicketMaintenance
   agents: Agent[]
-  onAssigner: (ticketId: number, agentId: number) => Promise<void>
+  onAssigner: (ticketId: number, agentId: number, descriptionManager: string) => Promise<void>
 }) {
   const [agentId, setAgentId] = useState('')
+  const [descriptionManager, setDescriptionManager] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,7 +37,7 @@ function TicketMaintenanceCard({
 
     setSubmitting(true)
     try {
-      await onAssigner(ticket.id, Number(agentId))
+      await onAssigner(ticket.id, Number(agentId), descriptionManager)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.')
     } finally {
@@ -78,6 +79,19 @@ function TicketMaintenanceCard({
         // eslint-disable-next-line jsx-a11y/media-has-caption
         <audio controls src={resolveStorageUrl(ticket.audio_url)} className="mt-2 w-full" />
       )}
+
+      <div className="mt-3">
+        <label htmlFor={`ticket_description_manager_${ticket.id}`} className="block text-xs font-medium text-gray-600">
+          Instruction pour l'agent (optionnel)
+        </label>
+        <textarea
+          id={`ticket_description_manager_${ticket.id}`}
+          value={descriptionManager}
+          onChange={(e) => setDescriptionManager(e.target.value)}
+          rows={2}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1">
@@ -134,11 +148,10 @@ export function TicketsMaintenanceSection() {
     load()
   }, [])
 
-  const handleAssigner = async (ticketId: number, agentId: number) => {
-    await assignerTicketMaintenance(ticketId, agentId)
+  const handleAssigner = async (ticketId: number, agentId: number, descriptionManager: string) => {
+    await assignerTicketMaintenance(ticketId, { agentId, descriptionManager: descriptionManager || null })
     // Assigning removes it from the "ouverts" list this screen shows --
-    // the maintenance agent's own workspace (built separately) is where
-    // it lives on from here.
+    // the maintenance agent's own workspace is where it lives on from here.
     setTickets((current) => current.filter((t) => t.id !== ticketId))
   }
 
