@@ -10,6 +10,7 @@ import type {
   MissionMenage,
   ModeGestion,
   MonTicketMaintenance,
+  NotificationsData,
   PaginatedResponse,
   PlateformeOrigine,
   ProduitCatalogue,
@@ -771,6 +772,14 @@ export async function deleteFraisMaintenance(id: number): Promise<void> {
 
 export async function fetchDashboard(): Promise<DashboardData> {
   const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchNotifications(): Promise<NotificationsData> {
+  const response = await fetch(`${API_BASE_URL}/api/notifications`, {
     headers: authHeaders(),
   })
 

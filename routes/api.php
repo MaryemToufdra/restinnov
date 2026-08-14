@@ -8,6 +8,7 @@ use App\Http\Controllers\ChecklistModeleItemController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FraisMaintenanceController;
 use App\Http\Controllers\MissionMenageController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProduitCatalogueController;
 use App\Http\Controllers\ProduitSignaleController;
 use App\Http\Controllers\ProprietaireController;
@@ -26,6 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // produits catalogue.
     Route::middleware('role:manager')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/notifications', [NotificationController::class, 'index']);
 
         Route::get('/appartements', [AppartementController::class, 'index']);
         Route::post('/appartements', [AppartementController::class, 'store']);
