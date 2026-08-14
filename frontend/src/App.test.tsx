@@ -61,6 +61,7 @@ function dashboardFixture(overrides: Partial<DashboardData> = {}): DashboardData
     departs_aujourdhui: [],
     problemes_signales: [],
     menages_a_valider: [],
+    resolutions_a_valider: [],
     ...overrides,
   }
 }

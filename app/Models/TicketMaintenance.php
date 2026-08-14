@@ -22,6 +22,8 @@ class TicketMaintenance extends Model
 
     public const STATUT_ASSIGNE = 'assigne';
 
+    public const STATUT_RESOLU_EN_ATTENTE_VALIDATION = 'resolu_en_attente_validation';
+
     public const STATUT_RESOLU = 'resolu';
 
     protected $fillable = [
@@ -29,10 +31,18 @@ class TicketMaintenance extends Model
         'mission_origine_id',
         'agent_id',
         'description',
+        'description_manager',
         'photo_url',
         'audio_url',
+        'photo_apres',
+        'cout_reparation',
+        'note_resolution',
         'urgence',
         'statut',
+    ];
+
+    protected $casts = [
+        'cout_reparation' => 'decimal:2',
     ];
 
     public function appartement(): BelongsTo

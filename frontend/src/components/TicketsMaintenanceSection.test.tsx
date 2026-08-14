@@ -11,8 +11,12 @@ function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMainte
     mission_origine_id: 1,
     agent_id: null,
     description: 'Le robinet fuit.',
+    description_manager: null,
     photo_url: null,
     audio_url: null,
+    photo_apres: null,
+    cout_reparation: null,
+    note_resolution: null,
     urgence: 'normale',
     statut: 'ouvert',
     appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'disponible', photo_principale: null, agent_habituel_id: null },
@@ -64,9 +68,11 @@ function mockFetch(tickets: TicketMaintenance[], agents: Agent[]) {
     const assignMatch = url.pathname.match(/^\/api\/tickets-maintenance\/(\d+)\/assigner$/)
     if (assignMatch && method === 'PATCH') {
       const id = Number(assignMatch[1])
-      const body = JSON.parse(init!.body as string) as { agent_id: number }
+      const body = JSON.parse(init!.body as string) as { agent_id: number; description_manager: string | null }
       currentTickets = currentTickets.map((t) =>
-        t.id === id ? { ...t, statut: 'assigne', agent_id: body.agent_id } : t,
+        t.id === id
+          ? { ...t, statut: 'assigne', agent_id: body.agent_id, description_manager: body.description_manager }
+          : t,
       )
       return new Response(JSON.stringify(currentTickets.find((t) => t.id === id)), { status: 200 })
     }
@@ -127,7 +133,10 @@ describe('TicketsMaintenanceSection', () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/api/tickets-maintenance/1/assigner'),
-        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ agent_id: agent.id }) }),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ agent_id: agent.id, description_manager: null }),
+        }),
       ),
     )
     await waitFor(() => expect(screen.queryByText('Le robinet fuit.')).not.toBeInTheDocument())

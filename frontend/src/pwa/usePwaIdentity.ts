@@ -7,7 +7,7 @@ interface PwaIdentity {
   appleTitle: string
 }
 
-const IDENTITIES: Record<'manager' | 'menage', PwaIdentity> = {
+const IDENTITIES: Record<'manager' | 'menage' | 'maintenance', PwaIdentity> = {
   manager: {
     title: 'Séjours & ménage',
     manifestHref: '/manifest.json',
@@ -19,6 +19,12 @@ const IDENTITIES: Record<'manager' | 'menage', PwaIdentity> = {
     manifestHref: '/manifest-menage.json',
     themeColor: '#059669',
     appleTitle: 'Ménage',
+  },
+  maintenance: {
+    title: 'Maintenance — Mes tickets',
+    manifestHref: '/manifest-maintenance.json',
+    themeColor: '#d97706',
+    appleTitle: 'Maintenance',
   },
 }
 
@@ -50,7 +56,7 @@ function setMetaContent(name: string, content: string) {
  * for this entirely and reads apple-mobile-web-app-title/apple-touch-icon
  * instead, so both are kept in sync here.
  */
-export function usePwaIdentity(kind: 'manager' | 'menage') {
+export function usePwaIdentity(kind: 'manager' | 'menage' | 'maintenance') {
   useEffect(() => {
     const identity = IDENTITIES[kind]
 

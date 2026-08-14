@@ -26,6 +26,7 @@ function mockFetch() {
     if (path === '/api/produits-catalogue') return empty()
     if (path === '/api/produits-signales') return empty()
     if (path === '/api/mission-menages') return empty()
+    if (path === '/api/tickets-maintenance/mes-tickets') return empty()
     if (path === '/api/dashboard') {
       return new Response(
         JSON.stringify({
@@ -39,6 +40,7 @@ function mockFetch() {
           departs_aujourdhui: [],
           problemes_signales: [],
           menages_a_valider: [],
+          resolutions_a_valider: [],
         }),
         { status: 200 },
       )
@@ -129,11 +131,61 @@ describe('AppRoot routing', () => {
     expect(screen.queryByText('Mes missions du jour')).not.toBeInTheDocument()
   })
 
-  it('un compte maintenance voit un écran "non disponible" plutôt qu\'une boucle de redirection', async () => {
+  it("affiche l'écran de connexion sur '/maintenance' aussi, quand personne n'est connecté", async () => {
+    renderAt('/maintenance')
+
+    expect(await screen.findByLabelText(/téléphone/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Se connecter' })).toBeInTheDocument()
+  })
+
+  it('un compte maintenance accède à "/maintenance" et voit ses tickets', async () => {
+    seedSession({ id: 9, nom: 'Karim B.', role: 'maintenance' })
+    renderAt('/maintenance')
+
+    expect(await screen.findByText('Mes tickets')).toBeInTheDocument()
+  })
+
+  it('un compte maintenance qui accède à "/" est redirigé vers "/maintenance"', async () => {
     seedSession({ id: 9, nom: 'Karim B.', role: 'maintenance' })
     renderAt('/')
 
-    expect(await screen.findByText(/n'est pas encore disponible/i)).toBeInTheDocument()
+    expect(await screen.findByText('Mes tickets')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Dashboard', level: 2 })).not.toBeInTheDocument()
+  })
+
+  it('un compte maintenance qui accède à "/menage" est redirigé vers "/maintenance"', async () => {
+    seedSession({ id: 9, nom: 'Karim B.', role: 'maintenance' })
+    renderAt('/menage')
+
+    expect(await screen.findByText('Mes tickets')).toBeInTheDocument()
+    expect(screen.queryByText('Mes missions du jour')).not.toBeInTheDocument()
+  })
+
+  it('un compte menage qui accède à "/maintenance" est redirigé vers "/menage"', async () => {
+    seedSession({ id: 5, nom: 'Fatima Z.', role: 'menage' })
+    renderAt('/maintenance')
+
+    expect(await screen.findByText('Mes missions du jour')).toBeInTheDocument()
+    expect(screen.queryByText('Mes tickets')).not.toBeInTheDocument()
+  })
+
+  it('un compte manager qui accède à "/maintenance" est redirigé vers "/"', async () => {
+    seedSession({ id: 1, nom: 'Nadia M.', role: 'manager' })
+    renderAt('/maintenance')
+
+    expect(await screen.findByRole('heading', { name: 'Dashboard', level: 2 })).toBeInTheDocument()
+    expect(screen.queryByText('Mes tickets')).not.toBeInTheDocument()
+  })
+
+  it('le bouton Déconnexion sur /maintenance ramène à l\'écran de connexion', async () => {
+    const user = userEvent.setup()
+    seedSession({ id: 9, nom: 'Karim B.', role: 'maintenance' })
+    renderAt('/maintenance')
+
+    await screen.findByText('Mes tickets')
+    await user.click(screen.getByRole('button', { name: 'Déconnexion' }))
+
+    expect(await screen.findByRole('button', { name: 'Se connecter' })).toBeInTheDocument()
   })
 
   it('le bouton Déconnexion sur /menage ramène à l\'écran de connexion', async () => {

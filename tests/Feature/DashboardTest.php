@@ -33,6 +33,7 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('departs_aujourdhui', []);
         $response->assertJsonPath('problemes_signales', []);
         $response->assertJsonPath('menages_a_valider', []);
+        $response->assertJsonPath('resolutions_a_valider', []);
     }
 
     public function test_it_aggregates_revenus_frais_and_resultat_net(): void
@@ -301,5 +302,29 @@ class DashboardTest extends TestCase
         $response->assertJsonCount(1, 'menages_a_valider');
         $response->assertJsonPath('menages_a_valider.0.nom_voyageur', 'Jean Dupont');
         $response->assertJsonPath('menages_a_valider.0.appartement.adresse', '12 rue de la Roquette');
+    }
+
+    public function test_it_lists_resolutions_en_attente_validation_as_resolutions_a_valider(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => '12 rue de la Roquette', 'statut' => 'disponible']);
+        TicketMaintenance::create([
+            'appartement_id' => $appartement->id,
+            'description_manager' => 'Changer le joint du robinet.',
+            'photo_apres' => 'tickets-maintenance/apres.jpg',
+            'cout_reparation' => 45.5,
+            'statut' => 'resolu_en_attente_validation',
+        ]);
+        // Other statuts are not awaiting the Manager's validation.
+        TicketMaintenance::create(['appartement_id' => $appartement->id, 'statut' => 'assigne']);
+        TicketMaintenance::create(['appartement_id' => $appartement->id, 'statut' => 'resolu']);
+
+        $response = $this->getJson('/api/dashboard');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'resolutions_a_valider');
+        $response->assertJsonPath('resolutions_a_valider.0.description_manager', 'Changer le joint du robinet.');
+        $response->assertJsonPath('resolutions_a_valider.0.photo_apres', 'tickets-maintenance/apres.jpg');
+        $response->assertJsonPath('resolutions_a_valider.0.cout_reparation', '45.50');
+        $response->assertJsonPath('resolutions_a_valider.0.appartement.adresse', '12 rue de la Roquette');
     }
 }

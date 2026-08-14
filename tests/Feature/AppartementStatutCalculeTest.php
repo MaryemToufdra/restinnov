@@ -353,4 +353,42 @@ class AppartementStatutCalculeTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('appartements.0.statut', 'maintenance');
     }
+
+    public function test_appartement_is_maintenance_while_a_resolution_awaits_validation(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        TicketMaintenance::create(['appartement_id' => $appartement->id, 'statut' => 'resolu_en_attente_validation']);
+
+        $response = $this->getJson('/api/appartements');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.statut', 'maintenance');
+    }
+
+    public function test_appartement_returns_to_disponible_only_once_the_manager_validates_the_resolution(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $ticket = TicketMaintenance::create(['appartement_id' => $appartement->id, 'statut' => 'resolu_en_attente_validation']);
+
+        $this->assertSame('maintenance', $this->getJson('/api/appartements')->json('0.statut'));
+
+        $ticket->update(['statut' => 'resolu']);
+
+        $response = $this->getJson('/api/appartements');
+        $response->assertJsonPath('0.statut', 'disponible');
+    }
+
+    public function test_it_filters_by_statut_maintenance_including_resolu_en_attente_validation(): void
+    {
+        $maintenance = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        TicketMaintenance::create(['appartement_id' => $maintenance->id, 'statut' => 'resolu_en_attente_validation']);
+
+        Appartement::create(['nom' => 'Zenith', 'adresse' => 'B', 'statut' => 'disponible']);
+
+        $response = $this->getJson('/api/appartements?statut=maintenance&page=1');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.nom', 'Loft Bastille');
+    }
 }

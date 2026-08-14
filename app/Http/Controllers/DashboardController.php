@@ -99,6 +99,14 @@ class DashboardController extends Controller
                 'appartement' => $mission->sejour?->appartement,
             ]);
 
+        $resolutionsAValider = TicketMaintenance::query()
+            ->select('id', 'appartement_id', 'photo_apres', 'cout_reparation', 'description_manager', 'statut')
+            ->where('statut', TicketMaintenance::STATUT_RESOLU_EN_ATTENTE_VALIDATION)
+            ->with('appartement:id,nom,adresse')
+            ->latest()
+            ->latest('id')
+            ->get();
+
         return response()->json([
             'revenus_totaux' => $revenusTotaux,
             'frais_menage_totaux' => $fraisMenageTotaux,
@@ -110,6 +118,7 @@ class DashboardController extends Controller
             'departs_aujourdhui' => $departsAujourdhui,
             'problemes_signales' => $problemesSignales,
             'menages_a_valider' => $menagesAValider,
+            'resolutions_a_valider' => $resolutionsAValider,
         ]);
     }
 }
