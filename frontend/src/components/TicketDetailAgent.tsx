@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { resoudreTicketMaintenance } from '../api'
+import { resoudreTicketMaintenance, resolveStorageUrl } from '../api'
 import type { MonTicketMaintenance, TicketMaintenanceUrgence } from '../types'
 
 const URGENCE_LABELS: Record<TicketMaintenanceUrgence, string> = {
@@ -86,6 +86,23 @@ export function TicketDetailAgent({ ticket, onBack, onResolu }: TicketDetailAgen
 
         {ticket.description_manager && (
           <p className="mt-3 text-sm text-gray-700">{ticket.description_manager}</p>
+        )}
+
+        {ticket.description_manager_audio_url && (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <audio
+            controls
+            src={resolveStorageUrl(ticket.description_manager_audio_url)}
+            className="mt-3 w-full"
+          />
+        )}
+
+        {ticket.photo_url && (
+          <img
+            src={resolveStorageUrl(ticket.photo_url)}
+            alt="Photo du problème signalé"
+            className="mt-3 h-32 w-32 rounded-lg object-cover"
+          />
         )}
       </div>
 

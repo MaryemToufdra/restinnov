@@ -113,6 +113,7 @@ class TicketMaintenanceManagementTest extends TestCase
 
         $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/assigner", [
             'agent_id' => $agent->id,
+            'description_manager' => 'Changer le joint du robinet.',
         ]);
 
         $response->assertOk();
@@ -207,6 +208,76 @@ class TicketMaintenanceManagementTest extends TestCase
         ]);
     }
 
+    public function test_assigner_requires_either_a_written_or_a_recorded_description(): void
+    {
+        $ticket = $this->ticket();
+        $agent = $this->agentMaintenance();
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/assigner", [
+            'agent_id' => $agent->id,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('description_manager');
+    }
+
+    public function test_assigner_accepts_an_audio_description_alone(): void
+    {
+        Storage::fake('public');
+
+        $ticket = $this->ticket();
+        $agent = $this->agentMaintenance();
+
+        $response = $this->post("/api/tickets-maintenance/{$ticket->id}/assigner", [
+            '_method' => 'PATCH',
+            'agent_id' => $agent->id,
+            'description_manager_audio' => UploadedFile::fake()->create('note.mp3', 100, 'audio/mpeg'),
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('statut', 'assigne');
+        $this->assertNotNull($response->json('description_manager_audio_url'));
+        $this->assertDatabaseHas('tickets_maintenance', [
+            'id' => $ticket->id,
+            'description_manager' => null,
+        ]);
+    }
+
+    public function test_assigner_persists_photo_transferee_when_true(): void
+    {
+        $ticket = $this->ticket(['photo_url' => 'signalements/photo.jpg']);
+        $agent = $this->agentMaintenance();
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/assigner", [
+            'agent_id' => $agent->id,
+            'description_manager' => 'Voir photo jointe.',
+            'photo_transferee' => true,
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('tickets_maintenance', [
+            'id' => $ticket->id,
+            'photo_transferee' => true,
+        ]);
+    }
+
+    public function test_assigner_defaults_photo_transferee_to_false(): void
+    {
+        $ticket = $this->ticket(['photo_url' => 'signalements/photo.jpg']);
+        $agent = $this->agentMaintenance();
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/assigner", [
+            'agent_id' => $agent->id,
+            'description_manager' => 'Voir photo jointe.',
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('tickets_maintenance', [
+            'id' => $ticket->id,
+            'photo_transferee' => false,
+        ]);
+    }
+
     // --- mesTickets() ---
 
     public function test_mes_tickets_lists_only_tickets_assigned_to_the_authenticated_agent(): void
@@ -243,7 +314,7 @@ class TicketMaintenanceManagementTest extends TestCase
         $response->assertJsonPath('0.statut', 'assigne');
     }
 
-    public function test_mes_tickets_never_exposes_the_menage_agent_signalement_fields(): void
+    public function test_mes_tickets_never_exposes_the_menage_agent_description_and_audio(): void
     {
         $agent = $this->agentMaintenance();
         $this->ticket([
@@ -252,6 +323,7 @@ class TicketMaintenanceManagementTest extends TestCase
             'description' => 'Description du signalement ménage.',
             'photo_url' => 'signalements/photo.jpg',
             'audio_url' => 'signalements/note.mp3',
+            'photo_transferee' => false,
         ]);
 
         Sanctum::actingAs($agent, ['*']);
@@ -261,13 +333,66 @@ class TicketMaintenanceManagementTest extends TestCase
         $response->assertOk();
         $ticketJson = $response->json('0');
         $this->assertArrayNotHasKey('description', $ticketJson);
-        $this->assertArrayNotHasKey('photo_url', $ticketJson);
         $this->assertArrayNotHasKey('audio_url', $ticketJson);
         $this->assertArrayHasKey('description_manager', $ticketJson);
+        $this->assertArrayHasKey('description_manager_audio_url', $ticketJson);
         $this->assertArrayHasKey('urgence', $ticketJson);
         $this->assertArrayHasKey('appartement', $ticketJson);
         $this->assertArrayHasKey('nom', $ticketJson['appartement']);
         $this->assertArrayHasKey('adresse', $ticketJson['appartement']);
+    }
+
+    public function test_mes_tickets_hides_the_original_photo_when_not_transferred(): void
+    {
+        $agent = $this->agentMaintenance();
+        $this->ticket([
+            'statut' => 'assigne',
+            'agent_id' => $agent->id,
+            'photo_url' => 'signalements/photo.jpg',
+            'photo_transferee' => false,
+        ]);
+
+        Sanctum::actingAs($agent, ['*']);
+
+        $response = $this->getJson('/api/tickets-maintenance/mes-tickets');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.photo_url', null);
+    }
+
+    public function test_mes_tickets_exposes_the_original_photo_when_transferred(): void
+    {
+        $agent = $this->agentMaintenance();
+        $this->ticket([
+            'statut' => 'assigne',
+            'agent_id' => $agent->id,
+            'photo_url' => 'signalements/photo.jpg',
+            'photo_transferee' => true,
+        ]);
+
+        Sanctum::actingAs($agent, ['*']);
+
+        $response = $this->getJson('/api/tickets-maintenance/mes-tickets');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.photo_url', 'signalements/photo.jpg');
+    }
+
+    public function test_mes_tickets_exposes_the_manager_audio_url(): void
+    {
+        $agent = $this->agentMaintenance();
+        $this->ticket([
+            'statut' => 'assigne',
+            'agent_id' => $agent->id,
+            'description_manager_audio_url' => 'tickets-maintenance/manager-note.webm',
+        ]);
+
+        Sanctum::actingAs($agent, ['*']);
+
+        $response = $this->getJson('/api/tickets-maintenance/mes-tickets');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.description_manager_audio_url', 'tickets-maintenance/manager-note.webm');
     }
 
     public function test_mes_tickets_is_forbidden_for_a_menage_account(): void

@@ -110,7 +110,9 @@ export interface TicketMaintenance {
   agent_id: number | null
   description: string | null
   description_manager: string | null
+  description_manager_audio_url: string | null
   photo_url: string | null
+  photo_transferee: boolean
   audio_url: string | null
   photo_apres: string | null
   cout_reparation: string | number | null
@@ -124,15 +126,19 @@ export interface TicketMaintenance {
 
 /**
  * The curated shape returned by GET /api/tickets-maintenance/mes-tickets --
- * deliberately narrower than TicketMaintenance: the menage agent's
- * description/photo_url/audio_url signalement fields are never sent to a
- * maintenance agent, only the Manager-authored description_manager is.
+ * deliberately narrower than TicketMaintenance: the menage agent's own
+ * description/audio_url signalement fields are never sent to a maintenance
+ * agent. Only the Manager-authored description_manager/
+ * description_manager_audio_url are, plus the original photo_url, itself
+ * only present when the Manager opted to transfer it (photo_transferee).
  */
 export interface MonTicketMaintenance {
   id: number
   statut: TicketMaintenanceStatut
   urgence: TicketMaintenanceUrgence
   description_manager: string | null
+  description_manager_audio_url: string | null
+  photo_url: string | null
   appartement: { id: number; nom: string; adresse: string } | null
 }
 
