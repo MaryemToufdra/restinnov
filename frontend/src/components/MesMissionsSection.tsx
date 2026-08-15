@@ -8,6 +8,19 @@ interface MesMissionsSectionProps {
   catalogue: ProduitCatalogue[]
 }
 
+// Only the two statuts that need a clear, distinct callout in this list --
+// a_faire/en_cours are the agent's normal current work and need no badge.
+const STATUT_BADGES: Partial<Record<MissionMenage['statut'], { label: string; style: string }>> = {
+  en_attente_validation: {
+    label: 'En attente de validation du Manager',
+    style: 'bg-purple-100 text-purple-800',
+  },
+  non_conforme: {
+    label: 'Renvoyé par le Manager — à refaire',
+    style: 'bg-red-100 text-red-800',
+  },
+}
+
 export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
   const { user } = useAuth()
   const [missions, setMissions] = useState<MissionMenage[]>([])
@@ -76,6 +89,7 @@ export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
       <ul className="mt-5 space-y-4">
         {missions.map((mission) => {
           const appartement = mission.sejour?.appartement
+          const badge = STATUT_BADGES[mission.statut]
           return (
             <li key={mission.id}>
               <button
@@ -111,6 +125,11 @@ export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-lg font-semibold text-gray-900">{appartement?.nom ?? `Appartement`}</p>
                   <p className="truncate text-sm text-gray-500">{appartement?.adresse}</p>
+                  {badge && (
+                    <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badge.style}`}>
+                      {badge.label}
+                    </span>
+                  )}
                 </div>
               </button>
             </li>

@@ -37,7 +37,7 @@ class MissionMenageAgentWorkspaceTest extends TestCase
 
     // --- index() "mes missions" ---
 
-    public function test_index_lists_only_a_faire_and_en_cours_missions_for_the_given_agent(): void
+    public function test_index_lists_a_faire_en_cours_en_attente_validation_and_non_conforme_missions_for_the_given_agent(): void
     {
         $appartement = $this->appartement();
         $agent = $this->agent();
@@ -45,16 +45,32 @@ class MissionMenageAgentWorkspaceTest extends TestCase
 
         $missionAFaire = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $agent->id, 'statut' => 'a_faire']);
         $missionEnCours = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $agent->id, 'statut' => 'en_cours']);
+        $missionEnAttente = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $agent->id, 'statut' => 'en_attente_validation']);
+        $missionNonConforme = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $agent->id, 'statut' => 'non_conforme']);
         MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $agent->id, 'statut' => 'conforme']);
         MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $autreAgent->id, 'statut' => 'a_faire']);
 
         $response = $this->getJson("/api/mission-menages?agent_id={$agent->id}");
 
         $response->assertOk();
-        $response->assertJsonCount(2);
+        $response->assertJsonCount(4);
         $ids = collect($response->json())->pluck('id');
         $this->assertTrue($ids->contains($missionAFaire->id));
         $this->assertTrue($ids->contains($missionEnCours->id));
+        $this->assertTrue($ids->contains($missionEnAttente->id));
+        $this->assertTrue($ids->contains($missionNonConforme->id));
+    }
+
+    public function test_index_excludes_conforme_missions(): void
+    {
+        $appartement = $this->appartement();
+        $agent = $this->agent();
+        MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $agent->id, 'statut' => 'conforme']);
+
+        $response = $this->getJson("/api/mission-menages?agent_id={$agent->id}");
+
+        $response->assertOk();
+        $response->assertJsonCount(0);
     }
 
     public function test_index_includes_appartement_nom_and_adresse(): void
@@ -270,5 +286,86 @@ class MissionMenageAgentWorkspaceTest extends TestCase
         $response = $this->patchJson("/api/mission-menages/{$mission->id}/ouvrir");
 
         $response->assertOk();
+    }
+
+    // --- historique() ---
+
+    public function test_historique_lists_only_conforme_missions_with_appartement_and_sejour_date(): void
+    {
+        $appartement = $this->appartement();
+        $moi = $this->actingAsMenage();
+
+        $missionConforme = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $moi->id, 'statut' => 'conforme']);
+        MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $moi->id, 'statut' => 'a_faire']);
+        MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $moi->id, 'statut' => 'en_attente_validation']);
+
+        $response = $this->getJson('/api/mes-missions/historique');
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $missionConforme->id);
+        $response->assertJsonPath('0.appartement.nom', 'Loft Bastille');
+        $response->assertJsonPath('0.appartement.adresse', '12 rue de la Roquette');
+        $response->assertJsonPath('0.sejour.date_depart', '2026-08-05');
+    }
+
+    public function test_historique_orders_missions_most_recent_sejour_first(): void
+    {
+        $appartement = $this->appartement();
+        $moi = $this->actingAsMenage();
+
+        $ancienSejour = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-01-01',
+            'date_depart' => '2026-01-05',
+            'nom_voyageur' => 'Ancien Voyageur',
+            'statut' => 'termine',
+        ]);
+        $missionAncienne = MissionMenage::create(['sejour_id' => $ancienSejour->id, 'agent_id' => $moi->id, 'statut' => 'conforme']);
+        $missionRecente = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $moi->id, 'statut' => 'conforme']);
+
+        $response = $this->getJson('/api/mes-missions/historique');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.id', $missionRecente->id);
+        $response->assertJsonPath('1.id', $missionAncienne->id);
+    }
+
+    public function test_a_menage_account_always_gets_its_own_historique_regardless_of_the_agent_id_query_param(): void
+    {
+        $appartement = $this->appartement();
+        $moi = $this->actingAsMenage();
+        $autreAgent = $this->agent();
+
+        $maMission = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $moi->id, 'statut' => 'conforme']);
+        MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $autreAgent->id, 'statut' => 'conforme']);
+
+        $response = $this->getJson("/api/mes-missions/historique?agent_id={$autreAgent->id}");
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $maMission->id);
+    }
+
+    public function test_historique_agent_id_is_required_for_a_manager_account(): void
+    {
+        $response = $this->getJson('/api/mes-missions/historique');
+
+        $response->assertStatus(422);
+    }
+
+    public function test_historique_includes_checklist_and_produits_detail(): void
+    {
+        $appartement = $this->appartement();
+        $moi = $this->actingAsMenage();
+        $mission = MissionMenage::create(['sejour_id' => $this->sejour($appartement)->id, 'agent_id' => $moi->id, 'statut' => 'conforme']);
+        ChecklistItem::create(['mission_menage_id' => $mission->id, 'libelle' => 'Nettoyer la cuisine', 'checklist_modele_nom' => 'Standard', 'coche' => true, 'ordre' => 0]);
+
+        $response = $this->getJson('/api/mes-missions/historique');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.checklist_items.0.libelle', 'Nettoyer la cuisine');
+        $response->assertJsonPath('0.checklist_items.0.coche', true);
+        $response->assertJsonPath('0.checklist_modeles_utilises.0', 'Standard');
     }
 }

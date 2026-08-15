@@ -112,6 +112,23 @@ describe('MissionDetailAgent', () => {
     )
   })
 
+  it('affiche un avertissement clair quand la mission a été renvoyée (non_conforme)', async () => {
+    globalThis.fetch = mockFetch(missionFixture({ statut: 'non_conforme' })) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    expect(await screen.findByText(/renvoyé par le manager/i)).toBeInTheDocument()
+  })
+
+  it("n'affiche pas d'avertissement de renvoi pour une mission a_faire normale", async () => {
+    globalThis.fetch = mockFetch(missionFixture()) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText('Loft Bastille')
+    expect(screen.queryByText(/renvoyé par le manager/i)).not.toBeInTheDocument()
+  })
+
   it('affiche chaque item de checklist avec une case à cocher', async () => {
     globalThis.fetch = mockFetch(missionFixture()) as typeof fetch
 

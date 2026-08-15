@@ -343,3 +343,24 @@ export interface HistoriqueMission {
   frais_produits_total: number
   frais_total: number
 }
+
+/**
+ * The menage agent's own "Historique" list -- GET /api/mes-missions/
+ * historique -- always their own already-validated (conforme) missions,
+ * one per appartement/sejour, with the checklist/produits detail so the
+ * agent can revisit what they did.
+ */
+export interface HistoriqueMissionAgent {
+  id: number
+  sejour: {
+    id: number
+    reference: string
+    date_arrivee: string
+    date_depart: string
+    nom_voyageur: string
+  }
+  appartement: { id: number; nom: string; adresse: string } | null
+  checklist_modeles_utilises: string[]
+  checklist_items: HistoriqueChecklistItem[]
+  produits: HistoriqueProduit[]
+}
