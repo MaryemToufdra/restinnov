@@ -209,6 +209,13 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
             <p className="text-sm text-gray-500">{mission.sejour?.appartement?.adresse}</p>
           </div>
 
+          {mission.statut === 'non_conforme' && (
+            <p className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              <span aria-hidden="true">⚠️</span>
+              Renvoyé par le Manager — à refaire avant de marquer terminé à nouveau.
+            </p>
+          )}
+
           {totalItems > 0 && (
             <div>
               <div

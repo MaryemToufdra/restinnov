@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/produits-catalogue', [ProduitCatalogueController::class, 'index']);
 
         Route::get('/mission-menages', [MissionMenageController::class, 'index']);
+        Route::get('/mes-missions/historique', [MissionMenageController::class, 'historique']);
         Route::get('/mission-menages/{missionMenage}', [MissionMenageController::class, 'show']);
         Route::patch('/mission-menages/{missionMenage}/produits', [MissionMenageController::class, 'updateProduits']);
         Route::patch('/mission-menages/{missionMenage}/vue', [MissionMenageController::class, 'marquerVue']);

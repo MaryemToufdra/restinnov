@@ -102,6 +102,41 @@ describe('MesMissionsSection', () => {
     expect(screen.queryByTestId('mission-nouvelle-badge-10')).not.toBeInTheDocument()
   })
 
+  it('affiche un badge violet "En attente de validation du Manager" pour une mission en_attente_validation', async () => {
+    seedLoggedInAgent()
+    globalThis.fetch = mockFetch([missionFixture({ statut: 'en_attente_validation' })]) as typeof fetch
+
+    renderWithAuth()
+
+    await screen.findByText('Loft Bastille')
+    const badge = screen.getByText('En attente de validation du Manager')
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveClass('bg-purple-100', 'text-purple-800')
+  })
+
+  it('affiche un badge rouge "Renvoyé par le Manager" pour une mission non_conforme', async () => {
+    seedLoggedInAgent()
+    globalThis.fetch = mockFetch([missionFixture({ statut: 'non_conforme' })]) as typeof fetch
+
+    renderWithAuth()
+
+    await screen.findByText('Loft Bastille')
+    const badge = screen.getByText(/renvoyé par le manager/i)
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveClass('bg-red-100', 'text-red-800')
+  })
+
+  it("n'affiche aucun badge de statut pour une mission a_faire ou en_cours", async () => {
+    seedLoggedInAgent()
+    globalThis.fetch = mockFetch([missionFixture({ statut: 'a_faire' })]) as typeof fetch
+
+    renderWithAuth()
+
+    await screen.findByText('Loft Bastille')
+    expect(screen.queryByText(/en attente de validation/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/renvoyé par le manager/i)).not.toBeInTheDocument()
+  })
+
   it("affiche un message quand l'agent n'a aucune mission", async () => {
     seedLoggedInAgent()
     globalThis.fetch = mockFetch([]) as typeof fetch

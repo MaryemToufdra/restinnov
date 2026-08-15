@@ -7,6 +7,7 @@ import type {
   DashboardData,
   FraisMaintenance,
   HistoriqueMission,
+  HistoriqueMissionAgent,
   MissionMenage,
   ModeGestion,
   MonTicketMaintenance,
@@ -561,6 +562,14 @@ export async function fetchMissionsAgent(agentId: number): Promise<MissionMenage
 
 export async function fetchMissionMenage(missionMenageId: number): Promise<MissionMenage> {
   const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchHistoriqueAgent(): Promise<HistoriqueMissionAgent[]> {
+  const response = await fetch(`${API_BASE_URL}/api/mes-missions/historique`, {
     headers: authHeaders(),
   })
 

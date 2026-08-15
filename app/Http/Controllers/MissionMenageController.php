@@ -20,9 +20,11 @@ class MissionMenageController extends Controller
 
     /**
      * "Mes missions du jour": missions assigned to a given menage agent
-     * that are still on their plate (a_faire or en_cours). Powers the
-     * agent workspace's mission list -- terminees/non_conformes never
-     * belong there.
+     * still relevant to their day -- a_faire/en_cours (not yet started or
+     * in progress), en_attente_validation (their part is done, waiting on
+     * the Manager), and non_conforme (the Manager sent it back). Only
+     * "conforme" missions leave this list, since those are done and move
+     * on to the agent's historique instead.
      *
      * A "menage" caller always gets their own missions, regardless of what
      * agent_id (if any) they pass -- there is no legitimate reason for one
@@ -44,11 +46,74 @@ class MissionMenageController extends Controller
 
         $missions = MissionMenage::with(self::DETAIL_RELATIONS)
             ->where('agent_id', $agentId)
-            ->whereIn('statut', [MissionMenage::STATUT_A_FAIRE, MissionMenage::STATUT_EN_COURS])
+            ->whereIn('statut', [
+                MissionMenage::STATUT_A_FAIRE,
+                MissionMenage::STATUT_EN_COURS,
+                MissionMenage::STATUT_EN_ATTENTE_VALIDATION,
+                MissionMenage::STATUT_NON_CONFORME,
+            ])
             ->orderBy('created_at')
             ->get();
 
         return response()->json($missions);
+    }
+
+    /**
+     * Chronological history of this menage agent's own already-validated
+     * (conforme) missions -- appartement nom/adresse plus the sejour date,
+     * for a simple past-work log. Explicitly own-agent-only server-side,
+     * same as index(): a "menage" caller can never pass another agent's id.
+     */
+    public function historique(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->role === Utilisateur::ROLE_MENAGE) {
+            $agentId = $user->id;
+        } else {
+            $validated = $request->validate([
+                'agent_id' => ['required', 'integer', 'exists:utilisateurs,id'],
+            ]);
+            $agentId = $validated['agent_id'];
+        }
+
+        $missions = MissionMenage::with(['sejour.appartement', 'produits', 'checklistItems'])
+            ->where('agent_id', $agentId)
+            ->where('statut', MissionMenage::STATUT_CONFORME)
+            ->get()
+            ->sortByDesc(fn (MissionMenage $mission) => $mission->sejour->date_depart)
+            ->values();
+
+        return response()->json($missions->map(fn (MissionMenage $mission) => [
+            'id' => $mission->id,
+            'sejour' => [
+                'id' => $mission->sejour->id,
+                'reference' => $mission->sejour->reference,
+                'date_arrivee' => $mission->sejour->date_arrivee->toDateString(),
+                'date_depart' => $mission->sejour->date_depart->toDateString(),
+                'nom_voyageur' => $mission->sejour->nom_voyageur,
+            ],
+            'appartement' => $mission->sejour->appartement ? [
+                'id' => $mission->sejour->appartement->id,
+                'nom' => $mission->sejour->appartement->nom,
+                'adresse' => $mission->sejour->appartement->adresse,
+            ] : null,
+            'checklist_modeles_utilises' => $mission->checklistItems
+                ->pluck('checklist_modele_nom')
+                ->filter()
+                ->unique()
+                ->values(),
+            'checklist_items' => $mission->checklistItems->map(fn ($item) => [
+                'libelle' => $item->libelle,
+                'checklist_modele_nom' => $item->checklist_modele_nom,
+                'coche' => $item->coche,
+                'photo_url' => $item->photo_url,
+            ])->values(),
+            'produits' => $mission->produits->map(fn ($produit) => [
+                'nom' => $produit->nom,
+                'prix' => round((float) $produit->prix, 2),
+            ])->values(),
+        ]));
     }
 
     /**
