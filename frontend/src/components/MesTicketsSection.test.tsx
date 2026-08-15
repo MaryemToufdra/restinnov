@@ -10,6 +10,8 @@ function ticketFixture(overrides: Partial<MonTicketMaintenance> = {}): MonTicket
     statut: 'assigne',
     urgence: 'normale',
     description_manager: 'Changer le joint du robinet.',
+    description_manager_audio_url: null,
+    photo_url: null,
     appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
     ...overrides,
   }

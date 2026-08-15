@@ -9,6 +9,8 @@ const TICKET: MonTicketMaintenance = {
   statut: 'assigne',
   urgence: 'haute',
   description_manager: 'Changer le joint du robinet.',
+  description_manager_audio_url: null,
+  photo_url: null,
   appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
 }
 
@@ -37,6 +39,39 @@ describe('TicketDetailAgent', () => {
     expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
     expect(screen.getByText('Changer le joint du robinet.')).toBeInTheDocument()
     expect(screen.getByText('Urgence Haute')).toBeInTheDocument()
+  })
+
+  it('n\'affiche ni lecteur audio ni photo quand le Manager n\'en a fourni aucun', () => {
+    render(<TicketDetailAgent ticket={TICKET} onBack={vi.fn()} onResolu={vi.fn()} />)
+
+    expect(document.querySelector('audio')).not.toBeInTheDocument()
+    expect(screen.queryByAltText(/photo du problème signalé/i)).not.toBeInTheDocument()
+  })
+
+  it('affiche le message audio du Manager quand présent', () => {
+    render(
+      <TicketDetailAgent
+        ticket={{ ...TICKET, description_manager_audio_url: 'tickets-maintenance/manager-note.webm' }}
+        onBack={vi.fn()}
+        onResolu={vi.fn()}
+      />,
+    )
+
+    const audio = document.querySelector('audio')
+    expect(audio).toBeInTheDocument()
+    expect(audio).toHaveAttribute('src', expect.stringContaining('tickets-maintenance/manager-note.webm'))
+  })
+
+  it('affiche la photo du signalement uniquement si le Manager l\'a transférée', () => {
+    render(
+      <TicketDetailAgent
+        ticket={{ ...TICKET, photo_url: 'tickets-maintenance/photo.jpg' }}
+        onBack={vi.fn()}
+        onResolu={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByAltText(/photo du problème signalé/i)).toBeInTheDocument()
   })
 
   it('refuse la résolution sans photo ni prix', async () => {

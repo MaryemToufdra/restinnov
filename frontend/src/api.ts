@@ -176,6 +176,8 @@ export interface SignalerProblemeInput {
 export interface AssignerTicketMaintenanceInput {
   agentId: number
   descriptionManager?: string | null
+  descriptionManagerAudio?: File | null
+  photoTransferee?: boolean
 }
 
 export interface ResoudreTicketMaintenanceInput {
@@ -698,10 +700,17 @@ export async function assignerTicketMaintenance(
   id: number,
   input: AssignerTicketMaintenanceInput,
 ): Promise<TicketMaintenance> {
+  const formData = new FormData()
+  formData.append('agent_id', String(input.agentId))
+  if (input.descriptionManager) formData.append('description_manager', input.descriptionManager)
+  if (input.descriptionManagerAudio) formData.append('description_manager_audio', input.descriptionManagerAudio)
+  if (input.photoTransferee) formData.append('photo_transferee', '1')
+  formData.append('_method', 'PATCH')
+
   const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/${id}/assigner`, {
-    method: 'PATCH',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ agent_id: input.agentId, description_manager: input.descriptionManager ?? null }),
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
   })
 
   return parseJsonOrThrow(response)

@@ -7,6 +7,7 @@ use App\Models\TicketMaintenance;
 use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class TicketMaintenanceController extends Controller
@@ -50,7 +51,7 @@ class TicketMaintenanceController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'agent_id' => [
                 'required',
                 Rule::exists('utilisateurs', 'id')->where('role', Utilisateur::ROLE_MAINTENANCE)->where('actif', true),
@@ -58,12 +59,37 @@ class TicketMaintenanceController extends Controller
             // The instruction the maintenance agent will actually see on
             // their ticket detail -- the ménage agent's own description/
             // photo/audio stay Manager-only, never shown to maintenance.
+            // Either written or spoken works, at least one is required.
             'description_manager' => ['nullable', 'string', 'max:1000'],
+            'description_manager_audio' => ['nullable', 'file', 'mimes:mp3,wav,ogg,webm,m4a,aac', 'max:10240'],
+            // The Manager's explicit, opt-in decision to also hand the
+            // ménage agent's original signalement photo down to
+            // maintenance -- never automatic.
+            'photo_transferee' => ['sometimes', 'boolean'],
         ]);
+
+        $validator->after(function ($validator) use ($request) {
+            $hasDescription = trim((string) $request->input('description_manager', '')) !== '';
+
+            if (! $request->hasFile('description_manager_audio') && ! $hasDescription) {
+                $validator->errors()->add(
+                    'description_manager',
+                    'Fournissez une description écrite ou un message audio pour l\'agent.',
+                );
+            }
+        });
+
+        $validated = $validator->validate();
+
+        $audioUrl = $request->hasFile('description_manager_audio')
+            ? $request->file('description_manager_audio')->store('tickets-maintenance', 'public')
+            : null;
 
         $ticketMaintenance->update([
             'agent_id' => $validated['agent_id'],
             'description_manager' => $validated['description_manager'] ?? null,
+            'description_manager_audio_url' => $audioUrl,
+            'photo_transferee' => filter_var($validated['photo_transferee'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'statut' => TicketMaintenance::STATUT_ASSIGNE,
         ]);
 
@@ -101,6 +127,12 @@ class TicketMaintenanceController extends Controller
                 'statut' => $ticket->statut,
                 'urgence' => $ticket->urgence,
                 'description_manager' => $ticket->description_manager,
+                'description_manager_audio_url' => $ticket->description_manager_audio_url,
+                // The ménage agent's original signalement photo only
+                // reaches the maintenance agent if the Manager explicitly
+                // opted to transfer it -- never the ménage agent's own
+                // audio_url, which stays Manager-only regardless.
+                'photo_url' => $ticket->photo_transferee ? $ticket->photo_url : null,
                 'appartement' => $ticket->appartement ? [
                     'id' => $ticket->appartement->id,
                     'nom' => $ticket->appartement->nom,

@@ -32,7 +32,9 @@ class TicketMaintenance extends Model
         'agent_id',
         'description',
         'description_manager',
+        'description_manager_audio_url',
         'photo_url',
+        'photo_transferee',
         'audio_url',
         'photo_apres',
         'cout_reparation',
@@ -43,6 +45,7 @@ class TicketMaintenance extends Model
 
     protected $casts = [
         'cout_reparation' => 'decimal:2',
+        'photo_transferee' => 'boolean',
     ];
 
     public function appartement(): BelongsTo

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TicketsMaintenanceSection } from './TicketsMaintenanceSection'
 import type { Agent, TicketMaintenance } from '../types'
 
@@ -12,7 +12,9 @@ function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMainte
     agent_id: null,
     description: 'Le robinet fuit.',
     description_manager: null,
+    description_manager_audio_url: null,
     photo_url: null,
+    photo_transferee: false,
     audio_url: null,
     photo_apres: null,
     cout_reparation: null,
@@ -66,12 +68,21 @@ function mockFetch(tickets: TicketMaintenance[], agents: Agent[]) {
     }
 
     const assignMatch = url.pathname.match(/^\/api\/tickets-maintenance\/(\d+)\/assigner$/)
-    if (assignMatch && method === 'PATCH') {
+    if (assignMatch && method === 'POST') {
       const id = Number(assignMatch[1])
-      const body = JSON.parse(init!.body as string) as { agent_id: number; description_manager: string | null }
+      const body = init!.body as FormData
+      const descriptionManager = (body.get('description_manager') as string | null) ?? null
+      const hasAudio = body.get('description_manager_audio') !== null
       currentTickets = currentTickets.map((t) =>
         t.id === id
-          ? { ...t, statut: 'assigne', agent_id: body.agent_id, description_manager: body.description_manager }
+          ? {
+              ...t,
+              statut: 'assigne',
+              agent_id: Number(body.get('agent_id')),
+              description_manager: descriptionManager,
+              description_manager_audio_url: hasAudio ? 'tickets-maintenance/manager-note.webm' : null,
+              photo_transferee: body.get('photo_transferee') === '1',
+            }
           : t,
       )
       return new Response(JSON.stringify(currentTickets.find((t) => t.id === id)), { status: 200 })
@@ -82,8 +93,18 @@ function mockFetch(tickets: TicketMaintenance[], agents: Agent[]) {
 }
 
 describe('TicketsMaintenanceSection', () => {
+  const originalMediaRecorder = window.MediaRecorder
+  const originalMediaDevices = navigator.mediaDevices
+
   beforeEach(() => {
     vi.restoreAllMocks()
+    // @ts-expect-error -- deleting a possibly-undefined global for the test
+    delete window.MediaRecorder
+  })
+
+  afterEach(() => {
+    window.MediaRecorder = originalMediaRecorder
+    Object.defineProperty(navigator, 'mediaDevices', { value: originalMediaDevices, configurable: true })
   })
 
   it('affiche les tickets ouverts avec description, appartement et séjour', async () => {
@@ -97,7 +118,7 @@ describe('TicketsMaintenanceSection', () => {
     expect(screen.getByText('1')).toBeInTheDocument()
   })
 
-  it('affiche la photo et le lecteur audio quand présents', async () => {
+  it('affiche la photo et le lecteur audio du signalement quand présents', async () => {
     globalThis.fetch = mockFetch(
       [ticketFixture({ photo_url: 'tickets-maintenance/photo.jpg', audio_url: 'tickets-maintenance/audio.webm' })],
       [],
@@ -118,7 +139,41 @@ describe('TicketsMaintenanceSection', () => {
     expect(await screen.findByText(/aucun ticket de maintenance ouvert/i)).toBeInTheDocument()
   })
 
-  it('assigne un ticket à un agent de maintenance, qui disparaît ensuite de la liste', async () => {
+  it('le bouton Assigner est désactivé tant qu\'aucun agent ni description n\'est renseigné', async () => {
+    globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Le robinet fuit.')
+    expect(screen.getByRole('button', { name: /assigner/i })).toBeDisabled()
+  })
+
+  it('reste désactivé quand un agent est choisi mais aucune description écrite ni audio', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Le robinet fuit.')
+    await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), '5')
+
+    expect(screen.getByRole('button', { name: /assigner/i })).toBeDisabled()
+  })
+
+  it('s\'active dès qu\'une description écrite est renseignée', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Le robinet fuit.')
+    await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), '5')
+    await user.type(screen.getByLabelText(/instruction écrite pour l'agent/i), 'Changer le joint.')
+
+    expect(screen.getByRole('button', { name: /assigner/i })).toBeEnabled()
+  })
+
+  it('assigne un ticket avec une description écrite, qui disparaît ensuite de la liste', async () => {
     const user = userEvent.setup()
     const agent = agentFixture()
     const fetchMock = mockFetch([ticketFixture()], [agent])
@@ -127,31 +182,99 @@ describe('TicketsMaintenanceSection', () => {
     render(<TicketsMaintenanceSection />)
 
     await screen.findByText('Le robinet fuit.')
-    await user.selectOptions(screen.getByLabelText(/agent de maintenance/i), String(agent.id))
+    await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), String(agent.id))
+    await user.type(screen.getByLabelText(/instruction écrite pour l'agent/i), 'Changer le joint.')
     await user.click(screen.getByRole('button', { name: /assigner/i }))
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/api/tickets-maintenance/1/assigner'),
-        expect.objectContaining({
-          method: 'PATCH',
-          body: JSON.stringify({ agent_id: agent.id, description_manager: null }),
-        }),
-      ),
-    )
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/assigner'))
+      expect(call).toBeDefined()
+      const body = call![1]!.body as FormData
+      expect(body.get('agent_id')).toBe(String(agent.id))
+      expect(body.get('description_manager')).toBe('Changer le joint.')
+    })
     await waitFor(() => expect(screen.queryByText('Le robinet fuit.')).not.toBeInTheDocument())
     expect(screen.getByText(/aucun ticket de maintenance ouvert/i)).toBeInTheDocument()
   })
 
-  it('refuse d\'assigner sans agent sélectionné', async () => {
+  it('bascule vers l\'onglet audio, enregistre un message et l\'envoie sans texte', async () => {
     const user = userEvent.setup()
-    globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
+    const agent = agentFixture()
+    const fetchMock = mockFetch([ticketFixture()], [agent])
+    globalThis.fetch = fetchMock as typeof fetch
+
+    const fakeTrack = { stop: vi.fn() }
+    const fakeStream = { getTracks: () => [fakeTrack] } as unknown as MediaStream
+    const getUserMedia = vi.fn().mockResolvedValue(fakeStream)
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true })
+
+    class FakeMediaRecorder {
+      ondataavailable: ((event: { data: Blob }) => void) | null = null
+      onstop: (() => void) | null = null
+      mimeType = 'audio/webm'
+      start() {
+        this.ondataavailable?.({ data: new Blob(['audio-bytes'], { type: 'audio/webm' }) })
+      }
+      stop() {
+        this.onstop?.()
+      }
+    }
+    // @ts-expect-error -- assigning a minimal fake for the test
+    window.MediaRecorder = FakeMediaRecorder
 
     render(<TicketsMaintenanceSection />)
 
     await screen.findByText('Le robinet fuit.')
+    await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), String(agent.id))
+    await user.click(screen.getByRole('tab', { name: /enregistrer un audio/i }))
+    await user.click(screen.getByRole('button', { name: /démarrer l'enregistrement/i }))
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledWith({ audio: true }))
+    await user.click(await screen.findByTestId('recording-indicator-1'))
+
+    expect(screen.getByRole('button', { name: /assigner/i })).toBeEnabled()
+
     await user.click(screen.getByRole('button', { name: /assigner/i }))
 
-    expect(await screen.findByText(/choisissez un agent de maintenance/i)).toBeInTheDocument()
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/assigner'))
+      expect(call).toBeDefined()
+      const body = call![1]!.body as FormData
+      expect(body.get('description_manager_audio')).not.toBeNull()
+      expect(body.get('description_manager')).toBeNull()
+    })
+  })
+
+  it('n\'affiche la case "Transférer la photo" que si le signalement a une photo', async () => {
+    globalThis.fetch = mockFetch([ticketFixture({ photo_url: null })], [agentFixture()]) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Le robinet fuit.')
+    expect(screen.queryByText(/transférer la photo/i)).not.toBeInTheDocument()
+  })
+
+  it('envoie photo_transferee=1 quand la case est cochée', async () => {
+    const user = userEvent.setup()
+    const agent = agentFixture()
+    const fetchMock = mockFetch([ticketFixture({ photo_url: 'tickets-maintenance/photo.jpg' })], [agent])
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Le robinet fuit.')
+    const checkbox = screen.getByRole('checkbox', { name: /transférer la photo/i })
+    expect(checkbox).not.toBeChecked()
+
+    await user.click(checkbox)
+    await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), String(agent.id))
+    await user.type(screen.getByLabelText(/instruction écrite pour l'agent/i), 'Voir photo jointe.')
+    await user.click(screen.getByRole('button', { name: /assigner/i }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/assigner'))
+      expect(call).toBeDefined()
+      const body = call![1]!.body as FormData
+      expect(body.get('photo_transferee')).toBe('1')
+    })
   })
 })
