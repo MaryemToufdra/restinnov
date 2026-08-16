@@ -1,7 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { assignerTicketMaintenance, fetchTicketsMaintenance, fetchUtilisateurs, resolveStorageUrl } from '../api'
-import type { Agent, TicketMaintenance } from '../types'
+import { useEffect, useRef, useState } from 'react'
+import {
+  assignerTicketMaintenance,
+  fetchTicketsMaintenance,
+  fetchUtilisateurs,
+  refuserResolutionTicketMaintenance,
+  resolveStorageUrl,
+  validerResolutionTicketMaintenance,
+  type RefuserInput,
+} from '../api'
+import type { Agent, Appartement, TicketMaintenance, TicketMaintenanceStatut } from '../types'
+import { STATUT_VALIDATION_STYLES } from '../utils/statutValidation'
 import { URGENCE_LABELS, URGENCE_STYLES } from '../utils/urgence'
+import { RefuserModal } from './RefuserModal'
 
 type ExpressionMode = 'texte' | 'audio'
 
@@ -12,6 +22,22 @@ interface AssignerValues {
   descriptionManager: string
   descriptionManagerAudio: File | null
   photoTransferee: boolean
+}
+
+const STATUT_LABELS: Record<TicketMaintenanceStatut, string> = {
+  ouvert: 'Ouvert',
+  assigne: 'Assigné',
+  resolu_en_attente_validation: 'Résolu — en attente de validation',
+  a_refaire: 'À refaire',
+  resolu: 'Résolu',
+}
+
+const STATUT_STYLES: Record<TicketMaintenanceStatut, string> = {
+  ouvert: 'bg-amber-100 text-amber-800',
+  assigne: 'bg-indigo-100 text-indigo-800',
+  resolu_en_attente_validation: STATUT_VALIDATION_STYLES.en_attente,
+  a_refaire: STATUT_VALIDATION_STYLES.refuse,
+  resolu: STATUT_VALIDATION_STYLES.valide,
 }
 
 function formatDate(iso: string): string {
@@ -236,17 +262,125 @@ function AssignerForm({
   )
 }
 
+function RefusHistorique({ ticket }: { ticket: TicketMaintenance }) {
+  if (!ticket.refus || ticket.refus.length === 0) return null
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-gray-600">Historique des refus</p>
+      <ul className="mt-1 space-y-2">
+        {ticket.refus.map((refus) => (
+          <li key={refus.id} className="space-y-1 rounded-md bg-red-50 p-2 text-sm text-red-700">
+            <p className="text-xs text-red-500">
+              {formatDate(refus.created_at)}
+              {refus.manager?.nom && ` · ${refus.manager.nom}`}
+            </p>
+            {refus.motif && <p>{refus.motif}</p>}
+            {refus.motif_audio_url && (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <audio controls src={resolveStorageUrl(refus.motif_audio_url)} className="w-full" />
+            )}
+            {refus.motif_photo_url && (
+              <img
+                src={resolveStorageUrl(refus.motif_photo_url)}
+                alt="Photo du motif de refus"
+                className="h-24 w-24 rounded object-cover"
+              />
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ValiderRefuserActions({
+  ticket,
+  onValider,
+  onRefuser,
+}: {
+  ticket: TicketMaintenance
+  onValider: (ticketId: number) => Promise<void>
+  onRefuser: (ticketId: number, input: RefuserInput) => Promise<void>
+}) {
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showRefuserModal, setShowRefuserModal] = useState(false)
+
+  const handleValider = async () => {
+    setError(null)
+    setSubmitting(true)
+    try {
+      await onValider(ticket.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-3">
+      {ticket.photo_apres && (
+        <img
+          src={resolveStorageUrl(ticket.photo_apres)}
+          alt="Photo après réparation"
+          className="h-32 w-32 rounded-md object-cover"
+        />
+      )}
+      {ticket.cout_reparation != null && (
+        <p className="text-sm font-medium text-gray-900">Coût : {ticket.cout_reparation} MAD</p>
+      )}
+      {ticket.note_resolution && <p className="text-sm text-gray-700">{ticket.note_resolution}</p>}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleValider}
+          disabled={submitting}
+          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {submitting ? 'Validation...' : 'Valider'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowRefuserModal(true)}
+          disabled={submitting}
+          className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+        >
+          Refuser
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {showRefuserModal && (
+        <RefuserModal
+          title={`Refuser la résolution — ${ticket.appartement?.nom ?? `Appartement #${ticket.appartement_id}`}`}
+          onCancel={() => setShowRefuserModal(false)}
+          onConfirm={async ({ motif, motifAudio, motifPhoto }) => {
+            await onRefuser(ticket.id, { motif, motifAudio, motifPhoto })
+            setShowRefuserModal(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 function TicketMaintenanceCard({
   ticket,
   agents,
   onAssigner,
+  onValider,
+  onRefuser,
 }: {
   ticket: TicketMaintenance
   agents: Agent[]
   onAssigner: (ticketId: number, values: AssignerValues) => Promise<void>
+  onValider: (ticketId: number) => Promise<void>
+  onRefuser: (ticketId: number, input: RefuserInput) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(false)
-  const isARefaire = ticket.statut === 'a_refaire'
 
   return (
     <li className="rounded-md border border-gray-200">
@@ -262,29 +396,25 @@ function TicketMaintenanceCard({
             <span className="shrink-0 text-xs font-normal text-gray-400">{ticket.reference}</span>
           </p>
           <p className="truncate text-sm text-gray-700">{ticket.description || 'Aucune description.'}</p>
-          <p className="text-xs text-gray-400">
-            {formatDate(ticket.created_at)}
-            {ticket.mission_origine?.agent?.nom && ` · Signalé par ${ticket.mission_origine.agent.nom}`}
-          </p>
-          {isARefaire && (
-            <span className="mt-1 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-              Renvoyé par le Manager — à refaire
-            </span>
-          )}
+          <p className="text-xs text-gray-400">{formatDate(ticket.created_at)}</p>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${URGENCE_STYLES[ticket.urgence]}`}
-        >
-          Urgence {URGENCE_LABELS[ticket.urgence]}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${URGENCE_STYLES[ticket.urgence]}`}>
+            Urgence {URGENCE_LABELS[ticket.urgence]}
+          </span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUT_STYLES[ticket.statut]}`}>
+            {STATUT_LABELS[ticket.statut]}
+          </span>
+        </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 p-4 pt-3">
+        <div className="space-y-3 border-t border-gray-100 p-4 pt-3">
           {ticket.mission_origine?.sejour && (
             <p className="text-xs text-gray-400">
               Signalé pendant le séjour de {ticket.mission_origine.sejour.nom_voyageur} (
               {ticket.mission_origine.sejour.reference})
+              {ticket.mission_origine.agent?.nom && ` · par ${ticket.mission_origine.agent.nom}`}
             </p>
           )}
 
@@ -292,17 +422,23 @@ function TicketMaintenanceCard({
             <img
               src={resolveStorageUrl(ticket.photo_url)}
               alt="Photo du problème signalé"
-              className="mt-2 h-32 w-32 rounded-md object-cover"
+              className="h-32 w-32 rounded-md object-cover"
             />
           )}
 
           {ticket.audio_url && (
             // eslint-disable-next-line jsx-a11y/media-has-caption
-            <audio controls src={resolveStorageUrl(ticket.audio_url)} className="mt-2 w-full" />
+            <audio controls src={resolveStorageUrl(ticket.audio_url)} className="w-full" />
           )}
 
-          {isARefaire ? (
-            <div className="mt-3 space-y-3">
+          {ticket.statut === 'ouvert' && <AssignerForm ticket={ticket} agents={agents} onAssigner={onAssigner} />}
+
+          {ticket.statut === 'resolu_en_attente_validation' && (
+            <ValiderRefuserActions ticket={ticket} onValider={onValider} onRefuser={onRefuser} />
+          )}
+
+          {(ticket.statut === 'assigne' || ticket.statut === 'a_refaire' || ticket.statut === 'resolu') && (
+            <div className="space-y-3">
               {ticket.description_manager && (
                 <p className="text-sm text-gray-700">
                   <span className="font-medium">Message pour l'agent : </span>
@@ -315,25 +451,21 @@ function TicketMaintenanceCard({
                   {ticket.agent.nom}
                 </p>
               )}
-              {ticket.refus && ticket.refus.length > 0 && (
+              {ticket.statut === 'resolu' && ticket.photo_apres && (
                 <div>
-                  <p className="text-xs font-medium text-gray-600">Historique des refus</p>
-                  <ul className="mt-1 space-y-2">
-                    {ticket.refus.map((refus) => (
-                      <li key={refus.id} className="rounded-md bg-red-50 p-2 text-sm text-red-700">
-                        <p className="text-xs text-red-500">
-                          {formatDate(refus.created_at)}
-                          {refus.manager?.nom && ` · ${refus.manager.nom}`}
-                        </p>
-                        {refus.motif}
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="text-xs font-medium text-gray-600">Photo après réparation</p>
+                  <img
+                    src={resolveStorageUrl(ticket.photo_apres)}
+                    alt="Photo après réparation"
+                    className="mt-1 h-32 w-32 rounded-md object-cover"
+                  />
                 </div>
               )}
+              {ticket.statut === 'resolu' && ticket.cout_reparation != null && (
+                <p className="text-sm font-medium text-gray-900">Coût : {ticket.cout_reparation} MAD</p>
+              )}
+              <RefusHistorique ticket={ticket} />
             </div>
-          ) : (
-            <AssignerForm ticket={ticket} agents={agents} onAssigner={onAssigner} />
           )}
         </div>
       )}
@@ -341,24 +473,46 @@ function TicketMaintenanceCard({
   )
 }
 
-type UrgenceFilter = TicketMaintenance['urgence'] | ''
-type DateSort = 'recent' | 'ancien'
+export interface TicketsMaintenanceSectionProps {
+  appartements: Appartement[]
+  initialStatutFilter?: TicketMaintenanceStatut | ''
+}
 
-export function TicketsMaintenanceSection() {
+/**
+ * The single "Tickets de maintenance" screen -- combines what used to be
+ * three separate, overlapping Manager views (the actionable list, the
+ * résolutions-à-valider queue, and the read-only historique) into one
+ * filterable list where each ticket's expanded detail shows exactly the
+ * one action relevant to its current statut (assigner / valider-refuser /
+ * nothing to do yet).
+ */
+export function TicketsMaintenanceSection({ appartements, initialStatutFilter }: TicketsMaintenanceSectionProps) {
   const [tickets, setTickets] = useState<TicketMaintenance[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [urgenceFilter, setUrgenceFilter] = useState<UrgenceFilter>('')
+  const [statutFilter, setStatutFilter] = useState<TicketMaintenanceStatut | ''>(initialStatutFilter ?? '')
   const [appartementFilter, setAppartementFilter] = useState('')
-  const [dateSort, setDateSort] = useState<DateSort>('recent')
+  const [urgenceFilter, setUrgenceFilter] = useState<TicketMaintenance['urgence'] | ''>('')
+  const [dateDebut, setDateDebut] = useState('')
+  const [dateFin, setDateFin] = useState('')
+  const [search, setSearch] = useState('')
 
   const load = () => {
     setLoading(true)
     setError(null)
-    Promise.all([fetchTicketsMaintenance(), fetchUtilisateurs({ role: 'maintenance' })])
+    Promise.all([
+      fetchTicketsMaintenance({
+        statut: statutFilter || undefined,
+        appartementId: appartementFilter ? Number(appartementFilter) : undefined,
+        dateDebut: dateDebut || undefined,
+        dateFin: dateFin || undefined,
+        search: search || undefined,
+      }),
+      fetchUtilisateurs({ role: 'maintenance' }),
+    ])
       .then(([ticketsData, agentsData]) => {
-        setTickets(ticketsData.filter((t) => t.statut === 'ouvert' || t.statut === 'a_refaire'))
+        setTickets(ticketsData)
         setAgents(agentsData)
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Impossible de charger les tickets.'))
@@ -367,7 +521,13 @@ export function TicketsMaintenanceSection() {
 
   useEffect(() => {
     load()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statutFilter, appartementFilter, dateDebut, dateFin, search])
+
+  useEffect(() => {
+    if (initialStatutFilter) setStatutFilter(initialStatutFilter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialStatutFilter])
 
   const handleAssigner = async (ticketId: number, values: AssignerValues) => {
     await assignerTicketMaintenance(ticketId, {
@@ -376,40 +536,49 @@ export function TicketsMaintenanceSection() {
       descriptionManagerAudio: values.descriptionManagerAudio,
       photoTransferee: values.photoTransferee,
     })
-    // Assigning removes it from the list this screen shows -- the
-    // maintenance agent's own workspace is where it lives on from here.
-    setTickets((current) => current.filter((t) => t.id !== ticketId))
+    load()
   }
 
-  const appartementOptions = useMemo(() => {
-    const seen = new Map<number, string>()
-    tickets.forEach((ticket) => {
-      if (ticket.appartement) seen.set(ticket.appartement.id, ticket.appartement.nom)
-    })
-    return Array.from(seen.entries()).map(([id, nom]) => ({ id, nom }))
-  }, [tickets])
+  const handleValider = async (ticketId: number) => {
+    await validerResolutionTicketMaintenance(ticketId)
+    load()
+  }
 
-  const visibleTickets = useMemo(() => {
-    return tickets
-      .filter((ticket) => !urgenceFilter || ticket.urgence === urgenceFilter)
-      .filter((ticket) => !appartementFilter || String(ticket.appartement_id) === appartementFilter)
-      .slice()
-      .sort((a, b) => {
-        const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        return dateSort === 'recent' ? diff : -diff
-      })
-  }, [tickets, urgenceFilter, appartementFilter, dateSort])
+  const handleRefuser = async (ticketId: number, input: RefuserInput) => {
+    await refuserResolutionTicketMaintenance(ticketId, input)
+    load()
+  }
+
+  const visibleTickets = urgenceFilter ? tickets.filter((ticket) => ticket.urgence === urgenceFilter) : tickets
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
         Tickets de maintenance
         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-          {tickets.length}
+          {visibleTickets.length}
         </span>
       </h2>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-6">
+        <div>
+          <label htmlFor="tickets_statut" className="block text-xs font-medium text-gray-500">
+            Statut
+          </label>
+          <select
+            id="tickets_statut"
+            value={statutFilter}
+            onChange={(e) => setStatutFilter(e.target.value as TicketMaintenanceStatut | '')}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Tous</option>
+            <option value="ouvert">Ouvert</option>
+            <option value="assigne">Assigné</option>
+            <option value="resolu_en_attente_validation">Résolu — en attente de validation</option>
+            <option value="a_refaire">À refaire</option>
+            <option value="resolu">Résolu</option>
+          </select>
+        </div>
         <div>
           <label htmlFor="tickets_urgence" className="block text-xs font-medium text-gray-500">
             Urgence
@@ -417,7 +586,7 @@ export function TicketsMaintenanceSection() {
           <select
             id="tickets_urgence"
             value={urgenceFilter}
-            onChange={(e) => setUrgenceFilter(e.target.value as UrgenceFilter)}
+            onChange={(e) => setUrgenceFilter(e.target.value as TicketMaintenance['urgence'] | '')}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Toutes</option>
@@ -437,26 +606,49 @@ export function TicketsMaintenanceSection() {
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Tous</option>
-            {appartementOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.nom}
+            {appartements.map((appartement) => (
+              <option key={appartement.id} value={appartement.id}>
+                {appartement.nom}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label htmlFor="tickets_tri_date" className="block text-xs font-medium text-gray-500">
-            Date
+          <label htmlFor="tickets_date_debut" className="block text-xs font-medium text-gray-500">
+            Du
           </label>
-          <select
-            id="tickets_tri_date"
-            value={dateSort}
-            onChange={(e) => setDateSort(e.target.value as DateSort)}
+          <input
+            id="tickets_date_debut"
+            type="date"
+            value={dateDebut}
+            onChange={(e) => setDateDebut(e.target.value)}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="recent">Plus récent d'abord</option>
-            <option value="ancien">Plus ancien d'abord</option>
-          </select>
+          />
+        </div>
+        <div>
+          <label htmlFor="tickets_date_fin" className="block text-xs font-medium text-gray-500">
+            Au
+          </label>
+          <input
+            id="tickets_date_fin"
+            type="date"
+            value={dateFin}
+            onChange={(e) => setDateFin(e.target.value)}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label htmlFor="tickets_recherche" className="block text-xs font-medium text-gray-500">
+            Recherche
+          </label>
+          <input
+            id="tickets_recherche"
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Référence, appartement..."
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
         </div>
       </div>
 
@@ -470,7 +662,14 @@ export function TicketsMaintenanceSection() {
       {!loading && !error && visibleTickets.length > 0 && (
         <ul className="mt-3 space-y-3">
           {visibleTickets.map((ticket) => (
-            <TicketMaintenanceCard key={ticket.id} ticket={ticket} agents={agents} onAssigner={handleAssigner} />
+            <TicketMaintenanceCard
+              key={ticket.id}
+              ticket={ticket}
+              agents={agents}
+              onAssigner={handleAssigner}
+              onValider={handleValider}
+              onRefuser={handleRefuser}
+            />
           ))}
         </ul>
       )}

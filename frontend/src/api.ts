@@ -23,6 +23,7 @@ import type {
   Sejour,
   SejourStatut,
   TicketMaintenance,
+  TicketMaintenanceStatut,
   Voyageur,
 } from './types'
 
@@ -738,9 +739,23 @@ export async function signalerProbleme(
   return parseJsonOrThrow(response)
 }
 
-export async function fetchTicketsMaintenance(statut?: string): Promise<TicketMaintenance[]> {
+export interface FetchTicketsMaintenanceParams {
+  statut?: TicketMaintenanceStatut | ''
+  appartementId?: number
+  dateDebut?: string
+  dateFin?: string
+  search?: string
+}
+
+export async function fetchTicketsMaintenance(
+  params: FetchTicketsMaintenanceParams = {},
+): Promise<TicketMaintenance[]> {
   const url = new URL(`${API_BASE_URL}/api/tickets-maintenance`)
-  if (statut) url.searchParams.set('statut', statut)
+  if (params.statut) url.searchParams.set('statut', params.statut)
+  if (params.appartementId) url.searchParams.set('appartement_id', String(params.appartementId))
+  if (params.dateDebut) url.searchParams.set('date_debut', params.dateDebut)
+  if (params.dateFin) url.searchParams.set('date_fin', params.dateFin)
+  if (params.search) url.searchParams.set('search', params.search)
 
   const response = await fetch(url, {
     headers: authHeaders(),
