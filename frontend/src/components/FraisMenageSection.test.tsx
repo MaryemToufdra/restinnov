@@ -6,9 +6,9 @@ import { FraisMenageSection } from './FraisMenageSection'
 import type { MissionMenage, ProduitCatalogue } from '../types'
 
 const catalogue: ProduitCatalogue[] = [
-  { id: 1, nom: 'Javel', prix: '12.50', actif: true },
-  { id: 2, nom: 'Sac poubelle', prix: '7.50', actif: true },
-  { id: 3, nom: 'Ancien produit', prix: '99.00', actif: false },
+  { id: 1, nom: 'Javel', prix: '12.50', photo_url: null, actif: true },
+  { id: 2, nom: 'Sac poubelle', prix: '7.50', photo_url: 'produits-catalogue/sac.jpg', actif: true },
+  { id: 3, nom: 'Ancien produit', prix: '99.00', photo_url: null, actif: false },
 ]
 
 const missionMenage: MissionMenage = {
@@ -41,6 +41,20 @@ describe('FraisMenageSection', () => {
     expect(screen.getByText(/Javel/)).toBeInTheDocument()
     expect(screen.getByText(/Sac poubelle/)).toBeInTheDocument()
     expect(screen.queryByText(/Ancien produit/)).not.toBeInTheDocument()
+  })
+
+  it('affiche la photo du produit quand présente', () => {
+    render(
+      <FraisMenageSection
+        missionMenage={missionMenage}
+        catalogue={catalogue}
+        onUpdateProduits={vi.fn()}
+        onSignalerProduit={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByAltText('Photo de "Sac poubelle"')).toBeInTheDocument()
+    expect(screen.queryByAltText('Photo de "Javel"')).not.toBeInTheDocument()
   })
 
   it('calcule le total en temps réel (forfait + produits cochés)', async () => {

@@ -221,6 +221,10 @@ function mockFetch(handlers: {
       return new Response(JSON.stringify(updated), { status: 200 })
     }
 
+    if (url === '/api/mission-menages/historique' && method === 'GET') {
+      return new Response(JSON.stringify([]), { status: 200 })
+    }
+
     if (url === '/api/logout' && method === 'POST') {
       return new Response(JSON.stringify({ message: 'Déconnecté.' }), { status: 200 })
     }
@@ -524,6 +528,17 @@ describe('App', () => {
     await openSubItem(user, 'Catalogue ménage')
     expect(await screen.findByText(/catalogue de produits de ménage/i)).toBeInTheDocument()
     expect(screen.getByText(/produits signalés en attente/i)).toBeInTheDocument()
+  })
+
+  it('affiche la section "Historique" sous le groupe Ménage', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch({ sejours: [] }) as typeof fetch
+
+    renderApp()
+    await openGroup(user, 'Ménage')
+    await openSubItem(user, 'Historique')
+
+    expect(await screen.findByText(/historique des missions de ménage/i)).toBeInTheDocument()
   })
 
   it('affiche la liste des agents de ménage, puis modifie un agent via le crayon', async () => {

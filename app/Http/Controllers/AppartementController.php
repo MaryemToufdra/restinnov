@@ -244,10 +244,12 @@ class AppartementController extends Controller
                     'checklist_modele_nom' => $item->checklist_modele_nom,
                     'coche' => $item->coche,
                     'photo_url' => $item->photo_url,
+                    'photo_reference_url' => $item->photo_reference_url,
                 ])->values(),
                 'produits' => $mission->produits->map(fn ($produit) => [
                     'nom' => $produit->nom,
                     'prix' => round((float) $produit->prix, 2),
+                    'photo_url' => $produit->photo_url,
                 ])->values(),
                 'frais_forfait' => round($fraisForfait, 2),
                 'frais_produits_total' => round($fraisProduitsTotal, 2),

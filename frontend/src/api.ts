@@ -8,6 +8,7 @@ import type {
   FraisMaintenance,
   HistoriqueMission,
   HistoriqueMissionAgent,
+  HistoriqueMissionManager,
   MissionMenage,
   ModeGestion,
   MonTicketMaintenance,
@@ -156,6 +157,7 @@ export interface UpdateUtilisateurInput {
 export interface NewProduitCatalogueInput {
   nom: string
   prix: number
+  photo?: File | null
 }
 
 export interface UpdateMissionMenageProduitsInput {
@@ -337,11 +339,16 @@ export async function createChecklistModele(nom: string): Promise<ChecklistModel
 export async function createChecklistModeleItem(
   checklistModeleId: number,
   libelle: string,
+  photo?: File | null,
 ): Promise<ChecklistModeleItem> {
+  const formData = new FormData()
+  formData.append('libelle', libelle)
+  if (photo) formData.append('photo', photo)
+
   const response = await fetch(`${API_BASE_URL}/api/checklist-modeles/${checklistModeleId}/items`, {
     method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ libelle }),
+    headers: authHeaders(),
+    body: formData,
   })
 
   return parseJsonOrThrow(response)
@@ -521,10 +528,15 @@ export async function fetchProduitsCatalogue(): Promise<ProduitCatalogue[]> {
 }
 
 export async function createProduitCatalogue(input: NewProduitCatalogueInput): Promise<ProduitCatalogue> {
+  const formData = new FormData()
+  formData.append('nom', input.nom)
+  formData.append('prix', String(input.prix))
+  if (input.photo) formData.append('photo', input.photo)
+
   const response = await fetch(`${API_BASE_URL}/api/produits-catalogue`, {
     method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(input),
+    headers: authHeaders(),
+    body: formData,
   })
 
   return parseJsonOrThrow(response)
@@ -816,6 +828,27 @@ export async function fetchNotifications(): Promise<NotificationsData> {
 
 export async function fetchAppartementHistorique(appartementId: number): Promise<HistoriqueMission[]> {
   const response = await fetch(`${API_BASE_URL}/api/appartements/${appartementId}/historique`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export interface FetchHistoriqueMenageParams {
+  appartementId?: number
+  dateDebut?: string
+  dateFin?: string
+}
+
+export async function fetchHistoriqueMenage(
+  params: FetchHistoriqueMenageParams = {},
+): Promise<HistoriqueMissionManager[]> {
+  const url = new URL(`${API_BASE_URL}/api/mission-menages/historique`)
+  if (params.appartementId) url.searchParams.set('appartement_id', String(params.appartementId))
+  if (params.dateDebut) url.searchParams.set('date_debut', params.dateDebut)
+  if (params.dateFin) url.searchParams.set('date_fin', params.dateFin)
+
+  const response = await fetch(url, {
     headers: authHeaders(),
   })
 

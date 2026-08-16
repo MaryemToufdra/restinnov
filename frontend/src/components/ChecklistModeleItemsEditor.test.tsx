@@ -9,8 +9,8 @@ function modeleFixture(overrides: Partial<ChecklistModele> = {}): ChecklistModel
     id: 1,
     nom: 'Standard',
     items: [
-      { id: 1, checklist_modele_id: 1, libelle: 'Item 1', ordre: 0 },
-      { id: 2, checklist_modele_id: 1, libelle: 'Item 2', ordre: 1 },
+      { id: 1, checklist_modele_id: 1, libelle: 'Item 1', photo_url: null, ordre: 0 },
+      { id: 2, checklist_modele_id: 1, libelle: 'Item 2', photo_url: 'checklist-modele-items/item2.jpg', ordre: 1 },
     ],
     ...overrides,
   }
@@ -44,7 +44,7 @@ describe('ChecklistModeleItemsEditor', () => {
     expect(screen.getByText(/aucun item/i)).toBeInTheDocument()
   })
 
-  it('ajoute un item via le champ texte', async () => {
+  it('ajoute un item via le champ texte, sans photo', async () => {
     const user = userEvent.setup()
     const onAddItem = vi.fn().mockResolvedValue(undefined)
     render(
@@ -59,7 +59,41 @@ describe('ChecklistModeleItemsEditor', () => {
     await user.type(screen.getByLabelText(/nouvel item pour standard/i), 'Nettoyer la salle de bain')
     await user.click(screen.getByRole('button', { name: /ajouter/i }))
 
-    expect(onAddItem).toHaveBeenCalledWith(1, 'Nettoyer la salle de bain')
+    expect(onAddItem).toHaveBeenCalledWith(1, 'Nettoyer la salle de bain', null)
+  })
+
+  it('inclut la photo de référence sélectionnée à l\'ajout', async () => {
+    const user = userEvent.setup()
+    const onAddItem = vi.fn().mockResolvedValue(undefined)
+    render(
+      <ChecklistModeleItemsEditor
+        checklistModele={modeleFixture()}
+        onAddItem={onAddItem}
+        onDeplacerItem={vi.fn()}
+        onDeleteItem={vi.fn()}
+      />,
+    )
+
+    const photo = new File(['x'], 'exemple.jpg', { type: 'image/jpeg' })
+    await user.type(screen.getByLabelText(/nouvel item pour standard/i), 'Nettoyer la salle de bain')
+    await user.upload(screen.getByLabelText(/photo de référence pour le nouvel item/i), photo)
+    await user.click(screen.getByRole('button', { name: /ajouter/i }))
+
+    expect(onAddItem).toHaveBeenCalledWith(1, 'Nettoyer la salle de bain', photo)
+  })
+
+  it('affiche la photo de référence d\'un item existant quand présente', () => {
+    render(
+      <ChecklistModeleItemsEditor
+        checklistModele={modeleFixture()}
+        onAddItem={vi.fn()}
+        onDeplacerItem={vi.fn()}
+        onDeleteItem={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByAltText('Photo de référence pour "Item 2"')).toBeInTheDocument()
+    expect(screen.queryByAltText('Photo de référence pour "Item 1"')).not.toBeInTheDocument()
   })
 
   it('le bouton monter est désactivé sur le premier item, descendre sur le dernier', () => {

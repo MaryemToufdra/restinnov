@@ -97,6 +97,24 @@ class ProduitSignaleTest extends TestCase
         ]);
     }
 
+    public function test_validating_a_produit_signale_carries_its_photo_over_to_the_new_catalogue_entry(): void
+    {
+        $mission = $this->missionMenage();
+        $signale = $this->produitSignale($mission);
+
+        $response = $this->patchJson("/api/produits-signales/{$signale->id}/valider", [
+            'nom' => 'Éponge magique',
+            'prix' => 15,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('produit_catalogue.photo_url', 'produits-signales/fake.jpg');
+        $this->assertDatabaseHas('produits_menage_catalogue', [
+            'nom' => 'Éponge magique',
+            'photo_url' => 'produits-signales/fake.jpg',
+        ]);
+    }
+
     public function test_it_rejects_a_produit_signale(): void
     {
         $mission = $this->missionMenage();

@@ -16,6 +16,7 @@ class ChecklistItem extends Model
         'checklist_modele_nom',
         'coche',
         'photo_url',
+        'photo_reference_url',
         'ordre',
     ];
 
