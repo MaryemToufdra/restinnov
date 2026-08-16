@@ -5,10 +5,12 @@ import {
   deleteFraisMaintenance,
   fetchSejour,
   fetchSejours,
+  refuserMissionMenage,
   signalerProduit,
   updateMissionMenageProduits,
   validerMissionMenage,
   type NewFraisMaintenanceInput,
+  type RefuserInput,
   type SignalerProduitInput,
   type UpdateMissionMenageProduitsInput,
 } from '../api'
@@ -206,6 +208,14 @@ export function SejoursListeSection({
     )
   }
 
+  const handleRefuserMission = async (missionMenageId: number, input: RefuserInput) => {
+    const updated = await refuserMissionMenage(missionMenageId, input)
+    applySejourUpdate(
+      (s) => s.mission_menage?.id === missionMenageId,
+      (s) => ({ ...s, mission_menage: updated }),
+    )
+  }
+
   const handleUpdateMissionProduits = async (missionMenageId: number, input: UpdateMissionMenageProduitsInput) => {
     const updated = await updateMissionMenageProduits(missionMenageId, input)
     applySejourUpdate(
@@ -257,6 +267,7 @@ export function SejoursListeSection({
             catalogue={catalogue}
             onCheckout={handleCheckout}
             onValiderMission={handleValiderMission}
+            onRefuserMission={handleRefuserMission}
             onUpdateMissionProduits={handleUpdateMissionProduits}
             onSignalerProduit={handleSignalerProduit}
             onAddFraisMaintenance={handleAddFraisMaintenance}

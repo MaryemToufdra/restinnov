@@ -122,7 +122,12 @@ describe('MissionDetailAgent', () => {
   })
 
   it('affiche un avertissement clair quand la mission a été renvoyée (non_conforme)', async () => {
-    globalThis.fetch = mockFetch(missionFixture({ statut: 'non_conforme' })) as typeof fetch
+    globalThis.fetch = mockFetch(
+      missionFixture({
+        statut: 'non_conforme',
+        refus: [{ id: 1, motif: 'La salle de bain n\'est pas propre.', motif_audio_url: null, motif_photo_url: null, vu: true, created_at: '2026-08-11T10:00:00Z' }],
+      }),
+    ) as typeof fetch
 
     render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
 

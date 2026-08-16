@@ -101,7 +101,7 @@ export function HistoriqueAgentSection() {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900">Historique</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Validées</h3>
 
       {loading && <p className="mt-4 text-sm text-gray-500">Chargement...</p>}
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}

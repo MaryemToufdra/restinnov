@@ -358,7 +358,7 @@ class TicketMaintenanceManagementTest extends TestCase
         $response->assertJsonPath('0.description_manager', 'Réparer la fuite.');
     }
 
-    public function test_mes_tickets_only_includes_tickets_with_statut_assigne(): void
+    public function test_mes_tickets_includes_assigne_a_refaire_and_resolu_en_attente_validation_but_not_resolu(): void
     {
         $agent = $this->agentMaintenance();
         $this->ticket(['statut' => 'ouvert', 'agent_id' => null]);
@@ -371,8 +371,11 @@ class TicketMaintenanceManagementTest extends TestCase
         $response = $this->getJson('/api/tickets-maintenance/mes-tickets');
 
         $response->assertOk();
-        $response->assertJsonCount(1);
-        $response->assertJsonPath('0.statut', 'assigne');
+        $response->assertJsonCount(2);
+        $statuts = collect($response->json())->pluck('statut')->all();
+        $this->assertContains('assigne', $statuts);
+        $this->assertContains('resolu_en_attente_validation', $statuts);
+        $this->assertNotContains('resolu', $statuts);
     }
 
     public function test_mes_tickets_never_exposes_the_menage_agent_description_and_audio(): void

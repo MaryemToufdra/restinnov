@@ -27,6 +27,9 @@ function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMainte
       {
         id: 1,
         motif: 'La fuite persiste.',
+        motif_audio_url: null,
+        motif_photo_url: null,
+        vu: true,
         created_at: '2026-08-11T10:00:00Z',
         manager: { id: 9, nom: 'Sophie M.' },
       },
@@ -79,8 +82,24 @@ describe('HistoriqueTicketsSection', () => {
     globalThis.fetch = mockFetch([
       ticketFixture({
         refus: [
-          { id: 2, motif: 'Second refus.', created_at: '2026-08-12T10:00:00Z', manager: { id: 9, nom: 'Sophie M.' } },
-          { id: 1, motif: 'Premier refus.', created_at: '2026-08-11T10:00:00Z', manager: { id: 9, nom: 'Sophie M.' } },
+          {
+            id: 2,
+            motif: 'Second refus.',
+            motif_audio_url: null,
+            motif_photo_url: null,
+            vu: true,
+            created_at: '2026-08-12T10:00:00Z',
+            manager: { id: 9, nom: 'Sophie M.' },
+          },
+          {
+            id: 1,
+            motif: 'Premier refus.',
+            motif_audio_url: null,
+            motif_photo_url: null,
+            vu: true,
+            created_at: '2026-08-11T10:00:00Z',
+            manager: { id: 9, nom: 'Sophie M.' },
+          },
         ],
       }),
     ]) as typeof fetch
