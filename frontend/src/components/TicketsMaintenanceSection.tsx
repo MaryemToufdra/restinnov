@@ -1,18 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { assignerTicketMaintenance, fetchTicketsMaintenance, fetchUtilisateurs, resolveStorageUrl } from '../api'
 import type { Agent, TicketMaintenance } from '../types'
-
-const URGENCE_LABELS: Record<TicketMaintenance['urgence'], string> = {
-  basse: 'Basse',
-  normale: 'Normale',
-  haute: 'Haute',
-}
-
-const URGENCE_STYLES: Record<TicketMaintenance['urgence'], string> = {
-  basse: 'bg-gray-100 text-gray-600',
-  normale: 'bg-blue-100 text-blue-800',
-  haute: 'bg-red-100 text-red-800',
-}
+import { URGENCE_LABELS, URGENCE_STYLES } from '../utils/urgence'
 
 type ExpressionMode = 'texte' | 'audio'
 
@@ -25,7 +14,11 @@ interface AssignerValues {
   photoTransferee: boolean
 }
 
-function TicketMaintenanceCard({
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function AssignerForm({
   ticket,
   agents,
   onAssigner,
@@ -122,40 +115,7 @@ function TicketMaintenanceCard({
   }
 
   return (
-    <li className="rounded-md border border-gray-200 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="font-medium text-gray-900">
-            {ticket.appartement?.nom ?? `Appartement #${ticket.appartement_id}`}
-          </p>
-          <p className="text-sm text-gray-500">{ticket.appartement?.adresse}</p>
-          {ticket.mission_origine?.sejour && (
-            <p className="text-xs text-gray-400">
-              Signalé pendant le séjour de {ticket.mission_origine.sejour.nom_voyageur} (
-              {ticket.mission_origine.sejour.reference})
-            </p>
-          )}
-        </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${URGENCE_STYLES[ticket.urgence]}`}>
-          Urgence {URGENCE_LABELS[ticket.urgence]}
-        </span>
-      </div>
-
-      {ticket.description && <p className="mt-2 text-sm text-gray-700">{ticket.description}</p>}
-
-      {ticket.photo_url && (
-        <img
-          src={resolveStorageUrl(ticket.photo_url)}
-          alt="Photo du problème signalé"
-          className="mt-2 h-32 w-32 rounded-md object-cover"
-        />
-      )}
-
-      {ticket.audio_url && (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio controls src={resolveStorageUrl(ticket.audio_url)} className="mt-2 w-full" />
-      )}
-
+    <>
       <div className="mt-3">
         <p className="block text-xs font-medium text-gray-600">Message pour l'agent de maintenance</p>
         <div className="mt-1 flex gap-1" role="tablist">
@@ -272,22 +232,133 @@ function TicketMaintenanceCard({
         </button>
       </div>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </>
+  )
+}
+
+function TicketMaintenanceCard({
+  ticket,
+  agents,
+  onAssigner,
+}: {
+  ticket: TicketMaintenance
+  agents: Agent[]
+  onAssigner: (ticketId: number, values: AssignerValues) => Promise<void>
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const isARefaire = ticket.statut === 'a_refaire'
+
+  return (
+    <li className="rounded-md border border-gray-200">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className="flex w-full flex-wrap items-start justify-between gap-2 p-4 text-left"
+      >
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 font-medium text-gray-900">
+            <span className="truncate">{ticket.appartement?.nom ?? `Appartement #${ticket.appartement_id}`}</span>
+            <span className="shrink-0 text-xs font-normal text-gray-400">{ticket.reference}</span>
+          </p>
+          <p className="truncate text-sm text-gray-700">{ticket.description || 'Aucune description.'}</p>
+          <p className="text-xs text-gray-400">
+            {formatDate(ticket.created_at)}
+            {ticket.mission_origine?.agent?.nom && ` · Signalé par ${ticket.mission_origine.agent.nom}`}
+          </p>
+          {isARefaire && (
+            <span className="mt-1 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+              Renvoyé par le Manager — à refaire
+            </span>
+          )}
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${URGENCE_STYLES[ticket.urgence]}`}
+        >
+          Urgence {URGENCE_LABELS[ticket.urgence]}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-gray-100 p-4 pt-3">
+          {ticket.mission_origine?.sejour && (
+            <p className="text-xs text-gray-400">
+              Signalé pendant le séjour de {ticket.mission_origine.sejour.nom_voyageur} (
+              {ticket.mission_origine.sejour.reference})
+            </p>
+          )}
+
+          {ticket.photo_url && (
+            <img
+              src={resolveStorageUrl(ticket.photo_url)}
+              alt="Photo du problème signalé"
+              className="mt-2 h-32 w-32 rounded-md object-cover"
+            />
+          )}
+
+          {ticket.audio_url && (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <audio controls src={resolveStorageUrl(ticket.audio_url)} className="mt-2 w-full" />
+          )}
+
+          {isARefaire ? (
+            <div className="mt-3 space-y-3">
+              {ticket.description_manager && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Message pour l'agent : </span>
+                  {ticket.description_manager}
+                </p>
+              )}
+              {ticket.agent && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Agent assigné : </span>
+                  {ticket.agent.nom}
+                </p>
+              )}
+              {ticket.refus && ticket.refus.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-600">Historique des refus</p>
+                  <ul className="mt-1 space-y-2">
+                    {ticket.refus.map((refus) => (
+                      <li key={refus.id} className="rounded-md bg-red-50 p-2 text-sm text-red-700">
+                        <p className="text-xs text-red-500">
+                          {formatDate(refus.created_at)}
+                          {refus.manager?.nom && ` · ${refus.manager.nom}`}
+                        </p>
+                        {refus.motif}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <AssignerForm ticket={ticket} agents={agents} onAssigner={onAssigner} />
+          )}
+        </div>
+      )}
     </li>
   )
 }
+
+type UrgenceFilter = TicketMaintenance['urgence'] | ''
+type DateSort = 'recent' | 'ancien'
 
 export function TicketsMaintenanceSection() {
   const [tickets, setTickets] = useState<TicketMaintenance[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [urgenceFilter, setUrgenceFilter] = useState<UrgenceFilter>('')
+  const [appartementFilter, setAppartementFilter] = useState('')
+  const [dateSort, setDateSort] = useState<DateSort>('recent')
 
   const load = () => {
     setLoading(true)
     setError(null)
-    Promise.all([fetchTicketsMaintenance('ouvert'), fetchUtilisateurs({ role: 'maintenance' })])
+    Promise.all([fetchTicketsMaintenance(), fetchUtilisateurs({ role: 'maintenance' })])
       .then(([ticketsData, agentsData]) => {
-        setTickets(ticketsData)
+        setTickets(ticketsData.filter((t) => t.statut === 'ouvert' || t.statut === 'a_refaire'))
         setAgents(agentsData)
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Impossible de charger les tickets.'))
@@ -305,30 +376,100 @@ export function TicketsMaintenanceSection() {
       descriptionManagerAudio: values.descriptionManagerAudio,
       photoTransferee: values.photoTransferee,
     })
-    // Assigning removes it from the "ouverts" list this screen shows --
-    // the maintenance agent's own workspace is where it lives on from here.
+    // Assigning removes it from the list this screen shows -- the
+    // maintenance agent's own workspace is where it lives on from here.
     setTickets((current) => current.filter((t) => t.id !== ticketId))
   }
+
+  const appartementOptions = useMemo(() => {
+    const seen = new Map<number, string>()
+    tickets.forEach((ticket) => {
+      if (ticket.appartement) seen.set(ticket.appartement.id, ticket.appartement.nom)
+    })
+    return Array.from(seen.entries()).map(([id, nom]) => ({ id, nom }))
+  }, [tickets])
+
+  const visibleTickets = useMemo(() => {
+    return tickets
+      .filter((ticket) => !urgenceFilter || ticket.urgence === urgenceFilter)
+      .filter((ticket) => !appartementFilter || String(ticket.appartement_id) === appartementFilter)
+      .slice()
+      .sort((a, b) => {
+        const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        return dateSort === 'recent' ? diff : -diff
+      })
+  }, [tickets, urgenceFilter, appartementFilter, dateSort])
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-        Tickets de maintenance ouverts
+        Tickets de maintenance
         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
           {tickets.length}
         </span>
       </h2>
 
+      <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-3">
+        <div>
+          <label htmlFor="tickets_urgence" className="block text-xs font-medium text-gray-500">
+            Urgence
+          </label>
+          <select
+            id="tickets_urgence"
+            value={urgenceFilter}
+            onChange={(e) => setUrgenceFilter(e.target.value as UrgenceFilter)}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Toutes</option>
+            <option value="haute">Haute</option>
+            <option value="normale">Normale</option>
+            <option value="basse">Basse</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="tickets_appartement" className="block text-xs font-medium text-gray-500">
+            Appartement
+          </label>
+          <select
+            id="tickets_appartement"
+            value={appartementFilter}
+            onChange={(e) => setAppartementFilter(e.target.value)}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Tous</option>
+            {appartementOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.nom}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="tickets_tri_date" className="block text-xs font-medium text-gray-500">
+            Date
+          </label>
+          <select
+            id="tickets_tri_date"
+            value={dateSort}
+            onChange={(e) => setDateSort(e.target.value as DateSort)}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="recent">Plus récent d'abord</option>
+            <option value="ancien">Plus ancien d'abord</option>
+          </select>
+        </div>
+      </div>
+
       {loading && <p className="mt-2 text-sm text-gray-500">Chargement...</p>}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-      {!loading && !error && tickets.length === 0 && (
-        <p className="mt-2 text-sm text-gray-500">Aucun ticket de maintenance ouvert.</p>
+      {!loading && !error && visibleTickets.length === 0 && (
+        <p className="mt-2 text-sm text-gray-500">Aucun ticket de maintenance.</p>
       )}
 
-      {!loading && !error && tickets.length > 0 && (
+      {!loading && !error && visibleTickets.length > 0 && (
         <ul className="mt-3 space-y-3">
-          {tickets.map((ticket) => (
+          {visibleTickets.map((ticket) => (
             <TicketMaintenanceCard key={ticket.id} ticket={ticket} agents={agents} onAssigner={handleAssigner} />
           ))}
         </ul>

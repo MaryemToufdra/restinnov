@@ -1,18 +1,7 @@
 import { useRef, useState } from 'react'
 import { resoudreTicketMaintenance, resolveStorageUrl } from '../api'
-import type { MonTicketMaintenance, TicketMaintenanceUrgence } from '../types'
-
-const URGENCE_LABELS: Record<TicketMaintenanceUrgence, string> = {
-  basse: 'Basse',
-  normale: 'Normale',
-  haute: 'Haute',
-}
-
-const URGENCE_STYLES: Record<TicketMaintenanceUrgence, string> = {
-  basse: 'bg-gray-100 text-gray-600',
-  normale: 'bg-blue-100 text-blue-800',
-  haute: 'bg-red-100 text-red-800',
-}
+import type { MonTicketMaintenance } from '../types'
+import { URGENCE_LABELS, URGENCE_STYLES } from '../utils/urgence'
 
 interface TicketDetailAgentProps {
   ticket: MonTicketMaintenance
@@ -74,7 +63,10 @@ export function TicketDetailAgent({ ticket, onBack, onResolu }: TicketDetailAgen
       <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="text-lg font-semibold text-gray-900">{ticket.appartement?.nom ?? 'Appartement'}</p>
+            <p className="text-lg font-semibold text-gray-900">
+              {ticket.appartement?.nom ?? 'Appartement'}
+              <span className="ml-2 text-xs font-normal text-gray-400">{ticket.reference}</span>
+            </p>
             <p className="text-sm text-gray-500">{ticket.appartement?.adresse}</p>
           </div>
           <span
@@ -83,6 +75,18 @@ export function TicketDetailAgent({ ticket, onBack, onResolu }: TicketDetailAgen
             Urgence {URGENCE_LABELS[ticket.urgence]}
           </span>
         </div>
+
+        {ticket.statut === 'a_refaire' && ticket.refus.length > 0 && (
+          <p
+            data-testid="refus-banner"
+            className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
+          >
+            <span aria-hidden="true">⚠️</span>
+            <span>
+              Renvoyé par le Manager — à refaire : {ticket.refus[0].motif}
+            </span>
+          </p>
+        )}
 
         {ticket.description_manager && (
           <p className="mt-3 text-sm text-gray-700">{ticket.description_manager}</p>

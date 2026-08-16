@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TicketsMaintenanceSection } from './TicketsMaintenanceSection'
@@ -7,6 +7,7 @@ import type { Agent, TicketMaintenance } from '../types'
 function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMaintenance {
   return {
     id: 1,
+    reference: 'MNT-0001',
     appartement_id: 1,
     mission_origine_id: 1,
     agent_id: null,
@@ -21,13 +22,15 @@ function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMainte
     note_resolution: null,
     urgence: 'normale',
     statut: 'ouvert',
+    created_at: '2026-08-10T09:00:00Z',
+    refus: [],
     appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'disponible', photo_principale: null, agent_habituel_id: null },
     mission_origine: {
       id: 1,
       sejour_id: 1,
       agent_id: 2,
       statut: 'en_cours',
-      agent: null,
+      agent: { id: 2, nom: 'Fatima Z.', role: 'menage', telephone: null },
       frais_forfait: 0,
       vue: true,
       sejour: {
@@ -92,6 +95,10 @@ function mockFetch(tickets: TicketMaintenance[], agents: Agent[]) {
   })
 }
 
+async function expandTicket(user: ReturnType<typeof userEvent.setup>, description: string) {
+  await user.click(await screen.findByText(description))
+}
+
 describe('TicketsMaintenanceSection', () => {
   const originalMediaRecorder = window.MediaRecorder
   const originalMediaDevices = navigator.mediaDevices
@@ -107,18 +114,42 @@ describe('TicketsMaintenanceSection', () => {
     Object.defineProperty(navigator, 'mediaDevices', { value: originalMediaDevices, configurable: true })
   })
 
-  it('affiche les tickets ouverts avec description, appartement et séjour', async () => {
+  it('affiche les tickets avec référence, appartement et aperçu tronqué du problème', async () => {
     globalThis.fetch = mockFetch([ticketFixture()], []) as typeof fetch
 
     render(<TicketsMaintenanceSection />)
 
     expect(await screen.findByText('Le robinet fuit.')).toBeInTheDocument()
-    expect(screen.getByText('Loft Bastille')).toBeInTheDocument()
-    expect(screen.getByText(/SEJ-0001/)).toBeInTheDocument()
-    expect(screen.getByText('1')).toBeInTheDocument()
+    const card = screen.getByRole('listitem')
+    expect(within(card).getByText('Loft Bastille')).toBeInTheDocument()
+    expect(within(card).getByText('MNT-0001')).toBeInTheDocument()
+    expect(within(card).getByText(/signalé par fatima z\./i)).toBeInTheDocument()
   })
 
-  it('affiche la photo et le lecteur audio du signalement quand présents', async () => {
+  it('replie la carte par défaut et ne montre le contenu complet qu\'après un clic', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch(
+      [ticketFixture({ photo_url: 'tickets-maintenance/photo.jpg' })],
+      [agentFixture()],
+    ) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Le robinet fuit.')
+    expect(screen.queryByLabelText(/^agent de maintenance$/i)).not.toBeInTheDocument()
+    expect(screen.queryByAltText(/photo du problème signalé/i)).not.toBeInTheDocument()
+
+    await expandTicket(user, 'Le robinet fuit.')
+
+    expect(screen.getByLabelText(/^agent de maintenance$/i)).toBeInTheDocument()
+    expect(screen.getByAltText(/photo du problème signalé/i)).toBeInTheDocument()
+
+    await expandTicket(user, 'Le robinet fuit.')
+    expect(screen.queryByLabelText(/^agent de maintenance$/i)).not.toBeInTheDocument()
+  })
+
+  it('affiche la photo et le lecteur audio du signalement quand présents, une fois dépliée', async () => {
+    const user = userEvent.setup()
     globalThis.fetch = mockFetch(
       [ticketFixture({ photo_url: 'tickets-maintenance/photo.jpg', audio_url: 'tickets-maintenance/audio.webm' })],
       [],
@@ -126,25 +157,26 @@ describe('TicketsMaintenanceSection', () => {
 
     render(<TicketsMaintenanceSection />)
 
-    await screen.findByText('Le robinet fuit.')
+    await expandTicket(user, 'Le robinet fuit.')
     expect(screen.getByAltText(/photo du problème signalé/i)).toBeInTheDocument()
     expect(document.querySelector('audio')).toBeInTheDocument()
   })
 
-  it('affiche un message quand aucun ticket n\'est ouvert', async () => {
+  it('affiche un message quand aucun ticket n\'est présent', async () => {
     globalThis.fetch = mockFetch([], []) as typeof fetch
 
     render(<TicketsMaintenanceSection />)
 
-    expect(await screen.findByText(/aucun ticket de maintenance ouvert/i)).toBeInTheDocument()
+    expect(await screen.findByText(/aucun ticket de maintenance\./i)).toBeInTheDocument()
   })
 
   it('le bouton Assigner est désactivé tant qu\'aucun agent ni description n\'est renseigné', async () => {
+    const user = userEvent.setup()
     globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
 
     render(<TicketsMaintenanceSection />)
+    await expandTicket(user, 'Le robinet fuit.')
 
-    await screen.findByText('Le robinet fuit.')
     expect(screen.getByRole('button', { name: /assigner/i })).toBeDisabled()
   })
 
@@ -153,8 +185,7 @@ describe('TicketsMaintenanceSection', () => {
     globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
 
     render(<TicketsMaintenanceSection />)
-
-    await screen.findByText('Le robinet fuit.')
+    await expandTicket(user, 'Le robinet fuit.')
     await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), '5')
 
     expect(screen.getByRole('button', { name: /assigner/i })).toBeDisabled()
@@ -165,8 +196,7 @@ describe('TicketsMaintenanceSection', () => {
     globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
 
     render(<TicketsMaintenanceSection />)
-
-    await screen.findByText('Le robinet fuit.')
+    await expandTicket(user, 'Le robinet fuit.')
     await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), '5')
     await user.type(screen.getByLabelText(/instruction écrite pour l'agent/i), 'Changer le joint.')
 
@@ -180,8 +210,7 @@ describe('TicketsMaintenanceSection', () => {
     globalThis.fetch = fetchMock as typeof fetch
 
     render(<TicketsMaintenanceSection />)
-
-    await screen.findByText('Le robinet fuit.')
+    await expandTicket(user, 'Le robinet fuit.')
     await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), String(agent.id))
     await user.type(screen.getByLabelText(/instruction écrite pour l'agent/i), 'Changer le joint.')
     await user.click(screen.getByRole('button', { name: /assigner/i }))
@@ -194,7 +223,7 @@ describe('TicketsMaintenanceSection', () => {
       expect(body.get('description_manager')).toBe('Changer le joint.')
     })
     await waitFor(() => expect(screen.queryByText('Le robinet fuit.')).not.toBeInTheDocument())
-    expect(screen.getByText(/aucun ticket de maintenance ouvert/i)).toBeInTheDocument()
+    expect(screen.getByText(/aucun ticket de maintenance\./i)).toBeInTheDocument()
   })
 
   it('bascule vers l\'onglet audio, enregistre un message et l\'envoie sans texte', async () => {
@@ -224,7 +253,7 @@ describe('TicketsMaintenanceSection', () => {
 
     render(<TicketsMaintenanceSection />)
 
-    await screen.findByText('Le robinet fuit.')
+    await expandTicket(user, 'Le robinet fuit.')
     await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), String(agent.id))
     await user.click(screen.getByRole('tab', { name: /enregistrer un audio/i }))
     await user.click(screen.getByRole('button', { name: /démarrer l'enregistrement/i }))
@@ -245,11 +274,11 @@ describe('TicketsMaintenanceSection', () => {
   })
 
   it('n\'affiche la case "Transférer la photo" que si le signalement a une photo', async () => {
+    const user = userEvent.setup()
     globalThis.fetch = mockFetch([ticketFixture({ photo_url: null })], [agentFixture()]) as typeof fetch
 
     render(<TicketsMaintenanceSection />)
-
-    await screen.findByText('Le robinet fuit.')
+    await expandTicket(user, 'Le robinet fuit.')
     expect(screen.queryByText(/transférer la photo/i)).not.toBeInTheDocument()
   })
 
@@ -260,8 +289,7 @@ describe('TicketsMaintenanceSection', () => {
     globalThis.fetch = fetchMock as typeof fetch
 
     render(<TicketsMaintenanceSection />)
-
-    await screen.findByText('Le robinet fuit.')
+    await expandTicket(user, 'Le robinet fuit.')
     const checkbox = screen.getByRole('checkbox', { name: /transférer la photo/i })
     expect(checkbox).not.toBeChecked()
 
@@ -276,5 +304,95 @@ describe('TicketsMaintenanceSection', () => {
       const body = call![1]!.body as FormData
       expect(body.get('photo_transferee')).toBe('1')
     })
+  })
+
+  it('affiche un ticket à refaire avec le badge et l\'historique des refus, sans formulaire d\'assignation', async () => {
+    const user = userEvent.setup()
+    const ticket = ticketFixture({
+      statut: 'a_refaire',
+      agent_id: 5,
+      agent: agentFixture(),
+      description_manager: 'Changer le joint.',
+      refus: [
+        {
+          id: 1,
+          motif: 'La fuite persiste.',
+          created_at: '2026-08-11T10:00:00Z',
+          manager: { id: 9, nom: 'Sophie M.' },
+        },
+      ],
+    })
+    globalThis.fetch = mockFetch([ticket], []) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    expect(await screen.findByText(/renvoyé par le manager/i)).toBeInTheDocument()
+
+    await expandTicket(user, 'Le robinet fuit.')
+
+    expect(screen.getByText('Karim B.')).toBeInTheDocument()
+    expect(screen.getByText('La fuite persiste.')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^agent de maintenance$/i)).not.toBeInTheDocument()
+  })
+
+  it('filtre les tickets par urgence', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch(
+      [
+        ticketFixture({ id: 1, urgence: 'haute', description: 'Fuite grave' }),
+        ticketFixture({ id: 2, urgence: 'basse', description: 'Ampoule à changer' }),
+      ],
+      [],
+    ) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Fuite grave')
+    expect(screen.getByText('Ampoule à changer')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText(/^urgence$/i), 'haute')
+
+    expect(screen.getByText('Fuite grave')).toBeInTheDocument()
+    expect(screen.queryByText('Ampoule à changer')).not.toBeInTheDocument()
+  })
+
+  it('filtre les tickets par appartement', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch(
+      [
+        ticketFixture({ id: 1, description: 'Fuite grave' }),
+        ticketFixture({
+          id: 2,
+          description: 'Ampoule à changer',
+          appartement_id: 2,
+          appartement: { id: 2, nom: 'Zenith', adresse: 'B', statut: 'disponible', photo_principale: null, agent_habituel_id: null },
+        }),
+      ],
+      [],
+    ) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Fuite grave')
+    await user.selectOptions(screen.getByLabelText(/^appartement$/i), '2')
+
+    expect(screen.queryByText('Fuite grave')).not.toBeInTheDocument()
+    expect(screen.getByText('Ampoule à changer')).toBeInTheDocument()
+  })
+
+  it('trie les tickets par date, plus récent en premier par défaut', async () => {
+    globalThis.fetch = mockFetch(
+      [
+        ticketFixture({ id: 1, description: 'Ancien ticket', created_at: '2026-01-01T09:00:00Z' }),
+        ticketFixture({ id: 2, description: 'Nouveau ticket', created_at: '2026-08-01T09:00:00Z' }),
+      ],
+      [],
+    ) as typeof fetch
+
+    render(<TicketsMaintenanceSection />)
+
+    await screen.findByText('Ancien ticket')
+    const descriptions = screen.getAllByText(/ticket$/).map((el) => el.textContent)
+    expect(descriptions).toEqual(['Nouveau ticket', 'Ancien ticket'])
   })
 })

@@ -761,6 +761,16 @@ export async function validerResolutionTicketMaintenance(id: number): Promise<Ti
   return parseJsonOrThrow(response)
 }
 
+export async function refuserResolutionTicketMaintenance(id: number, motif: string): Promise<TicketMaintenance> {
+  const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/${id}/refuser-resolution`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ motif }),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
 export async function createFraisMaintenance(
   sejourId: number,
   input: NewFraisMaintenanceInput,

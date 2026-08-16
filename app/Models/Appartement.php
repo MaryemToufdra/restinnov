@@ -80,6 +80,7 @@ class Appartement extends Model
                     TicketMaintenance::STATUT_OUVERT,
                     TicketMaintenance::STATUT_ASSIGNE,
                     TicketMaintenance::STATUT_RESOLU_EN_ATTENTE_VALIDATION,
+                    TicketMaintenance::STATUT_A_REFAIRE,
                 ],
             ),
         ]);

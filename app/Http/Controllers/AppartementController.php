@@ -47,8 +47,8 @@ class AppartementController extends Controller
         if (! empty($validated['statut'])) {
             // Mirrors statutCalcule() exactly: "maintenance" only while an
             // unresolved ticket exists (ouvert/assigne/resolu_en_attente_
-            // validation -- only the Manager's final "resolu" actually
-            // frees the appartement), "occupé" only while a sejour is
+            // validation/a_refaire -- only the Manager's final "resolu"
+            // actually frees the appartement), "occupé" only while a sejour is
             // actually en_cours (and no such ticket), "en_menage" only
             // while a mission_menage is still active
             // (a_faire/en_cours/en_attente_validation) with neither of the
@@ -59,6 +59,7 @@ class AppartementController extends Controller
                 TicketMaintenance::STATUT_OUVERT,
                 TicketMaintenance::STATUT_ASSIGNE,
                 TicketMaintenance::STATUT_RESOLU_EN_ATTENTE_VALIDATION,
+                TicketMaintenance::STATUT_A_REFAIRE,
             ]);
             $enCours = fn ($q) => $q->where('statut', Sejour::STATUT_EN_COURS);
             $missionActive = fn ($q) => $q->whereHas(

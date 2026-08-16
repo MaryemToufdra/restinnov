@@ -8,7 +8,12 @@ export type ProduitSignaleStatut = 'en_attente' | 'valide' | 'rejete'
 
 export type TicketMaintenanceUrgence = 'basse' | 'normale' | 'haute'
 
-export type TicketMaintenanceStatut = 'ouvert' | 'assigne' | 'resolu_en_attente_validation' | 'resolu'
+export type TicketMaintenanceStatut =
+  | 'ouvert'
+  | 'assigne'
+  | 'resolu_en_attente_validation'
+  | 'resolu'
+  | 'a_refaire'
 
 export interface ChecklistModeleItem {
   id: number
@@ -103,8 +108,16 @@ export interface MissionMenage {
   sejour?: { id: number; appartement: Appartement | null } | null
 }
 
+export interface TicketMaintenanceRefus {
+  id: number
+  motif: string
+  created_at: string
+  manager: { id: number; nom: string } | null
+}
+
 export interface TicketMaintenance {
   id: number
+  reference: string
   appartement_id: number
   mission_origine_id: number | null
   agent_id: number | null
@@ -119,9 +132,11 @@ export interface TicketMaintenance {
   note_resolution: string | null
   urgence: TicketMaintenanceUrgence
   statut: TicketMaintenanceStatut
+  created_at: string
   appartement?: Appartement | null
   agent?: Agent | null
   mission_origine?: (Omit<MissionMenage, 'sejour'> & { sejour?: Sejour | null }) | null
+  refus?: TicketMaintenanceRefus[]
 }
 
 /**
@@ -131,15 +146,18 @@ export interface TicketMaintenance {
  * agent. Only the Manager-authored description_manager/
  * description_manager_audio_url are, plus the original photo_url, itself
  * only present when the Manager opted to transfer it (photo_transferee).
+ * The refus array carries only motif+date, never the manager's identity.
  */
 export interface MonTicketMaintenance {
   id: number
+  reference: string
   statut: TicketMaintenanceStatut
   urgence: TicketMaintenanceUrgence
   description_manager: string | null
   description_manager_audio_url: string | null
   photo_url: string | null
   appartement: { id: number; nom: string; adresse: string } | null
+  refus: { motif: string; date: string }[]
 }
 
 export type VoyageurType = 'adulte' | 'enfant'
