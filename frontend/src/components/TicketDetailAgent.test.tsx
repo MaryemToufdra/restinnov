@@ -6,12 +6,14 @@ import type { MonTicketMaintenance } from '../types'
 
 const TICKET: MonTicketMaintenance = {
   id: 1,
+  reference: 'MNT-0001',
   statut: 'assigne',
   urgence: 'haute',
   description_manager: 'Changer le joint du robinet.',
   description_manager_audio_url: null,
   photo_url: null,
   appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
+  refus: [],
 }
 
 function mockFetch() {
@@ -39,6 +41,23 @@ describe('TicketDetailAgent', () => {
     expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
     expect(screen.getByText('Changer le joint du robinet.')).toBeInTheDocument()
     expect(screen.getByText('Urgence Haute')).toBeInTheDocument()
+    expect(screen.getByText('MNT-0001')).toBeInTheDocument()
+  })
+
+  it('affiche le motif du refus quand le ticket a été renvoyé pour être refait', () => {
+    render(
+      <TicketDetailAgent
+        ticket={{
+          ...TICKET,
+          statut: 'a_refaire',
+          refus: [{ motif: 'La fuite persiste.', date: '2026-08-11T10:00:00Z' }],
+        }}
+        onBack={vi.fn()}
+        onResolu={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('refus-banner')).toHaveTextContent('La fuite persiste.')
   })
 
   it('n\'affiche ni lecteur audio ni photo quand le Manager n\'en a fourni aucun', () => {

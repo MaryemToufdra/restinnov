@@ -19,7 +19,11 @@ class NotificationController extends Controller
     {
         $problemesSignales = TicketMaintenance::query()
             ->select('id', 'appartement_id', 'urgence', 'statut')
-            ->whereIn('statut', [TicketMaintenance::STATUT_OUVERT, TicketMaintenance::STATUT_ASSIGNE])
+            ->whereIn('statut', [
+                TicketMaintenance::STATUT_OUVERT,
+                TicketMaintenance::STATUT_ASSIGNE,
+                TicketMaintenance::STATUT_A_REFAIRE,
+            ])
             ->with('appartement:id,nom,adresse')
             ->latest()
             ->latest('id')

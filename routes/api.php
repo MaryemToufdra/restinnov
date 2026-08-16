@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/tickets-maintenance', [TicketMaintenanceController::class, 'index']);
         Route::patch('/tickets-maintenance/{ticketMaintenance}/assigner', [TicketMaintenanceController::class, 'assigner']);
         Route::patch('/tickets-maintenance/{ticketMaintenance}/valider-resolution', [TicketMaintenanceController::class, 'validerResolution']);
+        Route::patch('/tickets-maintenance/{ticketMaintenance}/refuser-resolution', [TicketMaintenanceController::class, 'refuserResolution']);
     });
 
     // "menage" (and "manager") -- the cleaning mission workspace: checklist

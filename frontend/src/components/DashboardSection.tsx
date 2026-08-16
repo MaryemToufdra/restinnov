@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { DashboardData, SejourStatut, TicketMaintenanceUrgence } from '../types'
+import type { DashboardData, SejourStatut } from '../types'
+import { URGENCE_LABELS, URGENCE_STYLES } from '../utils/urgence'
 import { RelevesProprietairesSection } from './RelevesProprietairesSection'
 
 interface DashboardSectionProps {
@@ -12,18 +13,6 @@ interface DashboardSectionProps {
   onCheckout?: (sejourId: number) => Promise<void>
   onNavigateToTicketsMaintenance?: () => void
   onNavigateToResolutionsAValider?: () => void
-}
-
-const URGENCE_LABELS: Record<TicketMaintenanceUrgence, string> = {
-  basse: 'Basse',
-  normale: 'Normale',
-  haute: 'Haute',
-}
-
-const URGENCE_STYLES: Record<TicketMaintenanceUrgence, string> = {
-  basse: 'bg-gray-100 text-gray-600',
-  normale: 'bg-blue-100 text-blue-800',
-  haute: 'bg-red-100 text-red-800',
 }
 
 // Canonical séjour statut labels/colors, kept identical to SejourCard.tsx

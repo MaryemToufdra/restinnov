@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesTicketAccess;
 use App\Models\TicketMaintenance;
+use App\Models\TicketMaintenanceRefus;
 use App\Models\Utilisateur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,21 +15,23 @@ class TicketMaintenanceController extends Controller
 {
     use AuthorizesTicketAccess;
 
-    private const DETAIL_RELATIONS = ['appartement', 'missionOrigine.sejour', 'agent'];
+    private const DETAIL_RELATIONS = ['appartement', 'missionOrigine.sejour', 'agent', 'refus.manager'];
 
     /**
      * Display a listing of maintenance tickets for the Manager, optionally
-     * filtered by statut. Regardless of the filter, open/unassigned tickets
-     * always sort first, then by urgence (haute first), then most recent.
+     * filtered by statut -- omitting it returns every ticket regardless of
+     * statut, which is what powers the "Historique des tickets" view.
+     * Regardless of the filter, open/unassigned tickets always sort first,
+     * then by urgence (haute first), then most recent.
      */
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'statut' => ['sometimes', 'in:ouvert,assigne,resolu_en_attente_validation,resolu'],
+            'statut' => ['sometimes', 'in:ouvert,assigne,resolu_en_attente_validation,resolu,a_refaire'],
         ]);
 
         $query = TicketMaintenance::with(self::DETAIL_RELATIONS)
-            ->orderByRaw("CASE statut WHEN 'ouvert' THEN 0 WHEN 'assigne' THEN 1 ELSE 2 END")
+            ->orderByRaw("CASE statut WHEN 'ouvert' THEN 0 WHEN 'a_refaire' THEN 1 WHEN 'assigne' THEN 2 ELSE 3 END")
             ->orderByRaw("CASE urgence WHEN 'haute' THEN 0 WHEN 'normale' THEN 1 ELSE 2 END")
             ->latest();
 
@@ -97,12 +100,14 @@ class TicketMaintenanceController extends Controller
     }
 
     /**
-     * The maintenance agent's own workspace: tickets currently assigned to
-     * them (statut "assigne" only -- not yet-open or already-resolved
-     * ones). The response is an explicit whitelist, never the raw model:
-     * the ménage agent's original `description`/`photo_url`/`audio_url`
-     * signalement fields must never reach a maintenance agent, only the
-     * Manager-authored `description_manager` may.
+     * The maintenance agent's own workspace: tickets currently on their
+     * plate -- "assigne" (newly handed off) or "a_refaire" (a resolution
+     * the Manager sent back for rework, same agent). The response is an
+     * explicit whitelist, never the raw model: the ménage agent's original
+     * `description`/`photo_url`/`audio_url` signalement fields must never
+     * reach a maintenance agent, only the Manager-authored
+     * `description_manager` may. The refus history lets the agent see why
+     * a resolution was rejected.
      */
     public function mesTickets(Request $request): JsonResponse
     {
@@ -118,12 +123,13 @@ class TicketMaintenanceController extends Controller
         }
 
         $tickets = TicketMaintenance::where('agent_id', $agentId)
-            ->where('statut', TicketMaintenance::STATUT_ASSIGNE)
-            ->with('appartement:id,nom,adresse')
+            ->whereIn('statut', [TicketMaintenance::STATUT_ASSIGNE, TicketMaintenance::STATUT_A_REFAIRE])
+            ->with(['appartement:id,nom,adresse', 'refus'])
             ->orderBy('created_at')
             ->get()
             ->map(fn (TicketMaintenance $ticket) => [
                 'id' => $ticket->id,
+                'reference' => $ticket->reference,
                 'statut' => $ticket->statut,
                 'urgence' => $ticket->urgence,
                 'description_manager' => $ticket->description_manager,
@@ -138,6 +144,10 @@ class TicketMaintenanceController extends Controller
                     'nom' => $ticket->appartement->nom,
                     'adresse' => $ticket->appartement->adresse,
                 ] : null,
+                'refus' => $ticket->refus->map(fn (TicketMaintenanceRefus $refus) => [
+                    'motif' => $refus->motif,
+                    'date' => $refus->created_at,
+                ])->values(),
             ]);
 
         return response()->json($tickets);
@@ -149,12 +159,14 @@ class TicketMaintenanceController extends Controller
      * and repair cost are mandatory, a note is optional. This moves the
      * ticket to "resolu_en_attente_validation" -- the appartement stays
      * blocked in "maintenance" statut until the Manager validates it.
+     * Works both the first time (from "assigne") and after a Manager
+     * refusal sent it back (from "a_refaire").
      */
     public function resoudre(Request $request, TicketMaintenance $ticketMaintenance): JsonResponse
     {
         $this->authorizeTicketAccess($request, $ticketMaintenance);
 
-        if ($ticketMaintenance->statut !== TicketMaintenance::STATUT_ASSIGNE) {
+        if (! in_array($ticketMaintenance->statut, [TicketMaintenance::STATUT_ASSIGNE, TicketMaintenance::STATUT_A_REFAIRE], true)) {
             return response()->json([
                 'message' => 'Ce ticket n\'est pas assigné.',
             ], 422);
@@ -194,6 +206,42 @@ class TicketMaintenanceController extends Controller
         }
 
         $ticketMaintenance->update(['statut' => TicketMaintenance::STATUT_RESOLU]);
+
+        return response()->json($ticketMaintenance->fresh(self::DETAIL_RELATIONS));
+    }
+
+    /**
+     * Manager-only: rejects a resolution the maintenance agent has
+     * submitted, with a mandatory motif. The ticket goes back to
+     * "a_refaire" (not closed) -- same agent, still blocking the
+     * appartement -- and the rejection is recorded so it stays visible in
+     * the ticket's history even after several successive refusals. The
+     * previously-submitted resolution proof is cleared: the agent's next
+     * resoudre() call must provide fresh ones.
+     */
+    public function refuserResolution(Request $request, TicketMaintenance $ticketMaintenance): JsonResponse
+    {
+        if ($ticketMaintenance->statut !== TicketMaintenance::STATUT_RESOLU_EN_ATTENTE_VALIDATION) {
+            return response()->json([
+                'message' => 'Cette résolution n\'est pas en attente de validation.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'motif' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $ticketMaintenance->refus()->create([
+            'manager_id' => $request->user()->id,
+            'motif' => $validated['motif'],
+        ]);
+
+        $ticketMaintenance->update([
+            'statut' => TicketMaintenance::STATUT_A_REFAIRE,
+            'photo_apres' => null,
+            'cout_reparation' => null,
+            'note_resolution' => null,
+        ]);
 
         return response()->json($ticketMaintenance->fresh(self::DETAIL_RELATIONS));
     }

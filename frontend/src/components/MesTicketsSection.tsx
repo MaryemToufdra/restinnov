@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react'
 import { fetchMesTicketsMaintenance } from '../api'
-import type { MonTicketMaintenance, TicketMaintenanceUrgence } from '../types'
+import type { MonTicketMaintenance } from '../types'
+import { URGENCE_LABELS, URGENCE_STYLES } from '../utils/urgence'
 import { TicketDetailAgent } from './TicketDetailAgent'
 
-const URGENCE_LABELS: Record<TicketMaintenanceUrgence, string> = {
-  basse: 'Basse',
-  normale: 'Normale',
-  haute: 'Haute',
-}
-
-const URGENCE_STYLES: Record<TicketMaintenanceUrgence, string> = {
-  basse: 'bg-gray-100 text-gray-600',
-  normale: 'bg-blue-100 text-blue-800',
-  haute: 'bg-red-100 text-red-800',
+// Only "a_refaire" needs a clear, distinct callout in this list -- the
+// normal "assigne" statut is the agent's regular current work and needs no
+// badge, mirroring MesMissionsSection's STATUT_BADGES pattern.
+const STATUT_BADGES: Partial<Record<MonTicketMaintenance['statut'], { label: string; style: string }>> = {
+  a_refaire: {
+    label: 'Renvoyé par le Manager — à refaire',
+    style: 'bg-red-100 text-red-800',
+  },
 }
 
 export function MesTicketsSection() {
@@ -86,6 +85,7 @@ export function MesTicketsSection() {
                 <div className="min-w-0">
                   <p className="truncate text-lg font-semibold text-gray-900">
                     {ticket.appartement?.nom ?? 'Appartement'}
+                    <span className="ml-2 text-xs font-normal text-gray-400">{ticket.reference}</span>
                   </p>
                   <p className="truncate text-sm text-gray-500">{ticket.appartement?.adresse}</p>
                 </div>
@@ -95,6 +95,13 @@ export function MesTicketsSection() {
                   Urgence {URGENCE_LABELS[ticket.urgence]}
                 </span>
               </div>
+              {STATUT_BADGES[ticket.statut] && (
+                <span
+                  className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUT_BADGES[ticket.statut]!.style}`}
+                >
+                  {STATUT_BADGES[ticket.statut]!.label}
+                </span>
+              )}
               {ticket.description_manager && (
                 <p className="mt-2 truncate text-sm text-gray-700">{ticket.description_manager}</p>
               )}

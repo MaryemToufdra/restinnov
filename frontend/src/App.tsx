@@ -33,6 +33,7 @@ import { AgentsMenageListeSection } from './components/AgentsMenageListeSection'
 import { AppartementsListeSection } from './components/AppartementsListeSection'
 import { CatalogueProduitsSection } from './components/CatalogueProduitsSection'
 import { DashboardSection } from './components/DashboardSection'
+import { HistoriqueTicketsSection } from './components/HistoriqueTicketsSection'
 import { NotificationBell } from './components/NotificationBell'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
 import { NouvelAgentForm } from './components/NouvelAgentForm'
@@ -68,6 +69,7 @@ type Tab =
   | 'maintenance-agent'
   | 'maintenance-tickets'
   | 'maintenance-resolutions'
+  | 'maintenance-historique'
 
 interface NavGroup {
   key: string
@@ -112,6 +114,7 @@ const NAV_GROUPS: NavGroup[] = [
       ['maintenance-agent', 'Ajouter un agent maintenance'],
       ['maintenance-tickets', 'Tickets de maintenance'],
       ['maintenance-resolutions', 'Résolutions à valider'],
+      ['maintenance-historique', 'Historique des tickets'],
     ],
     defaultTab: 'maintenance-agent',
   },
@@ -129,6 +132,7 @@ const SECTION_TITLES: Record<Tab, string> = {
   'maintenance-agent': 'Maintenance',
   'maintenance-tickets': 'Maintenance',
   'maintenance-resolutions': 'Maintenance',
+  'maintenance-historique': 'Maintenance',
 }
 
 function groupKeyForTab(tab: Tab): string | null {
@@ -611,6 +615,7 @@ function App() {
           )}
           {activeTab === 'maintenance-tickets' && <TicketsMaintenanceSection />}
           {activeTab === 'maintenance-resolutions' && <ResolutionsAValiderSection />}
+          {activeTab === 'maintenance-historique' && <HistoriqueTicketsSection />}
         </div>
       </main>
     </div>

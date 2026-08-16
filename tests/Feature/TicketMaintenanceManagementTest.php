@@ -104,6 +104,67 @@ class TicketMaintenanceManagementTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_index_without_a_statut_filter_returns_every_ticket_regardless_of_statut(): void
+    {
+        $this->ticket(['statut' => 'ouvert']);
+        $this->ticket(['statut' => 'assigne']);
+        $this->ticket(['statut' => 'resolu_en_attente_validation']);
+        $this->ticket(['statut' => 'a_refaire']);
+        $this->ticket(['statut' => 'resolu']);
+
+        $response = $this->getJson('/api/tickets-maintenance');
+
+        $response->assertOk();
+        $response->assertJsonCount(5);
+    }
+
+    public function test_index_filters_by_a_refaire(): void
+    {
+        $this->ticket(['statut' => 'ouvert']);
+        $aRefaire = $this->ticket(['statut' => 'a_refaire']);
+
+        $response = $this->getJson('/api/tickets-maintenance?statut=a_refaire');
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $aRefaire->id);
+    }
+
+    public function test_index_lists_a_refaire_tickets_right_after_ouvert(): void
+    {
+        $this->ticket(['statut' => 'resolu', 'description' => 'Ticket résolu']);
+        $this->ticket(['statut' => 'assigne', 'description' => 'Ticket assigné']);
+        $this->ticket(['statut' => 'a_refaire', 'description' => 'Ticket à refaire']);
+        $this->ticket(['statut' => 'ouvert', 'description' => 'Ticket ouvert']);
+
+        $response = $this->getJson('/api/tickets-maintenance');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.statut', 'ouvert');
+        $response->assertJsonPath('1.statut', 'a_refaire');
+        $response->assertJsonPath('2.statut', 'assigne');
+        $response->assertJsonPath('3.statut', 'resolu');
+    }
+
+    public function test_ticket_creation_generates_a_sequential_reference(): void
+    {
+        $premier = $this->ticket();
+        $second = $this->ticket();
+
+        $this->assertSame('MNT-0001', $premier->reference);
+        $this->assertSame('MNT-0002', $second->reference);
+    }
+
+    public function test_index_exposes_the_ticket_reference(): void
+    {
+        $this->ticket();
+
+        $response = $this->getJson('/api/tickets-maintenance');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.reference', 'MNT-0001');
+    }
+
     // --- assigner() ---
 
     public function test_assigner_assigns_the_ticket_to_an_active_maintenance_agent(): void
@@ -395,6 +456,39 @@ class TicketMaintenanceManagementTest extends TestCase
         $response->assertJsonPath('0.description_manager_audio_url', 'tickets-maintenance/manager-note.webm');
     }
 
+    public function test_mes_tickets_includes_tickets_with_statut_a_refaire(): void
+    {
+        $agent = $this->agentMaintenance();
+        $ticket = $this->ticket(['statut' => 'a_refaire', 'agent_id' => $agent->id]);
+
+        Sanctum::actingAs($agent, ['*']);
+
+        $response = $this->getJson('/api/tickets-maintenance/mes-tickets');
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $ticket->id);
+        $response->assertJsonPath('0.statut', 'a_refaire');
+    }
+
+    public function test_mes_tickets_exposes_the_reference_and_refus_history(): void
+    {
+        $manager = $this->actingAsManager();
+        $agent = $this->agentMaintenance();
+        $ticket = $this->ticket(['statut' => 'a_refaire', 'agent_id' => $agent->id]);
+        $ticket->refus()->create(['manager_id' => $manager->id, 'motif' => 'Fuite toujours présente.']);
+
+        Sanctum::actingAs($agent, ['*']);
+
+        $response = $this->getJson('/api/tickets-maintenance/mes-tickets');
+
+        $response->assertOk();
+        $response->assertJsonPath('0.reference', $ticket->reference);
+        $response->assertJsonCount(1, '0.refus');
+        $response->assertJsonPath('0.refus.0.motif', 'Fuite toujours présente.');
+        $this->assertArrayNotHasKey('manager', $response->json('0.refus.0'));
+    }
+
     public function test_mes_tickets_is_forbidden_for_a_menage_account(): void
     {
         $this->actingAsMenage();
@@ -443,6 +537,28 @@ class TicketMaintenanceManagementTest extends TestCase
             'statut' => 'resolu_en_attente_validation',
             'cout_reparation' => '45.50',
             'note_resolution' => 'Joint remplacé.',
+        ]);
+    }
+
+    public function test_resoudre_marks_a_ticket_a_refaire_resolu_en_attente_validation_again(): void
+    {
+        Storage::fake('public');
+
+        $agent = $this->agentMaintenance();
+        $ticket = $this->ticket(['statut' => 'a_refaire', 'agent_id' => $agent->id]);
+        Sanctum::actingAs($agent, ['*']);
+
+        $response = $this->post("/api/tickets-maintenance/{$ticket->id}/resoudre", [
+            '_method' => 'PATCH',
+            'photo_apres' => UploadedFile::fake()->image('reparation.jpg'),
+            'cout_reparation' => '30',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('statut', 'resolu_en_attente_validation');
+        $this->assertDatabaseHas('tickets_maintenance', [
+            'id' => $ticket->id,
+            'statut' => 'resolu_en_attente_validation',
         ]);
     }
 
@@ -560,6 +676,110 @@ class TicketMaintenanceManagementTest extends TestCase
         $this->actingAsMenage();
 
         $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/valider-resolution");
+
+        $response->assertStatus(403);
+    }
+
+    // --- refuserResolution() ---
+
+    public function test_refuser_resolution_requires_a_motif(): void
+    {
+        $ticket = $this->ticket(['statut' => 'resolu_en_attente_validation', 'photo_apres' => 'x.jpg', 'cout_reparation' => 20]);
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/refuser-resolution", []);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('motif');
+        $this->assertDatabaseHas('tickets_maintenance', ['id' => $ticket->id, 'statut' => 'resolu_en_attente_validation']);
+    }
+
+    public function test_refuser_resolution_moves_the_ticket_to_a_refaire(): void
+    {
+        $manager = $this->actingAsManager();
+        $agent = $this->agentMaintenance();
+        $ticket = $this->ticket([
+            'statut' => 'resolu_en_attente_validation',
+            'agent_id' => $agent->id,
+            'photo_apres' => 'x.jpg',
+            'cout_reparation' => 20,
+            'note_resolution' => 'Fait.',
+        ]);
+        Sanctum::actingAs($manager, ['*']);
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/refuser-resolution", [
+            'motif' => 'La fuite persiste, à refaire.',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('statut', 'a_refaire');
+        $this->assertDatabaseHas('tickets_maintenance', [
+            'id' => $ticket->id,
+            'statut' => 'a_refaire',
+            'agent_id' => $agent->id,
+            'photo_apres' => null,
+            'cout_reparation' => null,
+            'note_resolution' => null,
+        ]);
+        $this->assertDatabaseHas('ticket_maintenance_refus', [
+            'ticket_maintenance_id' => $ticket->id,
+            'manager_id' => $manager->id,
+            'motif' => 'La fuite persiste, à refaire.',
+        ]);
+    }
+
+    public function test_refuser_resolution_is_rejected_when_not_pending_validation(): void
+    {
+        $ticket = $this->ticket(['statut' => 'assigne']);
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/refuser-resolution", [
+            'motif' => 'Motif quelconque.',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseCount('ticket_maintenance_refus', 0);
+    }
+
+    public function test_refuser_resolution_keeps_every_successive_refusal_in_history(): void
+    {
+        $manager = $this->actingAsManager();
+        $agent = $this->agentMaintenance();
+        $ticket = $this->ticket(['statut' => 'resolu_en_attente_validation', 'agent_id' => $agent->id]);
+        Sanctum::actingAs($manager, ['*']);
+
+        $this->patchJson("/api/tickets-maintenance/{$ticket->id}/refuser-resolution", ['motif' => 'Premier refus.'])
+            ->assertOk();
+
+        $ticket->refresh()->update(['statut' => 'resolu_en_attente_validation']);
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/refuser-resolution", ['motif' => 'Second refus.']);
+
+        $response->assertOk();
+        $this->assertDatabaseCount('ticket_maintenance_refus', 2);
+        $this->assertDatabaseHas('ticket_maintenance_refus', ['ticket_maintenance_id' => $ticket->id, 'motif' => 'Premier refus.']);
+        $this->assertDatabaseHas('ticket_maintenance_refus', ['ticket_maintenance_id' => $ticket->id, 'motif' => 'Second refus.']);
+    }
+
+    public function test_refuser_resolution_is_forbidden_for_a_maintenance_account(): void
+    {
+        $agent = $this->agentMaintenance();
+        $ticket = $this->ticket(['statut' => 'resolu_en_attente_validation', 'agent_id' => $agent->id]);
+        Sanctum::actingAs($agent, ['*']);
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/refuser-resolution", [
+            'motif' => 'Motif quelconque.',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_refuser_resolution_is_forbidden_for_a_menage_account(): void
+    {
+        $ticket = $this->ticket(['statut' => 'resolu_en_attente_validation']);
+        $this->actingAsMenage();
+
+        $response = $this->patchJson("/api/tickets-maintenance/{$ticket->id}/refuser-resolution", [
+            'motif' => 'Motif quelconque.',
+        ]);
 
         $response->assertStatus(403);
     }

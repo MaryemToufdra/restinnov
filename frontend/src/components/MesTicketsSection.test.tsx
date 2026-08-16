@@ -7,12 +7,14 @@ import type { MonTicketMaintenance } from '../types'
 function ticketFixture(overrides: Partial<MonTicketMaintenance> = {}): MonTicketMaintenance {
   return {
     id: 1,
+    reference: 'MNT-0001',
     statut: 'assigne',
     urgence: 'normale',
     description_manager: 'Changer le joint du robinet.',
     description_manager_audio_url: null,
     photo_url: null,
     appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
+    refus: [],
     ...overrides,
   }
 }
@@ -43,6 +45,19 @@ describe('MesTicketsSection', () => {
     expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
     expect(screen.getByText('Changer le joint du robinet.')).toBeInTheDocument()
     expect(screen.getByText('Urgence Normale')).toBeInTheDocument()
+  })
+
+  it('affiche la référence du ticket et le badge "à refaire" avec son motif', async () => {
+    const ticket = ticketFixture({
+      statut: 'a_refaire',
+      refus: [{ motif: 'La fuite persiste.', date: '2026-08-11T10:00:00Z' }],
+    })
+    globalThis.fetch = mockFetch([ticket]) as typeof fetch
+
+    render(<MesTicketsSection />)
+
+    expect(await screen.findByText('MNT-0001')).toBeInTheDocument()
+    expect(screen.getByText(/renvoyé par le manager/i)).toBeInTheDocument()
   })
 
   it("affiche un message quand l'agent n'a aucun ticket", async () => {

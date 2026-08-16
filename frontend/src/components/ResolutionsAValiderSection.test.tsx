@@ -7,6 +7,7 @@ import type { TicketMaintenance } from '../types'
 function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMaintenance {
   return {
     id: 1,
+    reference: 'MNT-0001',
     appartement_id: 1,
     mission_origine_id: 1,
     agent_id: 5,
@@ -21,6 +22,8 @@ function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMainte
     note_resolution: null,
     urgence: 'normale',
     statut: 'resolu_en_attente_validation',
+    created_at: '2026-08-10T09:00:00Z',
+    refus: [],
     appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'maintenance', photo_principale: null, agent_habituel_id: null },
     ...overrides,
   }
@@ -44,6 +47,13 @@ function mockFetch(tickets: TicketMaintenance[]) {
     if (validerMatch && method === 'PATCH') {
       const id = Number(validerMatch[1])
       current = current.map((t) => (t.id === id ? { ...t, statut: 'resolu' } : t))
+      return new Response(JSON.stringify(current.find((t) => t.id === id)), { status: 200 })
+    }
+
+    const refuserMatch = url.pathname.match(/^\/api\/tickets-maintenance\/(\d+)\/refuser-resolution$/)
+    if (refuserMatch && method === 'PATCH') {
+      const id = Number(refuserMatch[1])
+      current = current.map((t) => (t.id === id ? { ...t, statut: 'a_refaire' } : t))
       return new Response(JSON.stringify(current.find((t) => t.id === id)), { status: 200 })
     }
 
@@ -93,5 +103,58 @@ describe('ResolutionsAValiderSection', () => {
     )
     await waitFor(() => expect(screen.queryByText('Loft Bastille')).not.toBeInTheDocument())
     expect(screen.getByText(/aucune résolution en attente de validation/i)).toBeInTheDocument()
+  })
+
+  it('ouvre une modal de refus avec un motif obligatoire, désactivant la confirmation tant qu\'il est vide', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = mockFetch([ticketFixture()]) as typeof fetch
+
+    render(<ResolutionsAValiderSection />)
+
+    await screen.findByText('Loft Bastille')
+    await user.click(screen.getByRole('button', { name: /^refuser$/i }))
+
+    const confirmButton = screen.getByRole('button', { name: /confirmer le refus/i })
+    expect(confirmButton).toBeDisabled()
+
+    await user.type(screen.getByLabelText(/motif du refus/i), 'La fuite persiste.')
+    expect(confirmButton).toBeEnabled()
+  })
+
+  it('refuse une résolution avec un motif, qui disparaît ensuite de la liste', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockFetch([ticketFixture()])
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(<ResolutionsAValiderSection />)
+
+    await screen.findByText('Loft Bastille')
+    await user.click(screen.getByRole('button', { name: /^refuser$/i }))
+    await user.type(screen.getByLabelText(/motif du refus/i), 'La fuite persiste.')
+    await user.click(screen.getByRole('button', { name: /confirmer le refus/i }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/refuser-resolution'))
+      expect(call).toBeDefined()
+      expect(call![1]).toMatchObject({ method: 'PATCH' })
+      expect(JSON.parse(call![1]!.body as string)).toEqual({ motif: 'La fuite persiste.' })
+    })
+    await waitFor(() => expect(screen.queryByText('Loft Bastille')).not.toBeInTheDocument())
+    expect(screen.getByText(/aucune résolution en attente de validation/i)).toBeInTheDocument()
+  })
+
+  it('permet d\'annuler le refus sans envoyer de requête', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockFetch([ticketFixture()])
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(<ResolutionsAValiderSection />)
+
+    await screen.findByText('Loft Bastille')
+    await user.click(screen.getByRole('button', { name: /^refuser$/i }))
+    await user.click(screen.getByRole('button', { name: /annuler/i }))
+
+    expect(screen.queryByLabelText(/motif du refus/i)).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/refuser-resolution'))).toBe(false)
   })
 })

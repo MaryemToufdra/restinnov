@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TicketMaintenance extends Model
 {
@@ -25,6 +26,8 @@ class TicketMaintenance extends Model
     public const STATUT_RESOLU_EN_ATTENTE_VALIDATION = 'resolu_en_attente_validation';
 
     public const STATUT_RESOLU = 'resolu';
+
+    public const STATUT_A_REFAIRE = 'a_refaire';
 
     protected $fillable = [
         'appartement_id',
@@ -48,6 +51,31 @@ class TicketMaintenance extends Model
         'photo_transferee' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (TicketMaintenance $ticket) {
+            if (empty($ticket->reference)) {
+                $ticket->reference = static::nextReference();
+            }
+        });
+    }
+
+    /**
+     * Next short reference in the MNT-0001, MNT-0002... sequence -- same
+     * convention as Sejour::nextReference() (SEJ-0001...).
+     */
+    public static function nextReference(): string
+    {
+        $last = static::query()->whereNotNull('reference')->orderByDesc('id')->value('reference');
+
+        $lastNumber = 0;
+        if ($last && preg_match('/(\d+)$/', $last, $matches)) {
+            $lastNumber = (int) $matches[1];
+        }
+
+        return sprintf('MNT-%04d', $lastNumber + 1);
+    }
+
     public function appartement(): BelongsTo
     {
         return $this->belongsTo(Appartement::class);
@@ -61,5 +89,10 @@ class TicketMaintenance extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(Utilisateur::class, 'agent_id');
+    }
+
+    public function refus(): HasMany
+    {
+        return $this->hasMany(TicketMaintenanceRefus::class)->latest();
     }
 }
