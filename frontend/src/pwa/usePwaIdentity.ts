@@ -5,6 +5,7 @@ interface PwaIdentity {
   manifestHref: string
   themeColor: string
   appleTitle: string
+  iconHref: string
 }
 
 const IDENTITIES: Record<'manager' | 'menage' | 'maintenance', PwaIdentity> = {
@@ -13,18 +14,21 @@ const IDENTITIES: Record<'manager' | 'menage' | 'maintenance', PwaIdentity> = {
     manifestHref: '/manifest.json',
     themeColor: '#4f46e5',
     appleTitle: 'Séjours',
+    iconHref: '/icons/icon-192-manager.png',
   },
   menage: {
     title: 'Ménage — Mes missions',
     manifestHref: '/manifest-menage.json',
     themeColor: '#059669',
     appleTitle: 'Ménage',
+    iconHref: '/icons/icon-192-menage.png',
   },
   maintenance: {
     title: 'Maintenance — Mes tickets',
     manifestHref: '/manifest-maintenance.json',
     themeColor: '#d97706',
     appleTitle: 'Maintenance',
+    iconHref: '/icons/icon-192-maintenance.png',
   },
 }
 
@@ -49,12 +53,13 @@ function setMetaContent(name: string, content: string) {
 }
 
 /**
- * Points the page's manifest / theme-color / apple-mobile-web-app-title at
- * either the Manager or the Ménage identity, so "Add to Home Screen" from
- * "/" and from "/menage" installs two distinct, independent icons rather
- * than both pointing at the same app. iOS Safari ignores the Web Manifest
- * for this entirely and reads apple-mobile-web-app-title/apple-touch-icon
- * instead, so both are kept in sync here.
+ * Points the page's manifest / theme-color / apple-mobile-web-app-title /
+ * icon at the Manager, Ménage, or Maintenance identity, so "Add to Home
+ * Screen" from "/", "/menage" and "/maintenance" installs three distinct,
+ * independent icons (same house pictogram, each space's own background
+ * color) rather than all pointing at the same app. iOS Safari ignores the
+ * Web Manifest for this entirely and reads apple-mobile-web-app-title/
+ * apple-touch-icon instead, so both are kept in sync here.
  */
 export function usePwaIdentity(kind: 'manager' | 'menage' | 'maintenance') {
   useEffect(() => {
@@ -64,5 +69,7 @@ export function usePwaIdentity(kind: 'manager' | 'menage' | 'maintenance') {
     setLinkHref('manifest', identity.manifestHref)
     setMetaContent('theme-color', identity.themeColor)
     setMetaContent('apple-mobile-web-app-title', identity.appleTitle)
+    setLinkHref('icon', identity.iconHref)
+    setLinkHref('apple-touch-icon', identity.iconHref)
   }, [kind])
 }

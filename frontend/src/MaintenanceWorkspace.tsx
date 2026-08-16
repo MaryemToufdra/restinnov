@@ -50,9 +50,12 @@ export function MaintenanceWorkspace() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">Maintenance</h1>
-          {user && <p className="text-xs text-gray-500">{user.nom}</p>}
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="RestInnov" className="h-8 w-auto" />
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">Maintenance</h1>
+            {user && <p className="text-xs text-gray-500">{user.nom}</p>}
+          </div>
         </div>
         <button
           type="button"
