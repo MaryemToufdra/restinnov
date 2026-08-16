@@ -18,16 +18,25 @@ class TicketMaintenanceController extends Controller
     private const DETAIL_RELATIONS = ['appartement', 'missionOrigine.sejour', 'agent', 'refus.manager'];
 
     /**
-     * Display a listing of maintenance tickets for the Manager, optionally
-     * filtered by statut -- omitting it returns every ticket regardless of
-     * statut, which is what powers the "Historique des tickets" view.
-     * Regardless of the filter, open/unassigned tickets always sort first,
-     * then by urgence (haute first), then most recent.
+     * Display a listing of maintenance tickets for the Manager -- the single
+     * "Tickets de maintenance" screen, used both for the actionable list and
+     * for browsing the full history (all filters are optional and combine;
+     * omitting statut returns every ticket regardless of statut). Filters:
+     * statut, appartement_id, a date range on the *séjour's* date_arrivee
+     * (not the ticket's own created_at -- the ticket may have been created
+     * or resolved well after the stay), and a free-text search across the
+     * ticket reference and the appartement's nom. Regardless of the filter,
+     * open/unassigned tickets always sort first, then by urgence (haute
+     * first), then most recent.
      */
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'statut' => ['sometimes', 'in:ouvert,assigne,resolu_en_attente_validation,resolu,a_refaire'],
+            'appartement_id' => ['sometimes', 'integer', 'exists:appartements,id'],
+            'date_debut' => ['sometimes', 'date'],
+            'date_fin' => ['sometimes', 'date'],
+            'search' => ['sometimes', 'string', 'max:255'],
         ]);
 
         $query = TicketMaintenance::with(self::DETAIL_RELATIONS)
@@ -37,6 +46,31 @@ class TicketMaintenanceController extends Controller
 
         if (! empty($validated['statut'])) {
             $query->where('statut', $validated['statut']);
+        }
+
+        if (! empty($validated['appartement_id'])) {
+            $query->where('appartement_id', $validated['appartement_id']);
+        }
+
+        if (! empty($validated['date_debut']) || ! empty($validated['date_fin'])) {
+            $query->whereHas('missionOrigine.sejour', function ($sejourQuery) use ($validated) {
+                if (! empty($validated['date_debut'])) {
+                    $sejourQuery->whereDate('date_arrivee', '>=', $validated['date_debut']);
+                }
+                if (! empty($validated['date_fin'])) {
+                    $sejourQuery->whereDate('date_arrivee', '<=', $validated['date_fin']);
+                }
+            });
+        }
+
+        if (! empty($validated['search'])) {
+            $search = $validated['search'];
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('reference', 'like', "%{$search}%")
+                    ->orWhereHas('appartement', function ($appartementQuery) use ($search) {
+                        $appartementQuery->where('nom', 'like', "%{$search}%");
+                    });
+            });
         }
 
         return response()->json($query->get());

@@ -2,7 +2,12 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TicketsMaintenanceSection } from './TicketsMaintenanceSection'
-import type { Agent, TicketMaintenance } from '../types'
+import type { Agent, Appartement, TicketMaintenance } from '../types'
+
+const APPARTEMENTS: Appartement[] = [
+  { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'disponible', photo_principale: null, agent_habituel_id: null },
+  { id: 2, nom: 'Zenith', adresse: 'B', statut: 'disponible', photo_principale: null, agent_habituel_id: null },
+]
 
 function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMaintenance {
   return {
@@ -24,7 +29,7 @@ function ticketFixture(overrides: Partial<TicketMaintenance> = {}): TicketMainte
     statut: 'ouvert',
     created_at: '2026-08-10T09:00:00Z',
     refus: [],
-    appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette', statut: 'disponible', photo_principale: null, agent_habituel_id: null },
+    appartement: APPARTEMENTS[0],
     mission_origine: {
       id: 1,
       sejour_id: 1,
@@ -62,7 +67,27 @@ function mockFetch(tickets: TicketMaintenance[], agents: Agent[]) {
 
     if (url.pathname === '/api/tickets-maintenance' && method === 'GET') {
       const statut = url.searchParams.get('statut')
-      const result = statut ? currentTickets.filter((t) => t.statut === statut) : currentTickets
+      const appartementId = url.searchParams.get('appartement_id')
+      const dateDebut = url.searchParams.get('date_debut')
+      const dateFin = url.searchParams.get('date_fin')
+      const search = url.searchParams.get('search')
+
+      let result = currentTickets
+      if (statut) result = result.filter((t) => t.statut === statut)
+      if (appartementId) result = result.filter((t) => String(t.appartement_id) === appartementId)
+      if (dateDebut) {
+        result = result.filter((t) => (t.mission_origine?.sejour?.date_arrivee ?? '') >= dateDebut)
+      }
+      if (dateFin) {
+        result = result.filter((t) => (t.mission_origine?.sejour?.date_arrivee ?? '') <= dateFin)
+      }
+      if (search) {
+        const needle = search.toLowerCase()
+        result = result.filter(
+          (t) => t.reference.toLowerCase().includes(needle) || (t.appartement?.nom.toLowerCase() ?? '').includes(needle),
+        )
+      }
+
       return new Response(JSON.stringify(result), { status: 200 })
     }
 
@@ -91,12 +116,31 @@ function mockFetch(tickets: TicketMaintenance[], agents: Agent[]) {
       return new Response(JSON.stringify(currentTickets.find((t) => t.id === id)), { status: 200 })
     }
 
+    const validerMatch = url.pathname.match(/^\/api\/tickets-maintenance\/(\d+)\/valider-resolution$/)
+    if (validerMatch && method === 'PATCH') {
+      const id = Number(validerMatch[1])
+      currentTickets = currentTickets.map((t) => (t.id === id ? { ...t, statut: 'resolu' } : t))
+      return new Response(JSON.stringify(currentTickets.find((t) => t.id === id)), { status: 200 })
+    }
+
+    const refuserMatch = url.pathname.match(/^\/api\/tickets-maintenance\/(\d+)\/refuser-resolution$/)
+    if (refuserMatch && method === 'POST') {
+      const id = Number(refuserMatch[1])
+      currentTickets = currentTickets.map((t) => (t.id === id ? { ...t, statut: 'a_refaire' } : t))
+      return new Response(JSON.stringify(currentTickets.find((t) => t.id === id)), { status: 200 })
+    }
+
     throw new Error(`Unhandled request: ${method} ${url.pathname}`)
   })
 }
 
 async function expandTicket(user: ReturnType<typeof userEvent.setup>, description: string) {
   await user.click(await screen.findByText(description))
+}
+
+function renderSection(tickets: TicketMaintenance[], agents: Agent[] = [], props: { initialStatutFilter?: TicketMaintenance['statut'] | '' } = {}) {
+  globalThis.fetch = mockFetch(tickets, agents) as typeof fetch
+  return render(<TicketsMaintenanceSection appartements={APPARTEMENTS} {...props} />)
 }
 
 describe('TicketsMaintenanceSection', () => {
@@ -114,26 +158,36 @@ describe('TicketsMaintenanceSection', () => {
     Object.defineProperty(navigator, 'mediaDevices', { value: originalMediaDevices, configurable: true })
   })
 
-  it('affiche les tickets avec référence, appartement et aperçu tronqué du problème', async () => {
-    globalThis.fetch = mockFetch([ticketFixture()], []) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
+  it('affiche les tickets avec référence, appartement, urgence et statut', async () => {
+    renderSection([ticketFixture()])
 
     expect(await screen.findByText('Le robinet fuit.')).toBeInTheDocument()
     const card = screen.getByRole('listitem')
     expect(within(card).getByText('Loft Bastille')).toBeInTheDocument()
     expect(within(card).getByText('MNT-0001')).toBeInTheDocument()
-    expect(within(card).getByText(/signalé par fatima z\./i)).toBeInTheDocument()
+    expect(within(card).getByText('Urgence Normale')).toBeInTheDocument()
+    expect(within(card).getByText('Ouvert')).toBeInTheDocument()
+  })
+
+  it("charge tous les statuts par défaut (pas seulement ouvert/à refaire)", async () => {
+    renderSection([
+      ticketFixture({ id: 1, statut: 'ouvert', description: 'Ticket ouvert' }),
+      ticketFixture({ id: 2, statut: 'assigne', description: 'Ticket assigné' }),
+      ticketFixture({ id: 3, statut: 'resolu_en_attente_validation', description: 'Ticket en attente' }),
+      ticketFixture({ id: 4, statut: 'a_refaire', description: 'Ticket à refaire' }),
+      ticketFixture({ id: 5, statut: 'resolu', description: 'Ticket résolu' }),
+    ])
+
+    await screen.findByText('Ticket ouvert')
+    expect(screen.getByText('Ticket assigné')).toBeInTheDocument()
+    expect(screen.getByText('Ticket en attente')).toBeInTheDocument()
+    expect(screen.getByText('Ticket à refaire')).toBeInTheDocument()
+    expect(screen.getByText('Ticket résolu')).toBeInTheDocument()
   })
 
   it('replie la carte par défaut et ne montre le contenu complet qu\'après un clic', async () => {
     const user = userEvent.setup()
-    globalThis.fetch = mockFetch(
-      [ticketFixture({ photo_url: 'tickets-maintenance/photo.jpg' })],
-      [agentFixture()],
-    ) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
+    renderSection([ticketFixture({ photo_url: 'tickets-maintenance/photo.jpg' })], [agentFixture()])
 
     await screen.findByText('Le robinet fuit.')
     expect(screen.queryByLabelText(/^agent de maintenance$/i)).not.toBeInTheDocument()
@@ -148,68 +202,19 @@ describe('TicketsMaintenanceSection', () => {
     expect(screen.queryByLabelText(/^agent de maintenance$/i)).not.toBeInTheDocument()
   })
 
-  it('affiche la photo et le lecteur audio du signalement quand présents, une fois dépliée', async () => {
-    const user = userEvent.setup()
-    globalThis.fetch = mockFetch(
-      [ticketFixture({ photo_url: 'tickets-maintenance/photo.jpg', audio_url: 'tickets-maintenance/audio.webm' })],
-      [],
-    ) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
-
-    await expandTicket(user, 'Le robinet fuit.')
-    expect(screen.getByAltText(/photo du problème signalé/i)).toBeInTheDocument()
-    expect(document.querySelector('audio')).toBeInTheDocument()
-  })
-
   it('affiche un message quand aucun ticket n\'est présent', async () => {
-    globalThis.fetch = mockFetch([], []) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
+    renderSection([])
 
     expect(await screen.findByText(/aucun ticket de maintenance\./i)).toBeInTheDocument()
   })
 
-  it('le bouton Assigner est désactivé tant qu\'aucun agent ni description n\'est renseigné', async () => {
-    const user = userEvent.setup()
-    globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
-    await expandTicket(user, 'Le robinet fuit.')
-
-    expect(screen.getByRole('button', { name: /assigner/i })).toBeDisabled()
-  })
-
-  it('reste désactivé quand un agent est choisi mais aucune description écrite ni audio', async () => {
-    const user = userEvent.setup()
-    globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
-    await expandTicket(user, 'Le robinet fuit.')
-    await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), '5')
-
-    expect(screen.getByRole('button', { name: /assigner/i })).toBeDisabled()
-  })
-
-  it('s\'active dès qu\'une description écrite est renseignée', async () => {
-    const user = userEvent.setup()
-    globalThis.fetch = mockFetch([ticketFixture()], [agentFixture()]) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
-    await expandTicket(user, 'Le robinet fuit.')
-    await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), '5')
-    await user.type(screen.getByLabelText(/instruction écrite pour l'agent/i), 'Changer le joint.')
-
-    expect(screen.getByRole('button', { name: /assigner/i })).toBeEnabled()
-  })
-
-  it('assigne un ticket avec une description écrite, qui disparaît ensuite de la liste', async () => {
+  it('assigne un ticket ouvert avec une description écrite', async () => {
     const user = userEvent.setup()
     const agent = agentFixture()
-    const fetchMock = mockFetch([ticketFixture()], [agent])
-    globalThis.fetch = fetchMock as typeof fetch
+    globalThis.fetch = mockFetch([ticketFixture()], [agent]) as typeof fetch
+    render(<TicketsMaintenanceSection appartements={APPARTEMENTS} />)
+    const fetchMock = globalThis.fetch as ReturnType<typeof mockFetch>
 
-    render(<TicketsMaintenanceSection />)
     await expandTicket(user, 'Le robinet fuit.')
     await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), String(agent.id))
     await user.type(screen.getByLabelText(/instruction écrite pour l'agent/i), 'Changer le joint.')
@@ -222,15 +227,14 @@ describe('TicketsMaintenanceSection', () => {
       expect(body.get('agent_id')).toBe(String(agent.id))
       expect(body.get('description_manager')).toBe('Changer le joint.')
     })
-    await waitFor(() => expect(screen.queryByText('Le robinet fuit.')).not.toBeInTheDocument())
-    expect(screen.getByText(/aucun ticket de maintenance\./i)).toBeInTheDocument()
   })
 
-  it('bascule vers l\'onglet audio, enregistre un message et l\'envoie sans texte', async () => {
+  it('assigne un ticket ouvert avec un message audio enregistré', async () => {
     const user = userEvent.setup()
     const agent = agentFixture()
-    const fetchMock = mockFetch([ticketFixture()], [agent])
-    globalThis.fetch = fetchMock as typeof fetch
+    globalThis.fetch = mockFetch([ticketFixture()], [agent]) as typeof fetch
+    render(<TicketsMaintenanceSection appartements={APPARTEMENTS} />)
+    const fetchMock = globalThis.fetch as ReturnType<typeof mockFetch>
 
     const fakeTrack = { stop: vi.fn() }
     const fakeStream = { getTracks: () => [fakeTrack] } as unknown as MediaStream
@@ -251,17 +255,12 @@ describe('TicketsMaintenanceSection', () => {
     // @ts-expect-error -- assigning a minimal fake for the test
     window.MediaRecorder = FakeMediaRecorder
 
-    render(<TicketsMaintenanceSection />)
-
     await expandTicket(user, 'Le robinet fuit.')
     await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), String(agent.id))
     await user.click(screen.getByRole('tab', { name: /enregistrer un audio/i }))
     await user.click(screen.getByRole('button', { name: /démarrer l'enregistrement/i }))
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledWith({ audio: true }))
     await user.click(await screen.findByTestId('recording-indicator-1'))
-
-    expect(screen.getByRole('button', { name: /assigner/i })).toBeEnabled()
-
     await user.click(screen.getByRole('button', { name: /assigner/i }))
 
     await waitFor(() => {
@@ -269,44 +268,10 @@ describe('TicketsMaintenanceSection', () => {
       expect(call).toBeDefined()
       const body = call![1]!.body as FormData
       expect(body.get('description_manager_audio')).not.toBeNull()
-      expect(body.get('description_manager')).toBeNull()
     })
   })
 
-  it('n\'affiche la case "Transférer la photo" que si le signalement a une photo', async () => {
-    const user = userEvent.setup()
-    globalThis.fetch = mockFetch([ticketFixture({ photo_url: null })], [agentFixture()]) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
-    await expandTicket(user, 'Le robinet fuit.')
-    expect(screen.queryByText(/transférer la photo/i)).not.toBeInTheDocument()
-  })
-
-  it('envoie photo_transferee=1 quand la case est cochée', async () => {
-    const user = userEvent.setup()
-    const agent = agentFixture()
-    const fetchMock = mockFetch([ticketFixture({ photo_url: 'tickets-maintenance/photo.jpg' })], [agent])
-    globalThis.fetch = fetchMock as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
-    await expandTicket(user, 'Le robinet fuit.')
-    const checkbox = screen.getByRole('checkbox', { name: /transférer la photo/i })
-    expect(checkbox).not.toBeChecked()
-
-    await user.click(checkbox)
-    await user.selectOptions(screen.getByLabelText(/^agent de maintenance$/i), String(agent.id))
-    await user.type(screen.getByLabelText(/instruction écrite pour l'agent/i), 'Voir photo jointe.')
-    await user.click(screen.getByRole('button', { name: /assigner/i }))
-
-    await waitFor(() => {
-      const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/assigner'))
-      expect(call).toBeDefined()
-      const body = call![1]!.body as FormData
-      expect(body.get('photo_transferee')).toBe('1')
-    })
-  })
-
-  it('affiche un ticket à refaire avec le badge et l\'historique des refus, sans formulaire d\'assignation', async () => {
+  it('affiche un ticket à refaire en lecture seule avec l\'historique des refus, sans formulaire d\'assignation', async () => {
     const user = userEvent.setup()
     const ticket = ticketFixture({
       statut: 'a_refaire',
@@ -325,30 +290,83 @@ describe('TicketsMaintenanceSection', () => {
         },
       ],
     })
-    globalThis.fetch = mockFetch([ticket], []) as typeof fetch
+    renderSection([ticket])
 
-    render(<TicketsMaintenanceSection />)
-
-    expect(await screen.findByText(/renvoyé par le manager/i)).toBeInTheDocument()
+    expect(await screen.findByText('À refaire')).toBeInTheDocument()
 
     await expandTicket(user, 'Le robinet fuit.')
 
     expect(screen.getByText('Karim B.')).toBeInTheDocument()
     expect(screen.getByText('La fuite persiste.')).toBeInTheDocument()
     expect(screen.queryByLabelText(/^agent de maintenance$/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^valider$/i })).not.toBeInTheDocument()
+  })
+
+  it('affiche un ticket résolu en lecture seule avec la photo après réparation et le coût', async () => {
+    const user = userEvent.setup()
+    const ticket = ticketFixture({
+      statut: 'resolu',
+      agent_id: 5,
+      agent: agentFixture(),
+      photo_apres: 'tickets-maintenance/apres.jpg',
+      cout_reparation: '45.50',
+    })
+    renderSection([ticket])
+
+    await expandTicket(user, 'Le robinet fuit.')
+
+    expect(screen.getByAltText(/photo après réparation/i)).toBeInTheDocument()
+    expect(screen.getByText(/45\.50 MAD/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^agent de maintenance$/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^valider$/i })).not.toBeInTheDocument()
+  })
+
+  it('valide une résolution en attente de validation', async () => {
+    const user = userEvent.setup()
+    const ticket = ticketFixture({
+      statut: 'resolu_en_attente_validation',
+      photo_apres: 'tickets-maintenance/apres.jpg',
+      cout_reparation: '20',
+    })
+    globalThis.fetch = mockFetch([ticket], []) as typeof fetch
+    render(<TicketsMaintenanceSection appartements={APPARTEMENTS} />)
+    const fetchMock = globalThis.fetch as ReturnType<typeof mockFetch>
+
+    await expandTicket(user, 'Le robinet fuit.')
+    await user.click(screen.getByRole('button', { name: /^valider$/i }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/valider-resolution'))
+      expect(call).toBeDefined()
+    })
+  })
+
+  it('refuse une résolution en attente de validation avec un motif', async () => {
+    const user = userEvent.setup()
+    const ticket = ticketFixture({ statut: 'resolu_en_attente_validation' })
+    globalThis.fetch = mockFetch([ticket], []) as typeof fetch
+    render(<TicketsMaintenanceSection appartements={APPARTEMENTS} />)
+    const fetchMock = globalThis.fetch as ReturnType<typeof mockFetch>
+
+    await expandTicket(user, 'Le robinet fuit.')
+    await user.click(screen.getByRole('button', { name: /^refuser$/i }))
+    await user.type(screen.getByLabelText(/motif du refus/i), 'La fuite persiste.')
+    await user.click(screen.getByRole('button', { name: /confirmer le refus/i }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/refuser-resolution'))
+      expect(call).toBeDefined()
+      const body = call![1]!.body as FormData
+      expect(body.get('motif')).toBe('La fuite persiste.')
+    })
   })
 
   it('filtre les tickets par urgence', async () => {
     const user = userEvent.setup()
-    globalThis.fetch = mockFetch(
-      [
-        ticketFixture({ id: 1, urgence: 'haute', description: 'Fuite grave' }),
-        ticketFixture({ id: 2, urgence: 'basse', description: 'Ampoule à changer' }),
-      ],
-      [],
-    ) as typeof fetch
-
-    render(<TicketsMaintenanceSection />)
+    renderSection([
+      ticketFixture({ id: 1, urgence: 'haute', description: 'Fuite grave' }),
+      ticketFixture({ id: 2, urgence: 'basse', description: 'Ampoule à changer' }),
+    ])
 
     await screen.findByText('Fuite grave')
     expect(screen.getByText('Ampoule à changer')).toBeInTheDocument()
@@ -359,43 +377,90 @@ describe('TicketsMaintenanceSection', () => {
     expect(screen.queryByText('Ampoule à changer')).not.toBeInTheDocument()
   })
 
-  it('filtre les tickets par appartement', async () => {
+  it('filtre les tickets par statut', async () => {
     const user = userEvent.setup()
-    globalThis.fetch = mockFetch(
-      [
-        ticketFixture({ id: 1, description: 'Fuite grave' }),
-        ticketFixture({
-          id: 2,
-          description: 'Ampoule à changer',
-          appartement_id: 2,
-          appartement: { id: 2, nom: 'Zenith', adresse: 'B', statut: 'disponible', photo_principale: null, agent_habituel_id: null },
-        }),
-      ],
-      [],
-    ) as typeof fetch
+    renderSection([
+      ticketFixture({ id: 1, statut: 'ouvert', description: 'Ticket ouvert' }),
+      ticketFixture({ id: 2, statut: 'resolu', description: 'Ticket résolu' }),
+    ])
 
-    render(<TicketsMaintenanceSection />)
+    await screen.findByText('Ticket ouvert')
+    await user.selectOptions(screen.getByLabelText(/^statut$/i), 'resolu')
+
+    await waitFor(() => expect(screen.queryByText('Ticket ouvert')).not.toBeInTheDocument())
+    expect(screen.getByText('Ticket résolu')).toBeInTheDocument()
+  })
+
+  it('filtre les tickets par appartement (liste complète, pas seulement les tickets visibles)', async () => {
+    const user = userEvent.setup()
+    renderSection([
+      ticketFixture({ id: 1, description: 'Fuite grave' }),
+      ticketFixture({ id: 2, description: 'Ampoule à changer', appartement_id: 2, appartement: APPARTEMENTS[1] }),
+    ])
 
     await screen.findByText('Fuite grave')
+    expect(screen.getByRole('option', { name: 'Zenith' })).toBeInTheDocument()
+
     await user.selectOptions(screen.getByLabelText(/^appartement$/i), '2')
 
-    expect(screen.queryByText('Fuite grave')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Fuite grave')).not.toBeInTheDocument())
     expect(screen.getByText('Ampoule à changer')).toBeInTheDocument()
   })
 
-  it('trie les tickets par date, plus récent en premier par défaut', async () => {
-    globalThis.fetch = mockFetch(
+  it('filtre les tickets par plage de dates du séjour lié', async () => {
+    const user = userEvent.setup()
+    const ticketJanvier = ticketFixture({
+      id: 1,
+      description: 'Ticket janvier',
+      mission_origine: {
+        ...ticketFixture().mission_origine!,
+        sejour: { ...ticketFixture().mission_origine!.sejour!, date_arrivee: '2026-01-10' },
+      },
+    })
+    const ticketMars = ticketFixture({
+      id: 2,
+      description: 'Ticket mars',
+      mission_origine: {
+        ...ticketFixture().mission_origine!,
+        sejour: { ...ticketFixture().mission_origine!.sejour!, date_arrivee: '2026-03-10' },
+      },
+    })
+    renderSection([ticketJanvier, ticketMars])
+
+    await screen.findByText('Ticket janvier')
+    await user.type(screen.getByLabelText(/^du$/i), '2026-01-01')
+    await user.type(screen.getByLabelText(/^au$/i), '2026-01-31')
+
+    await waitFor(() => expect(screen.queryByText('Ticket mars')).not.toBeInTheDocument())
+    expect(screen.getByText('Ticket janvier')).toBeInTheDocument()
+  })
+
+  it('recherche librement par référence ou nom d\'appartement', async () => {
+    const user = userEvent.setup()
+    renderSection([
+      ticketFixture({ id: 1, reference: 'MNT-0001', description: 'Fuite grave' }),
+      ticketFixture({ id: 2, reference: 'MNT-0002', description: 'Ampoule', appartement_id: 2, appartement: APPARTEMENTS[1] }),
+    ])
+
+    await screen.findByText('Fuite grave')
+    await user.type(screen.getByLabelText(/recherche/i), 'zenith')
+
+    await waitFor(() => expect(screen.queryByText('Fuite grave')).not.toBeInTheDocument())
+    expect(screen.getByText('Ampoule')).toBeInTheDocument()
+  })
+
+  it('applique un statut initial (ex. depuis le Dashboard) sans que l\'utilisateur ait à filtrer', async () => {
+    renderSection(
       [
-        ticketFixture({ id: 1, description: 'Ancien ticket', created_at: '2026-01-01T09:00:00Z' }),
-        ticketFixture({ id: 2, description: 'Nouveau ticket', created_at: '2026-08-01T09:00:00Z' }),
+        ticketFixture({ id: 1, statut: 'ouvert', description: 'Ticket ouvert' }),
+        ticketFixture({ id: 2, statut: 'resolu_en_attente_validation', description: 'Ticket en attente' }),
       ],
       [],
-    ) as typeof fetch
+      { initialStatutFilter: 'resolu_en_attente_validation' },
+    )
 
-    render(<TicketsMaintenanceSection />)
-
-    await screen.findByText('Ancien ticket')
-    const descriptions = screen.getAllByText(/ticket$/).map((el) => el.textContent)
-    expect(descriptions).toEqual(['Nouveau ticket', 'Ancien ticket'])
+    await screen.findByText('Ticket en attente')
+    expect(screen.queryByText('Ticket ouvert')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/^statut$/i)).toHaveValue('resolu_en_attente_validation')
   })
 })

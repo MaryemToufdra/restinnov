@@ -34,14 +34,12 @@ import { AppartementsListeSection } from './components/AppartementsListeSection'
 import { CatalogueProduitsSection } from './components/CatalogueProduitsSection'
 import { DashboardSection } from './components/DashboardSection'
 import { HistoriqueMenageSection } from './components/HistoriqueMenageSection'
-import { HistoriqueTicketsSection } from './components/HistoriqueTicketsSection'
 import { NotificationBell } from './components/NotificationBell'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
 import { NouvelAgentForm } from './components/NouvelAgentForm'
 import { NouvelAgentMaintenanceForm } from './components/NouvelAgentMaintenanceForm'
 import { NouvelAppartementForm } from './components/NouvelAppartementForm'
 import { ProduitsSignalesSection } from './components/ProduitsSignalesSection'
-import { ResolutionsAValiderSection } from './components/ResolutionsAValiderSection'
 import { SejoursListeSection } from './components/SejoursListeSection'
 import { TicketsMaintenanceSection } from './components/TicketsMaintenanceSection'
 import { useAuth } from './auth/AuthContext'
@@ -56,6 +54,7 @@ import type {
   Proprietaire,
   Sejour,
   SejourStatut,
+  TicketMaintenanceStatut,
 } from './types'
 
 type Tab =
@@ -70,8 +69,6 @@ type Tab =
   | 'menage-historique'
   | 'maintenance-agent'
   | 'maintenance-tickets'
-  | 'maintenance-resolutions'
-  | 'maintenance-historique'
 
 interface NavGroup {
   key: string
@@ -116,8 +113,6 @@ const NAV_GROUPS: NavGroup[] = [
     tabs: [
       ['maintenance-agent', 'Ajouter un agent maintenance'],
       ['maintenance-tickets', 'Tickets de maintenance'],
-      ['maintenance-resolutions', 'Résolutions à valider'],
-      ['maintenance-historique', 'Historique des tickets'],
     ],
     defaultTab: 'maintenance-agent',
   },
@@ -135,8 +130,6 @@ const SECTION_TITLES: Record<Tab, string> = {
   'menage-historique': 'Ménage',
   'maintenance-agent': 'Maintenance',
   'maintenance-tickets': 'Maintenance',
-  'maintenance-resolutions': 'Maintenance',
-  'maintenance-historique': 'Maintenance',
 }
 
 function groupKeyForTab(tab: Tab): string | null {
@@ -161,6 +154,7 @@ function App() {
   const [editingUtilisateur, setEditingUtilisateur] = useState<Agent | null>(null)
   const [pendingSejourId, setPendingSejourId] = useState<number | null>(null)
   const [pendingStatutFilter, setPendingStatutFilter] = useState<SejourStatut | ''>('')
+  const [pendingTicketStatutFilter, setPendingTicketStatutFilter] = useState<TicketMaintenanceStatut | ''>('')
   const { logout } = useAuth()
 
   usePwaIdentity('manager')
@@ -170,6 +164,7 @@ function App() {
     setExpandedGroup(groupKeyForTab(tab))
     setPendingSejourId(null)
     setPendingStatutFilter('')
+    setPendingTicketStatutFilter('')
   }
 
   const handleNavigateToSejourDetail = (sejourId: number) => {
@@ -180,6 +175,11 @@ function App() {
   const handleNavigateToSejoursListe = (statut?: SejourStatut) => {
     navigateTo('sejour-liste')
     if (statut) setPendingStatutFilter(statut)
+  }
+
+  const handleNavigateToTicketsMaintenance = (statut?: TicketMaintenanceStatut) => {
+    navigateTo('maintenance-tickets')
+    if (statut) setPendingTicketStatutFilter(statut)
   }
 
   const loadData = async () => {
@@ -529,7 +529,7 @@ function App() {
           <h2 className="text-2xl font-bold text-gray-900">{SECTION_TITLES[activeTab]}</h2>
           <NotificationBell
             onNavigateToSejour={handleNavigateToSejourDetail}
-            onNavigateToTicketsMaintenance={() => navigateTo('maintenance-tickets')}
+            onNavigateToTicketsMaintenance={() => handleNavigateToTicketsMaintenance('ouvert')}
           />
         </div>
         {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
@@ -544,8 +544,8 @@ function App() {
               onNavigateToSejour={handleNavigateToSejourDetail}
               onNavigateToSejoursListe={handleNavigateToSejoursListe}
               onCheckout={handleDashboardCheckout}
-              onNavigateToTicketsMaintenance={() => navigateTo('maintenance-tickets')}
-              onNavigateToResolutionsAValider={() => navigateTo('maintenance-resolutions')}
+              onNavigateToTicketsMaintenance={() => handleNavigateToTicketsMaintenance('ouvert')}
+              onNavigateToResolutionsAValider={() => handleNavigateToTicketsMaintenance('resolu_en_attente_validation')}
             />
           )}
           {activeTab === 'sejour-creer' && (
@@ -618,9 +618,9 @@ function App() {
           {activeTab === 'maintenance-agent' && (
             <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
           )}
-          {activeTab === 'maintenance-tickets' && <TicketsMaintenanceSection />}
-          {activeTab === 'maintenance-resolutions' && <ResolutionsAValiderSection />}
-          {activeTab === 'maintenance-historique' && <HistoriqueTicketsSection />}
+          {activeTab === 'maintenance-tickets' && (
+            <TicketsMaintenanceSection appartements={appartements} initialStatutFilter={pendingTicketStatutFilter} />
+          )}
         </div>
       </main>
     </div>

@@ -146,6 +146,98 @@ class TicketMaintenanceManagementTest extends TestCase
         $response->assertJsonPath('3.statut', 'resolu');
     }
 
+    public function test_index_filters_by_appartement_id(): void
+    {
+        $matching = $this->ticket();
+        $this->ticket();
+
+        $response = $this->getJson('/api/tickets-maintenance?appartement_id='.$matching->appartement_id);
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $matching->id);
+    }
+
+    public function test_index_filters_by_sejour_date_arrivee_range(): void
+    {
+        $appartement = $this->appartement();
+        $sejourJanvier = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-01-10',
+            'date_depart' => '2026-01-12',
+            'nom_voyageur' => 'Jean Dupont',
+        ]);
+        $missionJanvier = MissionMenage::create(['sejour_id' => $sejourJanvier->id, 'statut' => 'a_faire']);
+        $ticketJanvier = $this->ticket(['mission_origine_id' => $missionJanvier->id, 'appartement_id' => $appartement->id]);
+
+        $sejourMars = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-03-10',
+            'date_depart' => '2026-03-12',
+            'nom_voyageur' => 'Marie Curie',
+        ]);
+        $missionMars = MissionMenage::create(['sejour_id' => $sejourMars->id, 'statut' => 'a_faire']);
+        $this->ticket(['mission_origine_id' => $missionMars->id, 'appartement_id' => $appartement->id]);
+
+        $response = $this->getJson('/api/tickets-maintenance?date_debut=2026-01-01&date_fin=2026-01-31');
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $ticketJanvier->id);
+    }
+
+    public function test_index_combines_statut_appartement_and_date_filters(): void
+    {
+        $appartement = $this->appartement();
+        $sejour = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-01-10',
+            'date_depart' => '2026-01-12',
+            'nom_voyageur' => 'Jean Dupont',
+        ]);
+        $mission = MissionMenage::create(['sejour_id' => $sejour->id, 'statut' => 'a_faire']);
+        $matching = $this->ticket(['mission_origine_id' => $mission->id, 'appartement_id' => $appartement->id, 'statut' => 'ouvert']);
+        $this->ticket(['mission_origine_id' => $mission->id, 'appartement_id' => $appartement->id, 'statut' => 'resolu']);
+
+        $response = $this->getJson(
+            '/api/tickets-maintenance?statut=ouvert&appartement_id='.$appartement->id.'&date_debut=2026-01-01&date_fin=2026-01-31',
+        );
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $matching->id);
+    }
+
+    public function test_index_searches_by_reference(): void
+    {
+        $ticket = $this->ticket();
+        $this->ticket();
+
+        $response = $this->getJson('/api/tickets-maintenance?search='.$ticket->reference);
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $ticket->id);
+    }
+
+    public function test_index_searches_by_appartement_nom(): void
+    {
+        $appartement = Appartement::create(['nom' => 'Zenith Suite', 'adresse' => 'A', 'statut' => 'disponible']);
+        $matching = TicketMaintenance::create([
+            'appartement_id' => $appartement->id,
+            'mission_origine_id' => $this->mission($appartement)->id,
+            'description' => 'Fuite.',
+            'statut' => 'ouvert',
+        ]);
+        $this->ticket();
+
+        $response = $this->getJson('/api/tickets-maintenance?search=zenith');
+
+        $response->assertOk();
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.id', $matching->id);
+    }
+
     public function test_ticket_creation_generates_a_sequential_reference(): void
     {
         $premier = $this->ticket();
