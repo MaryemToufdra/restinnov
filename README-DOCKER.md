@@ -212,11 +212,10 @@ Pour qu'un agent de ménage installe son icône :
    posés par l'app à ce moment précis, donc bien rester sur `/menage` (pas
    `/`) avant d'ouvrir ce menu.
 
-L'icône actuelle (`frontend/public/favicon.svg`) est un SVG — accepté par
-les navigateurs modernes pour le manifest et `apple-touch-icon`, mais un
-jeu d'icônes PNG dédié (192×192 et 512×512 a minima) donnerait un résultat
-plus net sur les anciens appareils ; aucun outil de conversion SVG→PNG
-n'était disponible dans cet environnement pour en générer un.
+Les icônes (`frontend/public/icons/`) sont des PNG dédiés à 192×192 et
+512×512 pour chacun des trois espaces (Manager, Ménage, Maintenance),
+générés à partir de l'élément "maison" du logo RestInnov sur le fond de
+couleur propre à chaque espace.
 
 ## How the pieces fit together
 

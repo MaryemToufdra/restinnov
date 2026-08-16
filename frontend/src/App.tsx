@@ -452,7 +452,8 @@ function App() {
   return (
     <div className="flex min-h-screen">
       <nav className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white px-4 py-8">
-        <h1 className="px-2 text-xl font-bold text-gray-900">Séjours & ménage</h1>
+        <img src="/logo.png" alt="RestInnov" className="h-9 w-auto px-2" />
+        <h1 className="mt-3 px-2 text-xl font-bold text-gray-900">Séjours & ménage</h1>
         <ul className="mt-6 space-y-1">
           <li>
             <button
