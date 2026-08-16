@@ -1,16 +1,19 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { resolveStorageUrl } from '../api'
 import type { ProduitCatalogue } from '../types'
 
 interface CatalogueProduitsSectionProps {
   catalogue: ProduitCatalogue[]
-  onCreate: (input: { nom: string; prix: number }) => Promise<void>
+  onCreate: (input: { nom: string; prix: number; photo?: File | null }) => Promise<void>
 }
 
 export function CatalogueProduitsSection({ catalogue, onCreate }: CatalogueProduitsSectionProps) {
   const [nom, setNom] = useState('')
   const [prix, setPrix] = useState('0')
+  const [photo, setPhoto] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async () => {
     setError(null)
@@ -21,9 +24,11 @@ export function CatalogueProduitsSection({ catalogue, onCreate }: CatalogueProdu
 
     setSubmitting(true)
     try {
-      await onCreate({ nom, prix: Number(prix) || 0 })
+      await onCreate({ nom, prix: Number(prix) || 0, photo })
       setNom('')
       setPrix('0')
+      setPhoto(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.')
     } finally {
@@ -38,7 +43,14 @@ export function CatalogueProduitsSection({ catalogue, onCreate }: CatalogueProdu
       <ul className="mt-3 space-y-1">
         {catalogue.map((produit) => (
           <li key={produit.id} className="flex items-center justify-between text-sm text-gray-700">
-            <span>
+            <span className="flex items-center gap-2">
+              {produit.photo_url && (
+                <img
+                  src={resolveStorageUrl(produit.photo_url)}
+                  alt={`Photo de "${produit.nom}"`}
+                  className="h-8 w-8 rounded object-cover"
+                />
+              )}
               {produit.nom} — {Number(produit.prix).toFixed(2)} MAD
             </span>
             <span
@@ -77,6 +89,19 @@ export function CatalogueProduitsSection({ catalogue, onCreate }: CatalogueProdu
             value={prix}
             onChange={(e) => setPrix(e.target.value)}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label htmlFor="nouveau_produit_photo" className="block text-sm font-medium text-gray-700">
+            Photo (optionnel)
+          </label>
+          <input
+            ref={fileInputRef}
+            id="nouveau_produit_photo"
+            type="file"
+            accept="image/jpeg,image/png"
+            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+            className="mt-1 block text-sm"
           />
         </div>
         <button

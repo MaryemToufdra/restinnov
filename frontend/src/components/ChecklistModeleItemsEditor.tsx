@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { resolveStorageUrl } from '../api'
 import type { ChecklistModele } from '../types'
 
 interface ChecklistModeleItemsEditorProps {
   checklistModele: ChecklistModele
-  onAddItem: (checklistModeleId: number, libelle: string) => Promise<void>
+  onAddItem: (checklistModeleId: number, libelle: string, photo?: File | null) => Promise<void>
   onDeplacerItem: (itemId: number, direction: 'haut' | 'bas') => Promise<void>
   onDeleteItem: (itemId: number) => Promise<void>
 }
@@ -15,8 +16,10 @@ export function ChecklistModeleItemsEditor({
   onDeleteItem,
 }: ChecklistModeleItemsEditorProps) {
   const [libelle, setLibelle] = useState('')
+  const [photo, setPhoto] = useState<File | null>(null)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const items = checklistModele.items ?? []
 
@@ -25,8 +28,10 @@ export function ChecklistModeleItemsEditor({
     setError(null)
     setAdding(true)
     try {
-      await onAddItem(checklistModele.id, libelle.trim())
+      await onAddItem(checklistModele.id, libelle.trim(), photo)
       setLibelle('')
+      setPhoto(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.')
     } finally {
@@ -47,7 +52,16 @@ export function ChecklistModeleItemsEditor({
               key={item.id}
               className="flex items-center justify-between gap-2 rounded-md bg-white px-2 py-1.5 text-sm shadow-sm"
             >
-              <span className="text-gray-700">{item.libelle}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                {item.photo_url && (
+                  <img
+                    src={resolveStorageUrl(item.photo_url)}
+                    alt={`Photo de référence pour "${item.libelle}"`}
+                    className="h-8 w-8 shrink-0 rounded object-cover"
+                  />
+                )}
+                <span className="truncate text-gray-700">{item.libelle}</span>
+              </span>
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
@@ -83,15 +97,34 @@ export function ChecklistModeleItemsEditor({
         <p className="mt-2 text-sm text-gray-400">Aucun item pour l'instant.</p>
       )}
 
-      <div className="mt-2 flex gap-2">
-        <input
-          type="text"
-          value={libelle}
-          onChange={(e) => setLibelle(e.target.value)}
-          placeholder="ex. Passer l'aspirateur"
-          aria-label={`Nouvel item pour ${checklistModele.nom}`}
-          className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm"
-        />
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <input
+            type="text"
+            value={libelle}
+            onChange={(e) => setLibelle(e.target.value)}
+            placeholder="ex. Passer l'aspirateur"
+            aria-label={`Nouvel item pour ${checklistModele.nom}`}
+            className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor={`nouvel_item_photo_${checklistModele.id}`}
+            className="block text-xs font-medium text-gray-500"
+          >
+            Photo de référence (optionnel)
+          </label>
+          <input
+            ref={fileInputRef}
+            id={`nouvel_item_photo_${checklistModele.id}`}
+            type="file"
+            accept="image/jpeg,image/png"
+            aria-label={`Photo de référence pour le nouvel item de ${checklistModele.nom}`}
+            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+            className="block text-sm"
+          />
+        </div>
         <button
           type="button"
           onClick={handleAdd}

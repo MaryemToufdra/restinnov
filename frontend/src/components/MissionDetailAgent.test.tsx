@@ -14,7 +14,16 @@ const appartement = {
 }
 
 function checklistItem(overrides: Partial<ChecklistItem> = {}): ChecklistItem {
-  return { id: 1, mission_menage_id: 10, libelle: 'Passer l\'aspirateur', coche: false, photo_url: null, ordre: 0, ...overrides }
+  return {
+    id: 1,
+    mission_menage_id: 10,
+    libelle: 'Passer l\'aspirateur',
+    coche: false,
+    photo_url: null,
+    photo_reference_url: null,
+    ordre: 0,
+    ...overrides,
+  }
 }
 
 function missionFixture(overrides: Partial<MissionMenage> = {}): MissionMenage {
@@ -136,6 +145,18 @@ describe('MissionDetailAgent', () => {
 
     expect(await screen.findByText("Passer l'aspirateur")).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: "Passer l'aspirateur" })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('affiche la photo de référence d\'un item de checklist quand présente', async () => {
+    globalThis.fetch = mockFetch(
+      missionFixture({
+        checklist_items: [checklistItem({ photo_reference_url: 'checklist-modele-items/exemple.jpg' })],
+      }),
+    ) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    expect(await screen.findByAltText('Photo de référence pour "Passer l\'aspirateur"')).toBeInTheDocument()
   })
 
   it('le bouton "Marquer terminé" est désactivé tant que tous les items ne sont pas cochés', async () => {

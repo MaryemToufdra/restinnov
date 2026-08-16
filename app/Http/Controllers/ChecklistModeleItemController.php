@@ -10,18 +10,22 @@ use Illuminate\Http\Request;
 class ChecklistModeleItemController extends Controller
 {
     /**
-     * Add a new item at the end of a checklist modele.
+     * Add a new item at the end of a checklist modele. The reference photo
+     * is optional -- shown to the agent as guidance on the mission's
+     * checklist, distinct from the agent's own proof-of-work photo.
      */
     public function store(Request $request, ChecklistModele $checklistModele): JsonResponse
     {
         $validated = $request->validate([
             'libelle' => ['required', 'string', 'max:255'],
+            'photo' => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
         ]);
 
         $nextOrdre = ($checklistModele->items()->max('ordre') ?? -1) + 1;
 
         $item = $checklistModele->items()->create([
             'libelle' => $validated['libelle'],
+            'photo_url' => $request->hasFile('photo') ? $request->file('photo')->store('checklist-modele-items', 'public') : null,
             'ordre' => $nextOrdre,
         ]);
 

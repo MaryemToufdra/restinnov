@@ -79,6 +79,43 @@ class AppartementHistoriqueTest extends TestCase
         $response->assertJsonPath('1.frais_total', 62.5);
     }
 
+    public function test_it_exposes_the_checklist_reference_photo_and_the_produit_photo(): void
+    {
+        $standard = ChecklistModele::create(['nom' => 'Standard']);
+        ChecklistModeleItem::create([
+            'checklist_modele_id' => $standard->id,
+            'libelle' => 'Passer l\'aspirateur',
+            'photo_url' => 'checklist-modele-items/exemple.jpg',
+            'ordre' => 0,
+        ]);
+
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $appartement->checklistModeles()->sync([$standard->id]);
+
+        $produit = ProduitMenageCatalogue::create([
+            'nom' => 'Javel',
+            'prix' => 12.5,
+            'photo_url' => 'produits-catalogue/javel.jpg',
+            'actif' => true,
+        ]);
+
+        $sejour = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-01-01',
+            'date_depart' => '2026-01-05',
+            'nom_voyageur' => 'Jean Dupont',
+        ]);
+        $this->patchJson("/api/sejours/{$sejour->id}/checkout")->assertOk();
+        $mission = MissionMenage::where('sejour_id', $sejour->id)->firstOrFail();
+        $mission->produits()->attach($produit->id);
+
+        $response = $this->getJson("/api/appartements/{$appartement->id}/historique");
+
+        $response->assertOk();
+        $response->assertJsonPath('0.checklist_items.0.photo_reference_url', 'checklist-modele-items/exemple.jpg');
+        $response->assertJsonPath('0.produits.0.photo_url', 'produits-catalogue/javel.jpg');
+    }
+
     public function test_it_only_returns_missions_for_the_requested_appartement(): void
     {
         $appartement1 = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);

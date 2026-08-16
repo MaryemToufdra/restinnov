@@ -140,7 +140,7 @@ describe('SejourCard', () => {
           vue: true,
           produits: [],
           checklist_items: [
-            { id: 1, mission_menage_id: 10, libelle: 'Changer les draps', coche: true, photo_url: null, ordre: 0 },
+            { id: 1, mission_menage_id: 10, libelle: 'Changer les draps', coche: true, photo_url: null, photo_reference_url: null, ordre: 0 },
           ],
           produits_signales: [
             {

@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ProduitCatalogueTest extends TestCase
@@ -53,6 +55,32 @@ class ProduitCatalogueTest extends TestCase
             'prix' => 15,
             'actif' => true,
         ]);
+    }
+
+    public function test_it_stores_an_optional_reference_photo_with_the_product(): void
+    {
+        Storage::fake('public');
+
+        $response = $this->post('/api/produits-catalogue', [
+            'nom' => 'Éponge magique',
+            'prix' => 15,
+            'photo' => UploadedFile::fake()->image('exemple.jpg'),
+        ]);
+
+        $response->assertCreated();
+        $this->assertNotNull($response->json('photo_url'));
+        Storage::disk('public')->assertExists($response->json('photo_url'));
+    }
+
+    public function test_it_creates_a_catalogue_product_without_a_photo(): void
+    {
+        $response = $this->postJson('/api/produits-catalogue', [
+            'nom' => 'Éponge magique',
+            'prix' => 15,
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('photo_url', null);
     }
 
     public function test_nom_and_prix_are_required(): void

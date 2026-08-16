@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ouvrirMissionMenage,
+  resolveStorageUrl,
   signalerProbleme,
   signalerProduit,
   terminerMissionMenage,
@@ -86,6 +87,14 @@ function ChecklistItemRow({
       <span className={`flex-1 text-base ${item.coche ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
         {item.libelle}
       </span>
+
+      {item.photo_reference_url && (
+        <img
+          src={resolveStorageUrl(item.photo_reference_url)}
+          alt={`Photo de référence pour "${item.libelle}"`}
+          className="h-14 w-14 shrink-0 rounded-lg object-cover"
+        />
+      )}
 
       <button
         type="button"

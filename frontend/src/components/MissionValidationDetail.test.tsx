@@ -25,7 +25,7 @@ describe('MissionValidationDetail', () => {
     render(
       <MissionValidationDetail
         mission={missionFixture({
-          checklist_items: [{ id: 1, mission_menage_id: 10, libelle: 'Changer les draps', coche: true, photo_url: null, ordre: 0 }],
+          checklist_items: [{ id: 1, mission_menage_id: 10, libelle: 'Changer les draps', coche: true, photo_url: null, photo_reference_url: null, ordre: 0 }],
         })}
       />,
     )
@@ -44,8 +44,8 @@ describe('MissionValidationDetail', () => {
       <MissionValidationDetail
         mission={missionFixture({
           checklist_items: [
-            { id: 1, mission_menage_id: 10, libelle: 'Changer les draps', coche: true, photo_url: null, ordre: 0 },
-            { id: 2, mission_menage_id: 10, libelle: 'Passer l\'aspirateur', coche: false, photo_url: null, ordre: 1 },
+            { id: 1, mission_menage_id: 10, libelle: 'Changer les draps', coche: true, photo_url: null, photo_reference_url: null, ordre: 0 },
+            { id: 2, mission_menage_id: 10, libelle: 'Passer l\'aspirateur', coche: false, photo_url: null, photo_reference_url: null, ordre: 1 },
           ],
         })}
       />,
@@ -69,6 +69,7 @@ describe('MissionValidationDetail', () => {
               libelle: 'Changer les draps',
               coche: true,
               photo_url: 'checklist-items/preuve.jpg',
+              photo_reference_url: null,
               ordre: 0,
             },
           ],

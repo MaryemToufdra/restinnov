@@ -15,6 +15,7 @@ class ProduitMenageCatalogue extends Model
     protected $fillable = [
         'nom',
         'prix',
+        'photo_url',
         'actif',
     ];
 

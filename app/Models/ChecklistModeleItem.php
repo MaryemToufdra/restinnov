@@ -13,6 +13,7 @@ class ChecklistModeleItem extends Model
     protected $fillable = [
         'checklist_modele_id',
         'libelle',
+        'photo_url',
         'ordre',
     ];
 

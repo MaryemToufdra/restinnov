@@ -68,6 +68,7 @@ class SejourCheckoutService
                 $mission->checklistItems()->create([
                     'libelle' => $item->libelle,
                     'checklist_modele_nom' => $checklistModele->nom,
+                    'photo_reference_url' => $item->photo_url,
                     'ordre' => $ordre++,
                 ]);
             }

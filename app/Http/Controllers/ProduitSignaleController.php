@@ -27,7 +27,9 @@ class ProduitSignaleController extends Controller
 
     /**
      * Validate a reported product: create its catalogue entry, link it back,
-     * and attach it to the mission that reported it.
+     * and attach it to the mission that reported it. The photo the agent
+     * took at signalement time is carried over to the new catalogue entry
+     * -- the Manager is never asked to supply another one.
      */
     public function valider(Request $request, ProduitMenageSignale $produitSignale): JsonResponse
     {
@@ -46,6 +48,7 @@ class ProduitSignaleController extends Controller
             $produitCatalogue = ProduitMenageCatalogue::create([
                 'nom' => $validated['nom'],
                 'prix' => $validated['prix'],
+                'photo_url' => $produitSignale->photo_url,
                 'actif' => true,
             ]);
 

@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\ChecklistModele;
 use App\Models\ChecklistModeleItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ChecklistModeleItemTest extends TestCase
@@ -28,6 +30,34 @@ class ChecklistModeleItemTest extends TestCase
             'libelle' => 'Item 2',
             'ordre' => 1,
         ]);
+    }
+
+    public function test_it_stores_an_optional_reference_photo_with_the_item(): void
+    {
+        Storage::fake('public');
+
+        $checklistModele = ChecklistModele::create(['nom' => 'Standard']);
+
+        $response = $this->post("/api/checklist-modeles/{$checklistModele->id}/items", [
+            'libelle' => 'Item 1',
+            'photo' => UploadedFile::fake()->image('exemple.jpg'),
+        ]);
+
+        $response->assertCreated();
+        $this->assertNotNull($response->json('photo_url'));
+        Storage::disk('public')->assertExists($response->json('photo_url'));
+    }
+
+    public function test_it_adds_an_item_without_a_photo(): void
+    {
+        $checklistModele = ChecklistModele::create(['nom' => 'Standard']);
+
+        $response = $this->postJson("/api/checklist-modeles/{$checklistModele->id}/items", [
+            'libelle' => 'Item 1',
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('photo_url', null);
     }
 
     public function test_libelle_is_required_to_add_an_item(): void

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { resolveStorageUrl } from '../api'
 import type { MissionMenage, ProduitCatalogue } from '../types'
 
 interface FraisMenageSectionProps {
@@ -118,6 +119,13 @@ export function FraisMenageSection({
                 onChange={() => toggleProduit(produit.id)}
                 className="h-4 w-4 rounded border-gray-300"
               />
+              {produit.photo_url && (
+                <img
+                  src={resolveStorageUrl(produit.photo_url)}
+                  alt={`Photo de "${produit.nom}"`}
+                  className="h-6 w-6 rounded object-cover"
+                />
+              )}
               {produit.nom}
               <span className="text-gray-500">({Number(produit.prix).toFixed(2)} MAD)</span>
             </label>

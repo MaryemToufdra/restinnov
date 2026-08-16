@@ -84,6 +84,38 @@ class ChecklistGenerationTest extends TestCase
         $response->assertJsonPath('mission_menage.checklist_items.2.checklist_modele_nom', 'Fenêtres');
     }
 
+    public function test_checkout_copies_the_modele_items_reference_photo_onto_the_generated_checklist_item(): void
+    {
+        $checklistModele = ChecklistModele::create(['nom' => 'Standard']);
+        ChecklistModeleItem::create([
+            'checklist_modele_id' => $checklistModele->id,
+            'libelle' => 'Passer l\'aspirateur',
+            'photo_url' => 'checklist-modele-items/exemple.jpg',
+            'ordre' => 0,
+        ]);
+        ChecklistModeleItem::create(['checklist_modele_id' => $checklistModele->id, 'libelle' => 'Changer les draps', 'ordre' => 1]);
+
+        $appartement = Appartement::create(['nom' => 'Loft Bastille', 'adresse' => 'A', 'statut' => 'disponible']);
+        $appartement->checklistModeles()->sync([$checklistModele->id]);
+
+        $sejour = Sejour::create([
+            'appartement_id' => $appartement->id,
+            'date_arrivee' => '2026-08-01',
+            'date_depart' => '2026-08-05',
+            'nom_voyageur' => 'Jean Dupont',
+        ]);
+
+        $response = $this->patchJson("/api/sejours/{$sejour->id}/checkout");
+
+        $response->assertOk();
+        $response->assertJsonPath('mission_menage.checklist_items.0.photo_reference_url', 'checklist-modele-items/exemple.jpg');
+        $response->assertJsonPath('mission_menage.checklist_items.1.photo_reference_url', null);
+        $this->assertDatabaseHas('checklist_items', [
+            'libelle' => "Passer l'aspirateur",
+            'photo_reference_url' => 'checklist-modele-items/exemple.jpg',
+        ]);
+    }
+
     public function test_checkout_creates_no_items_when_the_appartement_has_no_checklist_modele(): void
     {
         $appartement = Appartement::create([

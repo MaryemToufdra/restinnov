@@ -19,6 +19,7 @@ export interface ChecklistModeleItem {
   id: number
   checklist_modele_id: number
   libelle: string
+  photo_url: string | null
   ordre: number
 }
 
@@ -35,6 +36,7 @@ export interface ChecklistItem {
   checklist_modele_nom?: string | null
   coche: boolean
   photo_url: string | null
+  photo_reference_url: string | null
   ordre: number
 }
 
@@ -80,6 +82,7 @@ export interface ProduitCatalogue {
   id: number
   nom: string
   prix: string | number
+  photo_url: string | null
   actif: boolean
 }
 
@@ -337,11 +340,13 @@ export interface HistoriqueChecklistItem {
   checklist_modele_nom: string | null
   coche: boolean
   photo_url: string | null
+  photo_reference_url: string | null
 }
 
 export interface HistoriqueProduit {
   nom: string
   prix: number
+  photo_url: string | null
 }
 
 export interface HistoriqueMission {
@@ -381,4 +386,27 @@ export interface HistoriqueMissionAgent {
   checklist_modeles_utilises: string[]
   checklist_items: HistoriqueChecklistItem[]
   produits: HistoriqueProduit[]
+}
+
+/**
+ * The Manager's own "Historique" view -- GET /api/mission-menages/historique
+ * -- every already-validated (conforme) mission across every appartement,
+ * optionally filtered by appartement and/or a sejour checkout date range.
+ */
+export interface HistoriqueMissionManager {
+  id: number
+  sejour: {
+    id: number
+    reference: string
+    date_arrivee: string
+    date_depart: string
+    nom_voyageur: string
+  }
+  appartement: { id: number; nom: string; adresse: string } | null
+  checklist_modeles_utilises: string[]
+  checklist_items: HistoriqueChecklistItem[]
+  produits: HistoriqueProduit[]
+  frais_forfait: number
+  frais_produits_total: number
+  frais_total: number
 }

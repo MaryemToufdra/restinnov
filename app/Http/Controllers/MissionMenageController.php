@@ -108,12 +108,88 @@ class MissionMenageController extends Controller
                 'checklist_modele_nom' => $item->checklist_modele_nom,
                 'coche' => $item->coche,
                 'photo_url' => $item->photo_url,
+                'photo_reference_url' => $item->photo_reference_url,
             ])->values(),
             'produits' => $mission->produits->map(fn ($produit) => [
                 'nom' => $produit->nom,
                 'prix' => round((float) $produit->prix, 2),
+                'photo_url' => $produit->photo_url,
             ])->values(),
         ]));
+    }
+
+    /**
+     * Manager-wide "Historique" view -- every already-validated (conforme)
+     * mission across every appartement, most recent sejour first, optionally
+     * narrowed to one appartement and/or a sejour checkout date range.
+     * Distinct from historique() above, which is scoped to a single agent's
+     * own missions and has no filters.
+     */
+    public function historiqueManager(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'appartement_id' => ['sometimes', 'integer', 'exists:appartements,id'],
+            'date_debut' => ['sometimes', 'date'],
+            'date_fin' => ['sometimes', 'date'],
+        ]);
+
+        $missions = MissionMenage::with(['sejour.appartement', 'produits', 'checklistItems'])
+            ->where('statut', MissionMenage::STATUT_CONFORME)
+            ->whereHas('sejour', function ($query) use ($validated) {
+                if (! empty($validated['appartement_id'])) {
+                    $query->where('appartement_id', $validated['appartement_id']);
+                }
+                if (! empty($validated['date_debut'])) {
+                    $query->whereDate('date_depart', '>=', $validated['date_debut']);
+                }
+                if (! empty($validated['date_fin'])) {
+                    $query->whereDate('date_depart', '<=', $validated['date_fin']);
+                }
+            })
+            ->get()
+            ->sortByDesc(fn (MissionMenage $mission) => $mission->sejour->date_depart)
+            ->values();
+
+        return response()->json($missions->map(function (MissionMenage $mission) {
+            $fraisForfait = (float) $mission->frais_forfait;
+            $fraisProduitsTotal = (float) $mission->produits->sum('prix');
+
+            return [
+                'id' => $mission->id,
+                'sejour' => [
+                    'id' => $mission->sejour->id,
+                    'reference' => $mission->sejour->reference,
+                    'date_arrivee' => $mission->sejour->date_arrivee->toDateString(),
+                    'date_depart' => $mission->sejour->date_depart->toDateString(),
+                    'nom_voyageur' => $mission->sejour->nom_voyageur,
+                ],
+                'appartement' => $mission->sejour->appartement ? [
+                    'id' => $mission->sejour->appartement->id,
+                    'nom' => $mission->sejour->appartement->nom,
+                    'adresse' => $mission->sejour->appartement->adresse,
+                ] : null,
+                'checklist_modeles_utilises' => $mission->checklistItems
+                    ->pluck('checklist_modele_nom')
+                    ->filter()
+                    ->unique()
+                    ->values(),
+                'checklist_items' => $mission->checklistItems->map(fn ($item) => [
+                    'libelle' => $item->libelle,
+                    'checklist_modele_nom' => $item->checklist_modele_nom,
+                    'coche' => $item->coche,
+                    'photo_url' => $item->photo_url,
+                    'photo_reference_url' => $item->photo_reference_url,
+                ])->values(),
+                'produits' => $mission->produits->map(fn ($produit) => [
+                    'nom' => $produit->nom,
+                    'prix' => round((float) $produit->prix, 2),
+                    'photo_url' => $produit->photo_url,
+                ])->values(),
+                'frais_forfait' => round($fraisForfait, 2),
+                'frais_produits_total' => round($fraisProduitsTotal, 2),
+                'frais_total' => round($fraisForfait + $fraisProduitsTotal, 2),
+            ];
+        })->values());
     }
 
     /**

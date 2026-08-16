@@ -33,6 +33,7 @@ import { AgentsMenageListeSection } from './components/AgentsMenageListeSection'
 import { AppartementsListeSection } from './components/AppartementsListeSection'
 import { CatalogueProduitsSection } from './components/CatalogueProduitsSection'
 import { DashboardSection } from './components/DashboardSection'
+import { HistoriqueMenageSection } from './components/HistoriqueMenageSection'
 import { HistoriqueTicketsSection } from './components/HistoriqueTicketsSection'
 import { NotificationBell } from './components/NotificationBell'
 import { NouveauSejourForm } from './components/NouveauSejourForm'
@@ -66,6 +67,7 @@ type Tab =
   | 'menage-agent'
   | 'menage-agents-liste'
   | 'menage-catalogue'
+  | 'menage-historique'
   | 'maintenance-agent'
   | 'maintenance-tickets'
   | 'maintenance-resolutions'
@@ -104,6 +106,7 @@ const NAV_GROUPS: NavGroup[] = [
       ['menage-agent', 'Ajouter un agent ménage'],
       ['menage-agents-liste', 'Liste des agents'],
       ['menage-catalogue', 'Catalogue ménage'],
+      ['menage-historique', 'Historique'],
     ],
     defaultTab: 'menage-agent',
   },
@@ -129,6 +132,7 @@ const SECTION_TITLES: Record<Tab, string> = {
   'menage-agent': 'Ménage',
   'menage-agents-liste': 'Ménage',
   'menage-catalogue': 'Ménage',
+  'menage-historique': 'Ménage',
   'maintenance-agent': 'Maintenance',
   'maintenance-tickets': 'Maintenance',
   'maintenance-resolutions': 'Maintenance',
@@ -323,8 +327,8 @@ function App() {
     return modele
   }
 
-  const handleAddChecklistModeleItem = async (checklistModeleId: number, libelle: string) => {
-    const item = await createChecklistModeleItem(checklistModeleId, libelle)
+  const handleAddChecklistModeleItem = async (checklistModeleId: number, libelle: string, photo?: File | null) => {
+    const item = await createChecklistModeleItem(checklistModeleId, libelle, photo)
     setChecklistModeles((current) =>
       current.map((m) => (m.id === checklistModeleId ? { ...m, items: [...(m.items ?? []), item] } : m)),
     )
@@ -610,6 +614,7 @@ function App() {
               />
             </>
           )}
+          {activeTab === 'menage-historique' && <HistoriqueMenageSection appartements={appartements} />}
           {activeTab === 'maintenance-agent' && (
             <NouvelAgentMaintenanceForm onSubmit={handleCreateUtilisateur} />
           )}

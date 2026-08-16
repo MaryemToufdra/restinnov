@@ -16,8 +16,8 @@ function missionFixture(overrides: Partial<HistoriqueMissionAgent> = {}): Histor
     },
     appartement: { id: 1, nom: 'Loft Bastille', adresse: '12 rue de la Roquette' },
     checklist_modeles_utilises: ['Standard'],
-    checklist_items: [{ libelle: 'Nettoyer la cuisine', checklist_modele_nom: 'Standard', coche: true, photo_url: null }],
-    produits: [{ nom: 'Éponge', prix: 5 }],
+    checklist_items: [{ libelle: 'Nettoyer la cuisine', checklist_modele_nom: 'Standard', coche: true, photo_url: null, photo_reference_url: null }],
+    produits: [{ nom: 'Éponge', prix: 5, photo_url: null }],
     ...overrides,
   }
 }
