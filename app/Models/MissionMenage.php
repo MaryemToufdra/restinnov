@@ -64,4 +64,9 @@ class MissionMenage extends Model
     {
         return $this->hasMany(ChecklistItem::class)->orderBy('ordre');
     }
+
+    public function refus(): HasMany
+    {
+        return $this->hasMany(MissionMenageRefus::class)->latest();
+    }
 }

@@ -50,7 +50,9 @@ describe('TicketDetailAgent', () => {
         ticket={{
           ...TICKET,
           statut: 'a_refaire',
-          refus: [{ motif: 'La fuite persiste.', date: '2026-08-11T10:00:00Z' }],
+          refus: [
+            { motif: 'La fuite persiste.', motif_audio_url: null, motif_photo_url: null, vu: true, date: '2026-08-11T10:00:00Z' },
+          ],
         }}
         onBack={vi.fn()}
         onResolu={vi.fn()}
@@ -58,6 +60,63 @@ describe('TicketDetailAgent', () => {
     )
 
     expect(screen.getByTestId('refus-banner')).toHaveTextContent('La fuite persiste.')
+  })
+
+  it('affiche un lecteur audio et une photo pour le motif de refus quand présents', () => {
+    render(
+      <TicketDetailAgent
+        ticket={{
+          ...TICKET,
+          statut: 'a_refaire',
+          refus: [
+            {
+              motif: null,
+              motif_audio_url: 'tickets-maintenance/refus-audio.webm',
+              motif_photo_url: 'tickets-maintenance/refus-photo.jpg',
+              vu: true,
+              date: '2026-08-11T10:00:00Z',
+            },
+          ],
+        }}
+        onBack={vi.fn()}
+        onResolu={vi.fn()}
+      />,
+    )
+
+    const banner = screen.getByTestId('refus-banner')
+    expect(banner.querySelector('audio')).toHaveAttribute('src', expect.stringContaining('tickets-maintenance/refus-audio.webm'))
+    expect(banner.querySelector('img')).toHaveAttribute('src', expect.stringContaining('tickets-maintenance/refus-photo.jpg'))
+  })
+
+  it('marque le refus comme vu au chargement quand il ne l\'était pas encore', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? 'GET'
+      if (url.pathname === '/api/tickets-maintenance/1/refus-vu' && method === 'PATCH') {
+        return new Response(JSON.stringify({ ...TICKET, statut: 'a_refaire' }), { status: 200 })
+      }
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`)
+    })
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(
+      <TicketDetailAgent
+        ticket={{
+          ...TICKET,
+          statut: 'a_refaire',
+          refus: [{ motif: 'La fuite persiste.', motif_audio_url: null, motif_photo_url: null, vu: false, date: '2026-08-11T10:00:00Z' }],
+        }}
+        onBack={vi.fn()}
+        onResolu={vi.fn()}
+      />,
+    )
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/tickets-maintenance/1/refus-vu'),
+        expect.objectContaining({ method: 'PATCH' }),
+      ),
+    )
   })
 
   it('n\'affiche ni lecteur audio ni photo quand le Manager n\'en a fourni aucun', () => {

@@ -16,7 +16,7 @@ class MissionMenageController extends Controller
 {
     use AuthorizesMissionAccess;
 
-    private const DETAIL_RELATIONS = ['sejour.appartement', 'agent', 'produits', 'checklistItems', 'produitsSignales'];
+    private const DETAIL_RELATIONS = ['sejour.appartement', 'agent', 'produits', 'checklistItems', 'produitsSignales', 'refus'];
 
     /**
      * "Mes missions du jour": missions assigned to a given menage agent
@@ -52,7 +52,7 @@ class MissionMenageController extends Controller
                 MissionMenage::STATUT_EN_ATTENTE_VALIDATION,
                 MissionMenage::STATUT_NON_CONFORME,
             ])
-            ->orderBy('created_at')
+            ->latest()
             ->get();
 
         return response()->json($missions);
@@ -272,6 +272,74 @@ class MissionMenageController extends Controller
         }
 
         $missionMenage->update(['statut' => MissionMenage::STATUT_CONFORME]);
+
+        return response()->json($missionMenage->fresh(self::DETAIL_RELATIONS));
+    }
+
+    /**
+     * Manager-only: rejects a mission the agent has finished, with a motif
+     * that can be text, audio, and/or photo (at least one required) --
+     * same richness as TicketMaintenanceController::refuserResolution().
+     * The mission goes back to "non_conforme" (not closed) -- same agent,
+     * still blocking the appartement -- and every refusal is kept even
+     * across several successive rounds. The checklist itself is left
+     * untouched: terminer() has no statut precondition, so the agent can
+     * simply resubmit once they've addressed the issue.
+     */
+    public function refuser(Request $request, MissionMenage $missionMenage): JsonResponse
+    {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
+        if ($missionMenage->statut !== MissionMenage::STATUT_EN_ATTENTE_VALIDATION) {
+            return response()->json([
+                'message' => 'Cette mission n\'est pas en attente de validation.',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'motif' => ['nullable', 'string', 'max:1000'],
+            'motif_audio' => ['nullable', 'file', 'mimes:mp3,wav,ogg,webm,m4a,aac', 'max:10240'],
+            'motif_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        $validator->after(function ($validator) use ($request) {
+            $hasMotif = trim((string) $request->input('motif', '')) !== '';
+
+            if (! $request->hasFile('motif_audio') && ! $request->hasFile('motif_photo') && ! $hasMotif) {
+                $validator->errors()->add('motif', 'Fournissez un motif texte, audio ou photo.');
+            }
+        });
+
+        $validated = $validator->validate();
+
+        $motifAudioUrl = $request->hasFile('motif_audio')
+            ? $request->file('motif_audio')->store('missions-menage-refus', 'public')
+            : null;
+        $motifPhotoUrl = $request->hasFile('motif_photo')
+            ? $request->file('motif_photo')->store('missions-menage-refus', 'public')
+            : null;
+
+        $missionMenage->refus()->create([
+            'manager_id' => $request->user()->id,
+            'motif' => $validated['motif'] ?? null,
+            'motif_audio_url' => $motifAudioUrl,
+            'motif_photo_url' => $motifPhotoUrl,
+        ]);
+
+        $missionMenage->update(['statut' => MissionMenage::STATUT_NON_CONFORME]);
+
+        return response()->json($missionMenage->fresh(self::DETAIL_RELATIONS));
+    }
+
+    /**
+     * Mark every refus on this mission as seen by the cleaning agent --
+     * dismisses the unread dot on the agent's "Refusé(e)s" tab. Idempotent.
+     */
+    public function marquerRefusVu(Request $request, MissionMenage $missionMenage): JsonResponse
+    {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
+        $missionMenage->refus()->where('vu', false)->update(['vu' => true]);
 
         return response()->json($missionMenage->fresh(self::DETAIL_RELATIONS));
     }

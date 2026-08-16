@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  marquerMissionMenageRefusVu,
   ouvrirMissionMenage,
   resolveStorageUrl,
   signalerProbleme,
@@ -137,6 +138,9 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
     ouvrirMissionMenage(missionId)
       .then((data) => {
         if (!cancelled) setMission(data)
+        if (data.statut === 'non_conforme' && data.refus?.some((r) => !r.vu)) {
+          void marquerMissionMenageRefusVu(missionId)
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Impossible de charger la mission.')
@@ -218,11 +222,25 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
             <p className="text-sm text-gray-500">{mission.sejour?.appartement?.adresse}</p>
           </div>
 
-          {mission.statut === 'non_conforme' && (
-            <p className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-              <span aria-hidden="true">⚠️</span>
-              Renvoyé par le Manager — à refaire avant de marquer terminé à nouveau.
-            </p>
+          {mission.statut === 'non_conforme' && mission.refus && mission.refus.length > 0 && (
+            <div data-testid="refus-banner" className="space-y-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              <p className="flex items-center gap-2">
+                <span aria-hidden="true">⚠️</span>
+                Renvoyé par le Manager — à refaire avant de marquer terminé à nouveau.
+              </p>
+              {mission.refus[0].motif && <p className="font-normal">{mission.refus[0].motif}</p>}
+              {mission.refus[0].motif_audio_url && (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <audio controls src={resolveStorageUrl(mission.refus[0].motif_audio_url)} className="w-full" />
+              )}
+              {mission.refus[0].motif_photo_url && (
+                <img
+                  src={resolveStorageUrl(mission.refus[0].motif_photo_url)}
+                  alt="Photo du motif de refus"
+                  className="h-32 w-32 rounded-lg object-cover"
+                />
+              )}
+            </div>
           )}
 
           {totalItems > 0 && (

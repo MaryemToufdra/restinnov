@@ -51,7 +51,7 @@ function mockFetch(tickets: TicketMaintenance[]) {
     }
 
     const refuserMatch = url.pathname.match(/^\/api\/tickets-maintenance\/(\d+)\/refuser-resolution$/)
-    if (refuserMatch && method === 'PATCH') {
+    if (refuserMatch && method === 'POST') {
       const id = Number(refuserMatch[1])
       current = current.map((t) => (t.id === id ? { ...t, statut: 'a_refaire' } : t))
       return new Response(JSON.stringify(current.find((t) => t.id === id)), { status: 200 })
@@ -136,8 +136,10 @@ describe('ResolutionsAValiderSection', () => {
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/refuser-resolution'))
       expect(call).toBeDefined()
-      expect(call![1]).toMatchObject({ method: 'PATCH' })
-      expect(JSON.parse(call![1]!.body as string)).toEqual({ motif: 'La fuite persiste.' })
+      expect(call![1]).toMatchObject({ method: 'POST' })
+      const body = call![1]!.body as FormData
+      expect(body.get('motif')).toBe('La fuite persiste.')
+      expect(body.get('_method')).toBe('PATCH')
     })
     await waitFor(() => expect(screen.queryByText('Loft Bastille')).not.toBeInTheDocument())
     expect(screen.getByText(/aucune résolution en attente de validation/i)).toBeInTheDocument()

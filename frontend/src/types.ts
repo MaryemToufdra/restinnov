@@ -97,6 +97,15 @@ export interface ProduitMenageSignale {
   mission_menage?: MissionMenage & { sejour?: Sejour }
 }
 
+export interface MissionMenageRefus {
+  id: number
+  motif: string | null
+  motif_audio_url: string | null
+  motif_photo_url: string | null
+  vu: boolean
+  created_at: string
+}
+
 export interface MissionMenage {
   id: number
   sejour_id: number
@@ -105,15 +114,20 @@ export interface MissionMenage {
   agent: Agent | null
   frais_forfait: string | number
   vue: boolean
+  created_at?: string
   produits?: ProduitCatalogue[]
   checklist_items?: ChecklistItem[]
   produits_signales?: ProduitMenageSignale[]
   sejour?: { id: number; appartement: Appartement | null } | null
+  refus?: MissionMenageRefus[]
 }
 
 export interface TicketMaintenanceRefus {
   id: number
-  motif: string
+  motif: string | null
+  motif_audio_url: string | null
+  motif_photo_url: string | null
+  vu: boolean
   created_at: string
   manager: { id: number; nom: string } | null
 }
@@ -160,7 +174,7 @@ export interface MonTicketMaintenance {
   description_manager_audio_url: string | null
   photo_url: string | null
   appartement: { id: number; nom: string; adresse: string } | null
-  refus: { motif: string; date: string }[]
+  refus: { motif: string | null; motif_audio_url: string | null; motif_photo_url: string | null; vu: boolean; date: string }[]
 }
 
 export type VoyageurType = 'adulte' | 'enfant'
@@ -386,6 +400,22 @@ export interface HistoriqueMissionAgent {
   checklist_modeles_utilises: string[]
   checklist_items: HistoriqueChecklistItem[]
   produits: HistoriqueProduit[]
+}
+
+/**
+ * The maintenance agent's own "Validés" tab -- GET /api/tickets-maintenance/
+ * mes-tickets/historique -- always their own already-resolved (resolu)
+ * tickets, most recent first.
+ */
+export interface HistoriqueTicketAgent {
+  id: number
+  reference: string
+  urgence: TicketMaintenanceUrgence
+  description_manager: string | null
+  photo_apres: string | null
+  cout_reparation: string | number | null
+  note_resolution: string | null
+  appartement: { id: number; nom: string; adresse: string } | null
 }
 
 /**

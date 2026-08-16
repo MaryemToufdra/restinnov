@@ -1,18 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from './auth/AuthContext'
-import { fetchProduitsCatalogue } from './api'
+import { fetchMissionsAgent, fetchProduitsCatalogue } from './api'
 import { HistoriqueAgentSection } from './components/HistoriqueAgentSection'
 import { MesMissionsSection } from './components/MesMissionsSection'
 import { usePwaIdentity } from './pwa/usePwaIdentity'
-import type { ProduitCatalogue } from './types'
+import type { MissionMenage, ProduitCatalogue } from './types'
 
-type Onglet = 'missions' | 'historique'
+type Onglet = 'mes-missions' | 'en-attente' | 'refusees' | 'validees'
+
+const ONGLETS: { id: Onglet; label: string; icon: string }[] = [
+  { id: 'mes-missions', label: 'Mes missions', icon: '🧹' },
+  { id: 'en-attente', label: 'En attente', icon: '⏳' },
+  { id: 'refusees', label: 'Refusées', icon: '⚠️' },
+  { id: 'validees', label: 'Validées', icon: '🗂️' },
+]
 
 /**
  * The cleaning agent's whole world: full screen, no Manager sidebar, no
- * Dashboard/Séjours/Appartements nav -- just their own missions and their
- * own past-work history, switched via a simple two-tab bar. Reuses
- * MesMissionsSection/MissionDetailAgent unchanged from the Manager build.
+ * Dashboard/Séjours/Appartements nav -- just their own missions, switched
+ * via a simple four-tab bar (mes missions / en attente de validation /
+ * refusées / validées). Reuses MesMissionsSection/MissionDetailAgent
+ * unchanged from the Manager build.
  */
 export function AgentWorkspace() {
   usePwaIdentity('menage')
@@ -20,13 +28,42 @@ export function AgentWorkspace() {
   const { user, logout } = useAuth()
   const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [onglet, setOnglet] = useState<Onglet>('missions')
+  const [onglet, setOnglet] = useState<Onglet>('mes-missions')
+  const [missions, setMissions] = useState<MissionMenage[]>([])
+  const [loadingMissions, setLoadingMissions] = useState(false)
+  const [missionsError, setMissionsError] = useState<string | null>(null)
+
+  const chargerMissions = () => {
+    if (!user) return
+    setLoadingMissions(true)
+    setMissionsError(null)
+    fetchMissionsAgent(user.id)
+      .then(setMissions)
+      .catch((err) => setMissionsError(err instanceof Error ? err.message : 'Impossible de charger les missions.'))
+      .finally(() => setLoadingMissions(false))
+  }
 
   useEffect(() => {
     fetchProduitsCatalogue()
       .then(setCatalogue)
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Impossible de charger les données.'))
   }, [])
+
+  useEffect(() => {
+    chargerMissions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
+
+  const actives = missions.filter((m) => m.statut === 'a_faire' || m.statut === 'en_cours')
+  const enAttente = missions.filter((m) => m.statut === 'en_attente_validation')
+  const refusees = missions.filter((m) => m.statut === 'non_conforme')
+  const refuseesNonVues = refusees.some((m) => m.refus?.some((r) => !r.vu))
+
+  const counts: Partial<Record<Onglet, number>> = {
+    'mes-missions': actives.length,
+    'en-attente': enAttente.length,
+    refusees: refusees.length,
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,40 +86,74 @@ export function AgentWorkspace() {
         </button>
       </header>
 
-      <nav className="flex gap-2 border-b border-gray-200 bg-white px-4 py-2" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={onglet === 'missions'}
-          onClick={() => setOnglet('missions')}
-          className={`flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${
-            onglet === 'missions' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <span aria-hidden="true" className="text-lg">
-            🧹
-          </span>
-          Mes missions
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={onglet === 'historique'}
-          onClick={() => setOnglet('historique')}
-          className={`flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${
-            onglet === 'historique' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <span aria-hidden="true" className="text-lg">
-            🗂️
-          </span>
-          Historique
-        </button>
+      <nav className="flex gap-1 overflow-x-auto border-b border-gray-200 bg-white px-2 py-2" role="tablist">
+        {ONGLETS.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            role="tab"
+            aria-selected={onglet === o.id}
+            onClick={() => setOnglet(o.id)}
+            className={`relative flex min-h-12 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-2 text-sm font-semibold ${
+              onglet === o.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <span aria-hidden="true" className="text-lg">
+              {o.icon}
+            </span>
+            {o.label}
+            {counts[o.id] !== undefined && <span className="text-xs font-normal">({counts[o.id]})</span>}
+            {o.id === 'refusees' && refuseesNonVues && (
+              <span
+                data-testid="refusees-dot"
+                role="status"
+                aria-label="Nouveau refus"
+                className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500"
+              />
+            )}
+          </button>
+        ))}
       </nav>
 
       <main className="px-4 py-6">
         {loadError && <p className="mb-4 text-sm text-red-600">{loadError}</p>}
-        {onglet === 'missions' ? <MesMissionsSection catalogue={catalogue} /> : <HistoriqueAgentSection />}
+
+        {onglet === 'mes-missions' && (
+          <MesMissionsSection
+            missions={actives}
+            catalogue={catalogue}
+            loading={loadingMissions}
+            error={missionsError}
+            heading="Mes missions du jour"
+            subheading={user?.nom}
+            emptyIcon="✅"
+            emptyMessage="Aucune mission pour l'instant."
+            onRefresh={chargerMissions}
+          />
+        )}
+        {onglet === 'en-attente' && (
+          <MesMissionsSection
+            missions={enAttente}
+            catalogue={catalogue}
+            loading={loadingMissions}
+            error={missionsError}
+            emptyIcon="⏳"
+            emptyMessage="Aucune mission en attente de validation."
+            onRefresh={chargerMissions}
+          />
+        )}
+        {onglet === 'refusees' && (
+          <MesMissionsSection
+            missions={refusees}
+            catalogue={catalogue}
+            loading={loadingMissions}
+            error={missionsError}
+            emptyIcon="🎉"
+            emptyMessage="Aucune mission refusée."
+            onRefresh={chargerMissions}
+          />
+        )}
+        {onglet === 'validees' && <HistoriqueAgentSection />}
       </main>
     </div>
   )

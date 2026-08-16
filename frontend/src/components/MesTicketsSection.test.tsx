@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MesTicketsSection } from './MesTicketsSection'
 import type { MonTicketMaintenance } from '../types'
@@ -19,16 +20,18 @@ function ticketFixture(overrides: Partial<MonTicketMaintenance> = {}): MonTicket
   }
 }
 
-function mockFetch(tickets: MonTicketMaintenance[]) {
-  return vi.fn(async (input: RequestInfo | URL) => {
-    const url = new URL(String(input))
-
-    if (url.pathname === '/api/tickets-maintenance/mes-tickets') {
-      return new Response(JSON.stringify(tickets), { status: 200 })
-    }
-
-    throw new Error(`Unhandled request: ${url.pathname}`)
-  })
+function renderSection(overrides: Partial<ComponentProps<typeof MesTicketsSection>> = {}) {
+  return render(
+    <MesTicketsSection
+      tickets={[]}
+      loading={false}
+      error={null}
+      emptyIcon="✅"
+      emptyMessage="Aucun ticket pour l'instant."
+      onRefresh={vi.fn()}
+      {...overrides}
+    />,
+  )
 }
 
 describe('MesTicketsSection', () => {
@@ -36,45 +39,47 @@ describe('MesTicketsSection', () => {
     vi.restoreAllMocks()
   })
 
-  it("affiche les tickets assignés avec appartement, urgence et description", async () => {
-    globalThis.fetch = mockFetch([ticketFixture()]) as typeof fetch
+  it("affiche les tickets passés en props avec appartement, urgence et description", () => {
+    renderSection({ tickets: [ticketFixture()] })
 
-    render(<MesTicketsSection />)
-
-    expect(await screen.findByText('Loft Bastille')).toBeInTheDocument()
+    expect(screen.getByText('Loft Bastille')).toBeInTheDocument()
     expect(screen.getByText('12 rue de la Roquette')).toBeInTheDocument()
     expect(screen.getByText('Changer le joint du robinet.')).toBeInTheDocument()
     expect(screen.getByText('Urgence Normale')).toBeInTheDocument()
   })
 
-  it('affiche la référence du ticket et le badge "à refaire" avec son motif', async () => {
+  it('affiche la référence du ticket et le badge rouge "Refusé" pour un ticket a_refaire', () => {
     const ticket = ticketFixture({
       statut: 'a_refaire',
-      refus: [{ motif: 'La fuite persiste.', date: '2026-08-11T10:00:00Z' }],
+      refus: [{ motif: 'La fuite persiste.', motif_audio_url: null, motif_photo_url: null, vu: true, date: '2026-08-11T10:00:00Z' }],
     })
-    globalThis.fetch = mockFetch([ticket]) as typeof fetch
+    renderSection({ tickets: [ticket] })
 
-    render(<MesTicketsSection />)
-
-    expect(await screen.findByText('MNT-0001')).toBeInTheDocument()
-    expect(screen.getByText(/renvoyé par le manager/i)).toBeInTheDocument()
+    expect(screen.getByText('MNT-0001')).toBeInTheDocument()
+    const badge = screen.getByText('Refusé')
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveClass('bg-red-100', 'text-red-800')
   })
 
-  it("affiche un message quand l'agent n'a aucun ticket", async () => {
-    globalThis.fetch = mockFetch([]) as typeof fetch
+  it('affiche un badge violet "En attente de validation" pour un ticket resolu_en_attente_validation', () => {
+    renderSection({ tickets: [ticketFixture({ statut: 'resolu_en_attente_validation' })] })
 
-    render(<MesTicketsSection />)
+    const badge = screen.getByText('En attente de validation')
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveClass('bg-purple-100', 'text-purple-800')
+  })
 
-    expect(await screen.findByText(/aucun ticket pour l'instant/i)).toBeInTheDocument()
+  it("affiche le message vide passé en props quand la liste est vide", () => {
+    renderSection({ tickets: [] })
+
+    expect(screen.getByText(/aucun ticket pour l'instant/i)).toBeInTheDocument()
   })
 
   it('ouvre le détail du ticket au clic sur la carte', async () => {
     const user = userEvent.setup()
-    globalThis.fetch = mockFetch([ticketFixture()]) as typeof fetch
+    renderSection({ tickets: [ticketFixture()] })
 
-    render(<MesTicketsSection />)
-
-    await user.click(await screen.findByText('Loft Bastille'))
+    await user.click(screen.getByText('Loft Bastille'))
 
     expect(screen.getByText('Marquer comme résolu')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /retour à mes tickets/i })).toBeInTheDocument()
@@ -82,18 +87,12 @@ describe('MesTicketsSection', () => {
 
   it('reste sur la confirmation de résolution même une fois le ticket disparu de la liste rafraîchie', async () => {
     const user = userEvent.setup()
-    let current = [ticketFixture()]
 
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(String(input))
       const method = init?.method ?? 'GET'
 
-      if (url.pathname === '/api/tickets-maintenance/mes-tickets' && method === 'GET') {
-        return new Response(JSON.stringify(current), { status: 200 })
-      }
       if (url.pathname === '/api/tickets-maintenance/1/resoudre' && method === 'POST') {
-        // Resolving removes it from the "assigne" list this screen fetches.
-        current = []
         return new Response(
           JSON.stringify({ ...ticketFixture(), statut: 'resolu_en_attente_validation' }),
           { status: 200 },
@@ -103,9 +102,9 @@ describe('MesTicketsSection', () => {
       throw new Error(`Unhandled request: ${method} ${url.pathname}`)
     }) as typeof fetch
 
-    render(<MesTicketsSection />)
+    renderSection({ tickets: [ticketFixture()] })
 
-    await user.click(await screen.findByText('Loft Bastille'))
+    await user.click(screen.getByText('Loft Bastille'))
     const photo = new File(['x'], 'reparation.jpg', { type: 'image/jpeg' })
     await user.upload(screen.getByLabelText(/photo de la réparation/i), photo)
     await user.type(screen.getByLabelText(/prix de la réparation/i), '45')

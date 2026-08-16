@@ -6,14 +6,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class TicketMaintenanceRefus extends Model
+class MissionMenageRefus extends Model
 {
     use HasFactory;
 
-    protected $table = 'ticket_maintenance_refus';
+    protected $table = 'mission_menage_refus';
 
     protected $fillable = [
-        'ticket_maintenance_id',
+        'mission_menage_id',
         'manager_id',
         'motif',
         'motif_audio_url',
@@ -25,9 +25,9 @@ class TicketMaintenanceRefus extends Model
         'vu' => 'boolean',
     ];
 
-    public function ticketMaintenance(): BelongsTo
+    public function missionMenage(): BelongsTo
     {
-        return $this->belongsTo(TicketMaintenance::class);
+        return $this->belongsTo(MissionMenage::class);
     }
 
     public function manager(): BelongsTo

@@ -317,6 +317,9 @@ describe('TicketsMaintenanceSection', () => {
         {
           id: 1,
           motif: 'La fuite persiste.',
+          motif_audio_url: null,
+          motif_photo_url: null,
+          vu: true,
           created_at: '2026-08-11T10:00:00Z',
           manager: { id: 9, nom: 'Sophie M.' },
         },

@@ -39,6 +39,7 @@ function renderCard(sejour: Sejour) {
       catalogue={[]}
       onCheckout={noop}
       onValiderMission={noop}
+      onRefuserMission={noop}
       onUpdateMissionProduits={noop}
       onSignalerProduit={noop}
       onAddFraisMaintenance={noop}
@@ -112,6 +113,7 @@ describe('SejourCard', () => {
         catalogue={[]}
         onCheckout={noop}
         onValiderMission={onValiderMission}
+        onRefuserMission={noop}
         onUpdateMissionProduits={noop}
         onSignalerProduit={noop}
         onAddFraisMaintenance={noop}

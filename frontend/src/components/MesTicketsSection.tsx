@@ -1,41 +1,39 @@
-import { useEffect, useState } from 'react'
-import { fetchMesTicketsMaintenance } from '../api'
+import { useState } from 'react'
 import type { MonTicketMaintenance } from '../types'
+import { STATUT_VALIDATION_LABELS, STATUT_VALIDATION_STYLES } from '../utils/statutValidation'
 import { URGENCE_LABELS, URGENCE_STYLES } from '../utils/urgence'
 import { TicketDetailAgent } from './TicketDetailAgent'
 
-// Only "a_refaire" needs a clear, distinct callout in this list -- the
-// normal "assigne" statut is the agent's regular current work and needs no
-// badge, mirroring MesMissionsSection's STATUT_BADGES pattern.
+// Only the two statuts that need a clear, distinct callout in this list --
+// the normal "assigne" statut is the agent's regular current work and
+// needs no badge, mirroring MesMissionsSection's STATUT_BADGES pattern.
 const STATUT_BADGES: Partial<Record<MonTicketMaintenance['statut'], { label: string; style: string }>> = {
+  resolu_en_attente_validation: {
+    label: STATUT_VALIDATION_LABELS.en_attente,
+    style: STATUT_VALIDATION_STYLES.en_attente,
+  },
   a_refaire: {
-    label: 'Renvoyé par le Manager — à refaire',
-    style: 'bg-red-100 text-red-800',
+    label: STATUT_VALIDATION_LABELS.refuse,
+    style: STATUT_VALIDATION_STYLES.refuse,
   },
 }
 
-export function MesTicketsSection() {
-  const [tickets, setTickets] = useState<MonTicketMaintenance[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+interface MesTicketsSectionProps {
+  tickets: MonTicketMaintenance[]
+  loading: boolean
+  error: string | null
+  heading?: string
+  emptyMessage: string
+  emptyIcon: string
+  onRefresh: () => void
+}
+
+export function MesTicketsSection({ tickets, loading, error, heading, emptyMessage, emptyIcon, onRefresh }: MesTicketsSectionProps) {
   // Holds the actual selected ticket object, not just its id: resolving a
   // ticket moves it out of the "assigne" list this screen shows, so deriving
   // the detail view from `tickets` would make the confirmation screen
   // disappear the moment the background refresh completes.
   const [selectedTicket, setSelectedTicket] = useState<MonTicketMaintenance | null>(null)
-
-  const chargerTickets = () => {
-    setLoading(true)
-    setError(null)
-    fetchMesTicketsMaintenance()
-      .then(setTickets)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Impossible de charger les tickets.'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    chargerTickets()
-  }, [])
 
   if (selectedTicket) {
     return (
@@ -43,13 +41,13 @@ export function MesTicketsSection() {
         ticket={selectedTicket}
         onBack={() => {
           setSelectedTicket(null)
-          chargerTickets()
+          onRefresh()
         }}
         onResolu={() => {
           // Stays on the confirmation view -- refresh the underlying list in
           // the background so it's already up to date once the agent goes
           // back to "Mes tickets".
-          chargerTickets()
+          onRefresh()
         }}
       />
     )
@@ -57,7 +55,7 @@ export function MesTicketsSection() {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900">Mes tickets</h3>
+      {heading && <h3 className="text-lg font-semibold text-gray-900">{heading}</h3>}
 
       {loading && <p className="mt-4 text-sm text-gray-500">Chargement...</p>}
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
@@ -67,9 +65,9 @@ export function MesTicketsSection() {
             aria-hidden="true"
             className="flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 text-5xl"
           >
-            ✅
+            {emptyIcon}
           </div>
-          <p className="text-base text-gray-500">Aucun ticket pour l'instant.</p>
+          <p className="text-base text-gray-500">{emptyMessage}</p>
         </div>
       )}
 

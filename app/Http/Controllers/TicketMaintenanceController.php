@@ -123,9 +123,13 @@ class TicketMaintenanceController extends Controller
         }
 
         $tickets = TicketMaintenance::where('agent_id', $agentId)
-            ->whereIn('statut', [TicketMaintenance::STATUT_ASSIGNE, TicketMaintenance::STATUT_A_REFAIRE])
+            ->whereIn('statut', [
+                TicketMaintenance::STATUT_ASSIGNE,
+                TicketMaintenance::STATUT_A_REFAIRE,
+                TicketMaintenance::STATUT_RESOLU_EN_ATTENTE_VALIDATION,
+            ])
             ->with(['appartement:id,nom,adresse', 'refus'])
-            ->orderBy('created_at')
+            ->latest()
             ->get()
             ->map(fn (TicketMaintenance $ticket) => [
                 'id' => $ticket->id,
@@ -146,11 +150,69 @@ class TicketMaintenanceController extends Controller
                 ] : null,
                 'refus' => $ticket->refus->map(fn (TicketMaintenanceRefus $refus) => [
                     'motif' => $refus->motif,
+                    'motif_audio_url' => $refus->motif_audio_url,
+                    'motif_photo_url' => $refus->motif_photo_url,
+                    'vu' => $refus->vu,
                     'date' => $refus->created_at,
                 ])->values(),
             ]);
 
         return response()->json($tickets);
+    }
+
+    /**
+     * Chronological history of this maintenance agent's own already-resolved
+     * (resolu) tickets -- mirrors MissionMenageController::historique() on
+     * the ménage side. Explicitly own-agent-only server-side, same as
+     * mesTickets(): a "maintenance" caller can never pass another agent's id.
+     */
+    public function mesTicketsHistorique(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->role === Utilisateur::ROLE_MAINTENANCE) {
+            $agentId = $user->id;
+        } else {
+            $validated = $request->validate([
+                'agent_id' => ['required', 'integer', 'exists:utilisateurs,id'],
+            ]);
+            $agentId = $validated['agent_id'];
+        }
+
+        $tickets = TicketMaintenance::where('agent_id', $agentId)
+            ->where('statut', TicketMaintenance::STATUT_RESOLU)
+            ->with('appartement:id,nom,adresse')
+            ->latest()
+            ->get()
+            ->map(fn (TicketMaintenance $ticket) => [
+                'id' => $ticket->id,
+                'reference' => $ticket->reference,
+                'urgence' => $ticket->urgence,
+                'description_manager' => $ticket->description_manager,
+                'photo_apres' => $ticket->photo_apres,
+                'cout_reparation' => $ticket->cout_reparation !== null ? round((float) $ticket->cout_reparation, 2) : null,
+                'note_resolution' => $ticket->note_resolution,
+                'appartement' => $ticket->appartement ? [
+                    'id' => $ticket->appartement->id,
+                    'nom' => $ticket->appartement->nom,
+                    'adresse' => $ticket->appartement->adresse,
+                ] : null,
+            ]);
+
+        return response()->json($tickets);
+    }
+
+    /**
+     * Mark every refus on this ticket as seen by the maintenance agent --
+     * dismisses the unread dot on the agent's "Refusé(e)s" tab. Idempotent.
+     */
+    public function marquerRefusVu(Request $request, TicketMaintenance $ticketMaintenance): JsonResponse
+    {
+        $this->authorizeTicketAccess($request, $ticketMaintenance);
+
+        $ticketMaintenance->refus()->where('vu', false)->update(['vu' => true]);
+
+        return response()->json($ticketMaintenance->fresh(self::DETAIL_RELATIONS));
     }
 
     /**
@@ -212,9 +274,13 @@ class TicketMaintenanceController extends Controller
 
     /**
      * Manager-only: rejects a resolution the maintenance agent has
-     * submitted, with a mandatory motif. The ticket goes back to
-     * "a_refaire" (not closed) -- same agent, still blocking the
-     * appartement -- and the rejection is recorded so it stays visible in
+     * submitted, with a motif that can be text, audio, and/or photo (at
+     * least one required). The ticket goes back to "a_refaire" (not closed)
+     * -- same agent by default, still blocking the appartement; reassigning
+     * to a different agent is a separate, explicit Manager action via
+     * assigner(), which is only reachable from "ouvert" -- so a refused
+     * ticket keeps its agent unless the Manager deliberately reopens/
+     * reassigns it -- and the rejection is recorded so it stays visible in
      * the ticket's history even after several successive refusals. The
      * previously-submitted resolution proof is cleared: the agent's next
      * resoudre() call must provide fresh ones.
@@ -227,13 +293,34 @@ class TicketMaintenanceController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
-            'motif' => ['required', 'string', 'max:1000'],
+        $validator = Validator::make($request->all(), [
+            'motif' => ['nullable', 'string', 'max:1000'],
+            'motif_audio' => ['nullable', 'file', 'mimes:mp3,wav,ogg,webm,m4a,aac', 'max:10240'],
+            'motif_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
         ]);
+
+        $validator->after(function ($validator) use ($request) {
+            $hasMotif = trim((string) $request->input('motif', '')) !== '';
+
+            if (! $request->hasFile('motif_audio') && ! $request->hasFile('motif_photo') && ! $hasMotif) {
+                $validator->errors()->add('motif', 'Fournissez un motif texte, audio ou photo.');
+            }
+        });
+
+        $validated = $validator->validate();
+
+        $motifAudioUrl = $request->hasFile('motif_audio')
+            ? $request->file('motif_audio')->store('tickets-maintenance', 'public')
+            : null;
+        $motifPhotoUrl = $request->hasFile('motif_photo')
+            ? $request->file('motif_photo')->store('tickets-maintenance', 'public')
+            : null;
 
         $ticketMaintenance->refus()->create([
             'manager_id' => $request->user()->id,
-            'motif' => $validated['motif'],
+            'motif' => $validated['motif'] ?? null,
+            'motif_audio_url' => $motifAudioUrl,
+            'motif_photo_url' => $motifPhotoUrl,
         ]);
 
         $ticketMaintenance->update([

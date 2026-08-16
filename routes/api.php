@@ -68,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/produits-signales/{produitSignale}/rejeter', [ProduitSignaleController::class, 'rejeter']);
 
         Route::patch('/mission-menages/{missionMenage}/valider', [MissionMenageController::class, 'valider']);
+        Route::patch('/mission-menages/{missionMenage}/refuser', [MissionMenageController::class, 'refuser']);
         Route::get('/mission-menages/historique', [MissionMenageController::class, 'historiqueManager']);
 
         Route::get('/tickets-maintenance', [TicketMaintenanceController::class, 'index']);
@@ -86,6 +87,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/mission-menages/{missionMenage}', [MissionMenageController::class, 'show']);
         Route::patch('/mission-menages/{missionMenage}/produits', [MissionMenageController::class, 'updateProduits']);
         Route::patch('/mission-menages/{missionMenage}/vue', [MissionMenageController::class, 'marquerVue']);
+        Route::patch('/mission-menages/{missionMenage}/refus-vu', [MissionMenageController::class, 'marquerRefusVu']);
         Route::patch('/mission-menages/{missionMenage}/ouvrir', [MissionMenageController::class, 'ouvrir']);
         Route::patch('/mission-menages/{missionMenage}/terminer', [MissionMenageController::class, 'terminer']);
         Route::post('/mission-menages/{missionMenage}/produits-signales', [MissionMenageController::class, 'signalerProduit']);
@@ -98,6 +100,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // the agent's own assigned tickets, resolved with a photo proof + cost.
     Route::middleware('role:maintenance,manager')->group(function () {
         Route::get('/tickets-maintenance/mes-tickets', [TicketMaintenanceController::class, 'mesTickets']);
+        Route::get('/tickets-maintenance/mes-tickets/historique', [TicketMaintenanceController::class, 'mesTicketsHistorique']);
         Route::patch('/tickets-maintenance/{ticketMaintenance}/resoudre', [TicketMaintenanceController::class, 'resoudre']);
+        Route::patch('/tickets-maintenance/{ticketMaintenance}/refus-vu', [TicketMaintenanceController::class, 'marquerRefusVu']);
     });
 });

@@ -142,14 +142,14 @@ describe('AppRoot routing', () => {
     seedSession({ id: 9, nom: 'Karim B.', role: 'maintenance' })
     renderAt('/maintenance')
 
-    expect(await screen.findByText('Mes tickets')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mes tickets' })).toBeInTheDocument()
   })
 
   it('un compte maintenance qui accède à "/" est redirigé vers "/maintenance"', async () => {
     seedSession({ id: 9, nom: 'Karim B.', role: 'maintenance' })
     renderAt('/')
 
-    expect(await screen.findByText('Mes tickets')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mes tickets' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Dashboard', level: 2 })).not.toBeInTheDocument()
   })
 
@@ -157,7 +157,7 @@ describe('AppRoot routing', () => {
     seedSession({ id: 9, nom: 'Karim B.', role: 'maintenance' })
     renderAt('/menage')
 
-    expect(await screen.findByText('Mes tickets')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mes tickets' })).toBeInTheDocument()
     expect(screen.queryByText('Mes missions du jour')).not.toBeInTheDocument()
   })
 
@@ -166,7 +166,7 @@ describe('AppRoot routing', () => {
     renderAt('/maintenance')
 
     expect(await screen.findByText('Mes missions du jour')).toBeInTheDocument()
-    expect(screen.queryByText('Mes tickets')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Mes tickets' })).not.toBeInTheDocument()
   })
 
   it('un compte manager qui accède à "/maintenance" est redirigé vers "/"', async () => {
@@ -174,7 +174,7 @@ describe('AppRoot routing', () => {
     renderAt('/maintenance')
 
     expect(await screen.findByRole('heading', { name: 'Dashboard', level: 2 })).toBeInTheDocument()
-    expect(screen.queryByText('Mes tickets')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Mes tickets' })).not.toBeInTheDocument()
   })
 
   it('le bouton Déconnexion sur /maintenance ramène à l\'écran de connexion', async () => {
@@ -182,7 +182,7 @@ describe('AppRoot routing', () => {
     seedSession({ id: 9, nom: 'Karim B.', role: 'maintenance' })
     renderAt('/maintenance')
 
-    await screen.findByText('Mes tickets')
+    await screen.findByRole('heading', { name: 'Mes tickets' })
     await user.click(screen.getByRole('button', { name: 'Déconnexion' }))
 
     expect(await screen.findByRole('button', { name: 'Se connecter' })).toBeInTheDocument()

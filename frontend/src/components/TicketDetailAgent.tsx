@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { resoudreTicketMaintenance, resolveStorageUrl } from '../api'
+import { useEffect, useRef, useState } from 'react'
+import { marquerTicketMaintenanceRefusVu, resoudreTicketMaintenance, resolveStorageUrl } from '../api'
 import type { MonTicketMaintenance } from '../types'
 import { URGENCE_LABELS, URGENCE_STYLES } from '../utils/urgence'
 
@@ -19,6 +19,13 @@ export function TicketDetailAgent({ ticket, onBack, onResolu }: TicketDetailAgen
   const [resolu, setResolu] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (ticket.statut === 'a_refaire' && ticket.refus.some((r) => !r.vu)) {
+      void marquerTicketMaintenanceRefusVu(ticket.id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket.id])
 
   const handlePhotoChange = (file: File | undefined | null) => {
     if (!file) return
@@ -77,15 +84,24 @@ export function TicketDetailAgent({ ticket, onBack, onResolu }: TicketDetailAgen
         </div>
 
         {ticket.statut === 'a_refaire' && ticket.refus.length > 0 && (
-          <p
-            data-testid="refus-banner"
-            className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
-          >
-            <span aria-hidden="true">⚠️</span>
-            <span>
-              Renvoyé par le Manager — à refaire : {ticket.refus[0].motif}
-            </span>
-          </p>
+          <div data-testid="refus-banner" className="mt-3 space-y-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+            <p className="flex items-center gap-2">
+              <span aria-hidden="true">⚠️</span>
+              Renvoyé par le Manager — à refaire
+            </p>
+            {ticket.refus[0].motif && <p className="font-normal">{ticket.refus[0].motif}</p>}
+            {ticket.refus[0].motif_audio_url && (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <audio controls src={resolveStorageUrl(ticket.refus[0].motif_audio_url)} className="w-full" />
+            )}
+            {ticket.refus[0].motif_photo_url && (
+              <img
+                src={resolveStorageUrl(ticket.refus[0].motif_photo_url)}
+                alt="Photo du motif de refus"
+                className="h-32 w-32 rounded-lg object-cover"
+              />
+            )}
+          </div>
         )}
 
         {ticket.description_manager && (

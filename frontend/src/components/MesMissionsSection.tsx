@@ -1,49 +1,46 @@
-import { useEffect, useState } from 'react'
-import { useAuth } from '../auth/AuthContext'
-import { fetchMissionsAgent, resolveStorageUrl } from '../api'
+import { useState } from 'react'
+import { resolveStorageUrl } from '../api'
 import type { MissionMenage, ProduitCatalogue } from '../types'
+import { STATUT_VALIDATION_LABELS, STATUT_VALIDATION_STYLES } from '../utils/statutValidation'
 import { MissionDetailAgent } from './MissionDetailAgent'
 
 interface MesMissionsSectionProps {
+  missions: MissionMenage[]
   catalogue: ProduitCatalogue[]
+  loading: boolean
+  error: string | null
+  heading?: string
+  subheading?: string
+  emptyMessage: string
+  emptyIcon: string
+  onRefresh: () => void
 }
 
 // Only the two statuts that need a clear, distinct callout in this list --
 // a_faire/en_cours are the agent's normal current work and need no badge.
 const STATUT_BADGES: Partial<Record<MissionMenage['statut'], { label: string; style: string }>> = {
   en_attente_validation: {
-    label: 'En attente de validation du Manager',
-    style: 'bg-purple-100 text-purple-800',
+    label: STATUT_VALIDATION_LABELS.en_attente,
+    style: STATUT_VALIDATION_STYLES.en_attente,
   },
   non_conforme: {
-    label: 'Renvoyé par le Manager — à refaire',
-    style: 'bg-red-100 text-red-800',
+    label: STATUT_VALIDATION_LABELS.refuse,
+    style: STATUT_VALIDATION_STYLES.refuse,
   },
 }
 
-export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
-  const { user } = useAuth()
-  const [missions, setMissions] = useState<MissionMenage[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function MesMissionsSection({
+  missions,
+  catalogue,
+  loading,
+  error,
+  heading,
+  subheading,
+  emptyMessage,
+  emptyIcon,
+  onRefresh,
+}: MesMissionsSectionProps) {
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null)
-
-  const chargerMissions = () => {
-    if (!user) return
-    setLoading(true)
-    setError(null)
-    fetchMissionsAgent(user.id)
-      .then(setMissions)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Impossible de charger les missions.'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    chargerMissions()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id])
-
-  if (!user) return null
 
   if (selectedMissionId != null) {
     return (
@@ -52,14 +49,14 @@ export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
         catalogue={catalogue}
         onBack={() => {
           setSelectedMissionId(null)
-          chargerMissions()
+          onRefresh()
         }}
         onMissionTerminee={() => {
           // Stays on the detail view: MissionDetailAgent now shows a
           // confirmation message instead of silently disappearing --
           // refresh the underlying list in the background so it's already
           // up to date once the agent clicks "Retour à mes missions".
-          chargerMissions()
+          onRefresh()
         }}
       />
     )
@@ -67,10 +64,12 @@ export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
 
   return (
     <div>
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900">Mes missions du jour</h3>
-        <p className="text-sm text-gray-500">{user.nom}</p>
-      </div>
+      {(heading || subheading) && (
+        <div>
+          {heading && <h3 className="text-lg font-semibold text-gray-900">{heading}</h3>}
+          {subheading && <p className="text-sm text-gray-500">{subheading}</p>}
+        </div>
+      )}
 
       {loading && <p className="mt-4 text-sm text-gray-500">Chargement...</p>}
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
@@ -80,9 +79,9 @@ export function MesMissionsSection({ catalogue }: MesMissionsSectionProps) {
             aria-hidden="true"
             className="flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 text-5xl"
           >
-            ✅
+            {emptyIcon}
           </div>
-          <p className="text-base text-gray-500">Aucune mission pour l'instant.</p>
+          <p className="text-base text-gray-500">{emptyMessage}</p>
         </div>
       )}
 

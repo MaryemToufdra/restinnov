@@ -9,6 +9,7 @@ import type {
   HistoriqueMission,
   HistoriqueMissionAgent,
   HistoriqueMissionManager,
+  HistoriqueTicketAgent,
   MissionMenage,
   ModeGestion,
   MonTicketMaintenance,
@@ -615,6 +616,37 @@ export async function validerMissionMenage(missionMenageId: number): Promise<Mis
   return parseJsonOrThrow(response)
 }
 
+export interface RefuserInput {
+  motif?: string | null
+  motifAudio?: File | null
+  motifPhoto?: File | null
+}
+
+export async function refuserMissionMenage(missionMenageId: number, input: RefuserInput): Promise<MissionMenage> {
+  const formData = new FormData()
+  if (input.motif) formData.append('motif', input.motif)
+  if (input.motifAudio) formData.append('motif_audio', input.motifAudio)
+  if (input.motifPhoto) formData.append('motif_photo', input.motifPhoto)
+  formData.append('_method', 'PATCH')
+
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/refuser`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function marquerMissionMenageRefusVu(missionMenageId: number): Promise<MissionMenage> {
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/refus-vu`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
 export interface ToggleChecklistItemInput {
   coche?: boolean
   photo?: File
@@ -745,6 +777,23 @@ export async function fetchMesTicketsMaintenance(): Promise<MonTicketMaintenance
   return parseJsonOrThrow(response)
 }
 
+export async function fetchMesTicketsMaintenanceHistorique(): Promise<HistoriqueTicketAgent[]> {
+  const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/mes-tickets/historique`, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function marquerTicketMaintenanceRefusVu(id: number): Promise<TicketMaintenance> {
+  const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/${id}/refus-vu`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
 export async function resoudreTicketMaintenance(
   id: number,
   input: ResoudreTicketMaintenanceInput,
@@ -773,11 +822,17 @@ export async function validerResolutionTicketMaintenance(id: number): Promise<Ti
   return parseJsonOrThrow(response)
 }
 
-export async function refuserResolutionTicketMaintenance(id: number, motif: string): Promise<TicketMaintenance> {
+export async function refuserResolutionTicketMaintenance(id: number, input: RefuserInput): Promise<TicketMaintenance> {
+  const formData = new FormData()
+  if (input.motif) formData.append('motif', input.motif)
+  if (input.motifAudio) formData.append('motif_audio', input.motifAudio)
+  if (input.motifPhoto) formData.append('motif_photo', input.motifPhoto)
+  formData.append('_method', 'PATCH')
+
   const response = await fetch(`${API_BASE_URL}/api/tickets-maintenance/${id}/refuser-resolution`, {
-    method: 'PATCH',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ motif }),
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
   })
 
   return parseJsonOrThrow(response)
