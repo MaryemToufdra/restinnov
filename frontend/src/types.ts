@@ -106,6 +106,14 @@ export interface MissionMenageRefus {
   created_at: string
 }
 
+export interface MissionMenagePhotoPreuve {
+  id: number
+  mission_menage_id: number
+  photo_url: string
+  note: string | null
+  created_at: string
+}
+
 export interface MissionMenage {
   id: number
   sejour_id: number
@@ -118,6 +126,7 @@ export interface MissionMenage {
   produits?: ProduitCatalogue[]
   checklist_items?: ChecklistItem[]
   produits_signales?: ProduitMenageSignale[]
+  photos_preuve?: MissionMenagePhotoPreuve[]
   sejour?: { id: number; appartement: Appartement | null } | null
   refus?: MissionMenageRefus[]
 }

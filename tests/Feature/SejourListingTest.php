@@ -182,4 +182,44 @@ class SejourListingTest extends TestCase
 
         $response->assertStatus(404);
     }
+
+    private function missionAvecRefusEtPreuve(): \App\Models\MissionMenage
+    {
+        $sejour = $this->sejour(['statut' => 'termine']);
+        $mission = \App\Models\MissionMenage::create([
+            'sejour_id' => $sejour->id,
+            'statut' => 'non_conforme',
+        ]);
+        $mission->refus()->create(['motif' => 'Salle de bain pas nettoyée.']);
+        $mission->photosPreuve()->create(['photo_url' => 'missions-menage-photos-preuve/preuve.jpg', 'note' => 'Corrigé']);
+
+        return $mission;
+    }
+
+    public function test_the_sejours_list_includes_the_mission_menage_refus_history_and_proof_photos(): void
+    {
+        $mission = $this->missionAvecRefusEtPreuve();
+
+        $response = $this->getJson('/api/sejours');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.0.mission_menage.id', $mission->id);
+        $response->assertJsonCount(1, 'data.0.mission_menage.refus');
+        $response->assertJsonPath('data.0.mission_menage.refus.0.motif', 'Salle de bain pas nettoyée.');
+        $response->assertJsonCount(1, 'data.0.mission_menage.photos_preuve');
+        $response->assertJsonPath('data.0.mission_menage.photos_preuve.0.note', 'Corrigé');
+    }
+
+    public function test_a_single_sejour_includes_the_mission_menage_refus_history_and_proof_photos(): void
+    {
+        $mission = $this->missionAvecRefusEtPreuve();
+
+        $response = $this->getJson("/api/sejours/{$mission->sejour_id}");
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'mission_menage.refus');
+        $response->assertJsonPath('mission_menage.refus.0.motif', 'Salle de bain pas nettoyée.');
+        $response->assertJsonCount(1, 'mission_menage.photos_preuve');
+        $response->assertJsonPath('mission_menage.photos_preuve.0.note', 'Corrigé');
+    }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  ajouterPhotosPreuveMission,
   marquerMissionMenageRefusVu,
   ouvrirMissionMenage,
   resolveStorageUrl,
@@ -8,6 +9,7 @@ import {
   terminerMissionMenage,
   toggleChecklistItem,
   updateMissionMenageProduits,
+  type AjouterPhotosPreuveInput,
   type SignalerProblemeInput,
   type SignalerProduitInput,
   type UpdateMissionMenageProduitsInput,
@@ -16,6 +18,7 @@ import type { ChecklistItem, MissionMenage, ProduitCatalogue } from '../types'
 import { checklistIcon } from '../utils/checklistIcons'
 import { playConfirmSound } from '../utils/sound'
 import { FraisMenageSection } from './FraisMenageSection'
+import { PhotoPreuveSection } from './PhotoPreuveSection'
 import { SignalerProblemeSection } from './SignalerProblemeSection'
 
 interface MissionDetailAgentProps {
@@ -192,6 +195,13 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
     await signalerProbleme(missionMenageId, input)
   }
 
+  const handleAjouterPhotosPreuve = async (missionMenageId: number, input: AjouterPhotosPreuveInput) => {
+    const created = await ajouterPhotosPreuveMission(missionMenageId, input)
+    setMission((current) =>
+      current ? { ...current, photos_preuve: [...created, ...(current.photos_preuve ?? [])] } : current,
+    )
+  }
+
   const handleTerminer = async () => {
     setTerminerError(null)
     setTerminating(true)
@@ -242,6 +252,12 @@ export function MissionDetailAgent({ missionId, catalogue, onBack, onMissionTerm
               )}
             </div>
           )}
+
+          <PhotoPreuveSection
+            missionMenageId={mission.id}
+            onAjouter={handleAjouterPhotosPreuve}
+            misEnAvant={mission.statut === 'non_conforme'}
+          />
 
           {totalItems > 0 && (
             <div>

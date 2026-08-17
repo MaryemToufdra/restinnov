@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MissionValidationDetail } from './MissionValidationDetail'
 import type { MissionMenage } from '../types'
 
@@ -118,5 +118,88 @@ describe('MissionValidationDetail', () => {
 
     expect(screen.getByText('Aucun item de checklist.')).toBeInTheDocument()
     expect(screen.getByText('Aucun produit signalé.')).toBeInTheDocument()
+  })
+
+  it('permet de valider/rejeter un produit "en_attente" directement, sans quitter l\'écran, quand les callbacks sont fournis', async () => {
+    const user = userEvent.setup()
+    const onValiderProduitSignale = vi.fn().mockResolvedValue(undefined)
+    const onRejeterProduitSignale = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <MissionValidationDetail
+        mission={missionFixture({
+          produits_signales: [
+            {
+              id: 3,
+              mission_menage_id: 10,
+              photo_url: 'produits-signales/photo.jpg',
+              note: 'Trouvé sur place',
+              statut: 'en_attente',
+              produit_catalogue_id: null,
+            },
+          ],
+        })}
+        onValiderProduitSignale={onValiderProduitSignale}
+        onRejeterProduitSignale={onRejeterProduitSignale}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /voir le détail/i }))
+    await user.type(screen.getByLabelText('Nom'), 'Gel douche')
+    await user.type(screen.getByLabelText('Prix (MAD)'), '30')
+    await user.click(screen.getByRole('button', { name: /^valider$/i }))
+
+    expect(onValiderProduitSignale).toHaveBeenCalledWith(3, { nom: 'Gel douche', prix: 30 })
+
+    await user.click(screen.getByRole('button', { name: /^rejeter$/i }))
+    expect(onRejeterProduitSignale).toHaveBeenCalledWith(3)
+  })
+
+  it('garde un rendu lecture-seule pour un produit déjà validé/rejeté, même avec les callbacks fournis', async () => {
+    const user = userEvent.setup()
+    render(
+      <MissionValidationDetail
+        mission={missionFixture({
+          produits_signales: [
+            {
+              id: 4,
+              mission_menage_id: 10,
+              photo_url: 'produits-signales/photo.jpg',
+              note: 'Déjà traité',
+              statut: 'valide',
+              produit_catalogue_id: 1,
+            },
+          ],
+        })}
+        onValiderProduitSignale={vi.fn()}
+        onRejeterProduitSignale={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /voir le détail/i }))
+
+    expect(screen.getByText('Déjà traité')).toBeInTheDocument()
+    expect(screen.getByText('Validé')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Nom')).not.toBeInTheDocument()
+  })
+
+  it('affiche les photos de preuve du travail de l\'agent', async () => {
+    const user = userEvent.setup()
+    render(
+      <MissionValidationDetail
+        mission={missionFixture({
+          photos_preuve: [
+            { id: 1, mission_menage_id: 10, photo_url: 'missions-menage-photos-preuve/preuve.jpg', note: 'Corrigé', created_at: '2026-08-17T10:00:00Z' },
+          ],
+        })}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /voir le détail/i }))
+
+    expect(screen.getByText('Photos de preuve du travail')).toBeInTheDocument()
+    const image = screen.getByAltText('Photo de preuve du travail')
+    expect(image).toHaveAttribute('src', expect.stringContaining('missions-menage-photos-preuve/preuve.jpg'))
+    expect(screen.getByText('Corrigé')).toBeInTheDocument()
   })
 })

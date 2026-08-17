@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesMissionAccess;
 use App\Models\MissionMenage;
+use App\Models\MissionMenagePhotoPreuve;
 use App\Models\ProduitMenageSignale;
 use App\Models\TicketMaintenance;
 use App\Models\Utilisateur;
@@ -16,7 +17,7 @@ class MissionMenageController extends Controller
 {
     use AuthorizesMissionAccess;
 
-    private const DETAIL_RELATIONS = ['sejour.appartement', 'agent', 'produits', 'checklistItems', 'produitsSignales', 'refus'];
+    private const DETAIL_RELATIONS = ['sejour.appartement', 'agent', 'produits', 'checklistItems', 'produitsSignales', 'refus', 'photosPreuve'];
 
     /**
      * "Mes missions du jour": missions assigned to a given menage agent
@@ -407,6 +408,35 @@ class MissionMenageController extends Controller
         ]);
 
         return response()->json($produitSignale, 201);
+    }
+
+    /**
+     * Attach one or more "photo de preuve de travail" to a mission -- proof
+     * the agent has (re)done the job, independent of the "Signaler un
+     * probleme" flow (which reports a new issue, not evidence of finished
+     * work) and of a checklist item's own photo_url (scoped to a single
+     * item). Particularly useful after a Manager refus, to show the
+     * corrected work without re-checking every checklist item's photo.
+     */
+    public function ajouterPhotosPreuve(Request $request, MissionMenage $missionMenage): JsonResponse
+    {
+        $this->authorizeMissionAccess($request, $missionMenage);
+
+        $validated = $request->validate([
+            'photos' => ['required', 'array', 'min:1'],
+            'photos.*' => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $photosPreuve = collect($validated['photos'])->map(function ($photo) use ($missionMenage, $validated) {
+            return MissionMenagePhotoPreuve::create([
+                'mission_menage_id' => $missionMenage->id,
+                'photo_url' => $photo->store('missions-menage-photos-preuve', 'public'),
+                'note' => $validated['note'] ?? null,
+            ]);
+        });
+
+        return response()->json($photosPreuve->values(), 201);
     }
 
     /**
