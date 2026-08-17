@@ -141,6 +141,14 @@ export interface TicketMaintenanceRefus {
   manager: { id: number; nom: string } | null
 }
 
+export interface TicketMaintenanceParAppartement {
+  appartement: { id: number; nom: string; adresse: string } | null
+  tickets_count: number
+  cout_cumule: number
+  recurrent: boolean
+  tickets: TicketMaintenance[]
+}
+
 export interface TicketMaintenance {
   id: number
   reference: string

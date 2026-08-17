@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesTicketAccess;
 use App\Models\TicketMaintenance;
 use App\Models\TicketMaintenanceRefus;
 use App\Models\Utilisateur;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -17,33 +18,22 @@ class TicketMaintenanceController extends Controller
 
     private const DETAIL_RELATIONS = ['appartement', 'missionOrigine.sejour', 'agent', 'refus.manager'];
 
+    // An appartement is flagged "récurrent" in the par-appartement historique
+    // view once it reaches this many tickets (any statut) within the
+    // rolling window below -- easy to retune from one place if the Manager
+    // wants a stricter/looser definition later.
+    private const SEUIL_RECURRENCE_TICKETS = 3;
+
+    private const FENETRE_RECURRENCE_MOIS = 2;
+
     /**
-     * Display a listing of maintenance tickets for the Manager -- the single
-     * "Tickets de maintenance" screen, used both for the actionable list and
-     * for browsing the full history (all filters are optional and combine;
-     * omitting statut returns every ticket regardless of statut). Filters:
-     * statut, appartement_id, a date range on the *séjour's* date_arrivee
-     * (not the ticket's own created_at -- the ticket may have been created
-     * or resolved well after the stay), and a free-text search across the
-     * ticket reference and the appartement's nom. Regardless of the filter,
-     * open/unassigned tickets always sort first, then by urgence (haute
-     * first), then most recent.
+     * Shared statut/appartement/date-range/search filtering, used by both
+     * index() (flat chronological list) and parAppartement() (grouped
+     * historique) so the two views always agree on what a given filter
+     * combination includes.
      */
-    public function index(Request $request): JsonResponse
+    private function applyFilters(Builder $query, array $validated): void
     {
-        $validated = $request->validate([
-            'statut' => ['sometimes', 'in:ouvert,assigne,resolu_en_attente_validation,resolu,a_refaire'],
-            'appartement_id' => ['sometimes', 'integer', 'exists:appartements,id'],
-            'date_debut' => ['sometimes', 'date'],
-            'date_fin' => ['sometimes', 'date'],
-            'search' => ['sometimes', 'string', 'max:255'],
-        ]);
-
-        $query = TicketMaintenance::with(self::DETAIL_RELATIONS)
-            ->orderByRaw("CASE statut WHEN 'ouvert' THEN 0 WHEN 'a_refaire' THEN 1 WHEN 'assigne' THEN 2 ELSE 3 END")
-            ->orderByRaw("CASE urgence WHEN 'haute' THEN 0 WHEN 'normale' THEN 1 ELSE 2 END")
-            ->latest();
-
         if (! empty($validated['statut'])) {
             $query->where('statut', $validated['statut']);
         }
@@ -72,8 +62,96 @@ class TicketMaintenanceController extends Controller
                     });
             });
         }
+    }
+
+    /**
+     * Display a listing of maintenance tickets for the Manager -- the single
+     * "Tickets de maintenance" screen, used both for the actionable list and
+     * for browsing the full history (all filters are optional and combine;
+     * omitting statut returns every ticket regardless of statut). Filters:
+     * statut, appartement_id, a date range on the *séjour's* date_arrivee
+     * (not the ticket's own created_at -- the ticket may have been created
+     * or resolved well after the stay), and a free-text search across the
+     * ticket reference and the appartement's nom. Regardless of the filter,
+     * open/unassigned tickets always sort first, then by urgence (haute
+     * first), then most recent.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'statut' => ['sometimes', 'in:ouvert,assigne,resolu_en_attente_validation,resolu,a_refaire'],
+            'appartement_id' => ['sometimes', 'integer', 'exists:appartements,id'],
+            'date_debut' => ['sometimes', 'date'],
+            'date_fin' => ['sometimes', 'date'],
+            'search' => ['sometimes', 'string', 'max:255'],
+        ]);
+
+        $query = TicketMaintenance::with(self::DETAIL_RELATIONS)
+            ->orderByRaw("CASE statut WHEN 'ouvert' THEN 0 WHEN 'a_refaire' THEN 1 WHEN 'assigne' THEN 2 ELSE 3 END")
+            ->orderByRaw("CASE urgence WHEN 'haute' THEN 0 WHEN 'normale' THEN 1 ELSE 2 END")
+            ->latest();
+
+        $this->applyFilters($query, $validated);
 
         return response()->json($query->get());
+    }
+
+    /**
+     * The same filterable historique as index(), but grouped by appartement
+     * for the Manager's "Historique et récurrence" view: per appartement,
+     * the number of tickets and cumulative repair cost within the filtered
+     * period, its full ticket list (for the group's expandable detail), and
+     * whether it is "récurrent" -- SEUIL_RECURRENCE_TICKETS or more tickets
+     * (any statut) within the last FENETRE_RECURRENCE_MOIS months. Unlike
+     * the count/cost, "récurrent" deliberately ignores the current
+     * statut/date filters: it is a standing trait of the appartement, not a
+     * property of whatever slice of history happens to be on screen right
+     * now. Appartements are sorted by cumulative cost, most costly first,
+     * so the ones worth a closer look surface immediately.
+     */
+    public function parAppartement(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'statut' => ['sometimes', 'in:ouvert,assigne,resolu_en_attente_validation,resolu,a_refaire'],
+            'appartement_id' => ['sometimes', 'integer', 'exists:appartements,id'],
+            'date_debut' => ['sometimes', 'date'],
+            'date_fin' => ['sometimes', 'date'],
+            'search' => ['sometimes', 'string', 'max:255'],
+        ]);
+
+        $query = TicketMaintenance::with(self::DETAIL_RELATIONS)->latest();
+        $this->applyFilters($query, $validated);
+
+        $tickets = $query->get();
+
+        $recurrenceDepuis = now()->subMonths(self::FENETRE_RECURRENCE_MOIS);
+        $recurrentAppartementIds = TicketMaintenance::query()
+            ->where('created_at', '>=', $recurrenceDepuis)
+            ->selectRaw('appartement_id, count(*) as total')
+            ->groupBy('appartement_id')
+            ->having('total', '>=', self::SEUIL_RECURRENCE_TICKETS)
+            ->pluck('appartement_id');
+
+        $groupes = $tickets->groupBy('appartement_id')
+            ->map(function ($ticketsAppartement, $appartementId) use ($recurrentAppartementIds) {
+                $appartement = $ticketsAppartement->first()->appartement;
+
+                return [
+                    'appartement' => $appartement ? [
+                        'id' => $appartement->id,
+                        'nom' => $appartement->nom,
+                        'adresse' => $appartement->adresse,
+                    ] : null,
+                    'tickets_count' => $ticketsAppartement->count(),
+                    'cout_cumule' => round((float) $ticketsAppartement->sum('cout_reparation'), 2),
+                    'recurrent' => $recurrentAppartementIds->contains($appartementId),
+                    'tickets' => $ticketsAppartement->values(),
+                ];
+            })
+            ->sortByDesc('cout_cumule')
+            ->values();
+
+        return response()->json($groupes);
     }
 
     /**

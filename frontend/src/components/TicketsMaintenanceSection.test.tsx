@@ -91,6 +91,59 @@ function mockFetch(tickets: TicketMaintenance[], agents: Agent[]) {
       return new Response(JSON.stringify(result), { status: 200 })
     }
 
+    if (url.pathname === '/api/tickets-maintenance/par-appartement' && method === 'GET') {
+      const statut = url.searchParams.get('statut')
+      const appartementId = url.searchParams.get('appartement_id')
+      const dateDebut = url.searchParams.get('date_debut')
+      const dateFin = url.searchParams.get('date_fin')
+      const search = url.searchParams.get('search')
+
+      let result = currentTickets
+      if (statut) result = result.filter((t) => t.statut === statut)
+      if (appartementId) result = result.filter((t) => String(t.appartement_id) === appartementId)
+      if (dateDebut) {
+        result = result.filter((t) => (t.mission_origine?.sejour?.date_arrivee ?? '') >= dateDebut)
+      }
+      if (dateFin) {
+        result = result.filter((t) => (t.mission_origine?.sejour?.date_arrivee ?? '') <= dateFin)
+      }
+      if (search) {
+        const needle = search.toLowerCase()
+        result = result.filter(
+          (t) => t.reference.toLowerCase().includes(needle) || (t.appartement?.nom.toLowerCase() ?? '').includes(needle),
+        )
+      }
+
+      const parAppartement = new Map<number, TicketMaintenance[]>()
+      for (const ticket of result) {
+        const list = parAppartement.get(ticket.appartement_id) ?? []
+        list.push(ticket)
+        parAppartement.set(ticket.appartement_id, list)
+      }
+
+      const groupes = Array.from(parAppartement.entries())
+        .map(([appartementId, ticketsAppartement]) => ({
+          appartement: ticketsAppartement[0].appartement
+            ? {
+                id: ticketsAppartement[0].appartement.id,
+                nom: ticketsAppartement[0].appartement.nom,
+                adresse: ticketsAppartement[0].appartement.adresse,
+              }
+            : null,
+          tickets_count: ticketsAppartement.length,
+          cout_cumule: ticketsAppartement.reduce((total, t) => total + (Number(t.cout_reparation) || 0), 0),
+          // Simplified for the test double: "récurrent" mirrors the backend's
+          // >= 3-tickets threshold, over ALL of that appartement's tickets
+          // (any statut, ignoring the currently applied filters) -- same
+          // "independent of the active filter" semantics as the real endpoint.
+          recurrent: currentTickets.filter((t) => t.appartement_id === appartementId).length >= 3,
+          tickets: ticketsAppartement,
+        }))
+        .sort((a, b) => b.cout_cumule - a.cout_cumule)
+
+      return new Response(JSON.stringify(groupes), { status: 200 })
+    }
+
     if (url.pathname === '/api/utilisateurs' && method === 'GET') {
       return new Response(JSON.stringify(agents), { status: 200 })
     }
@@ -462,5 +515,129 @@ describe('TicketsMaintenanceSection', () => {
     await screen.findByText('Ticket en attente')
     expect(screen.queryByText('Ticket ouvert')).not.toBeInTheDocument()
     expect(screen.getByLabelText(/^statut$/i)).toHaveValue('resolu_en_attente_validation')
+  })
+
+  // --- Vue "Groupé par appartement" ---
+
+  it('bascule vers la vue groupée par appartement et affiche le nombre de tickets et le coût cumulé', async () => {
+    const user = userEvent.setup()
+    renderSection([
+      ticketFixture({ id: 1, statut: 'resolu', cout_reparation: '45.50' }),
+      ticketFixture({ id: 2, statut: 'resolu', cout_reparation: '20' }),
+    ])
+
+    await user.click(screen.getByRole('tab', { name: /groupé par appartement/i }))
+
+    expect(await screen.findByRole('button', { name: /loft bastille/i })).toBeInTheDocument()
+    expect(screen.getByText('2 tickets')).toBeInTheDocument()
+    expect(screen.getByTestId('cout-cumule-1')).toHaveTextContent('65.50 MAD')
+  })
+
+  it('affiche le badge "Récurrent" à partir de 3 tickets pour un appartement', async () => {
+    const user = userEvent.setup()
+    renderSection([
+      ticketFixture({ id: 1 }),
+      ticketFixture({ id: 2 }),
+      ticketFixture({ id: 3 }),
+    ])
+
+    await user.click(screen.getByRole('tab', { name: /groupé par appartement/i }))
+
+    expect(await screen.findByTestId('recurrent-badge-1')).toHaveTextContent('Récurrent')
+  })
+
+  it('n\'affiche pas le badge "Récurrent" en dessous du seuil', async () => {
+    const user = userEvent.setup()
+    renderSection([ticketFixture({ id: 1 }), ticketFixture({ id: 2 })])
+
+    await user.click(screen.getByRole('tab', { name: /groupé par appartement/i }))
+
+    await screen.findByRole('button', { name: /loft bastille/i })
+    expect(screen.queryByTestId('recurrent-badge-1')).not.toBeInTheDocument()
+  })
+
+  it('déplie un groupe au clic pour afficher ses tickets avec leurs badges de statut colorés', async () => {
+    const user = userEvent.setup()
+    renderSection([
+      ticketFixture({ id: 1, statut: 'resolu', description: 'Ticket résolu' }),
+      ticketFixture({ id: 2, statut: 'resolu_en_attente_validation', description: 'Ticket en attente' }),
+      ticketFixture({ id: 3, statut: 'a_refaire', description: 'Ticket à refaire' }),
+    ])
+
+    await user.click(screen.getByRole('tab', { name: /groupé par appartement/i }))
+
+    const groupHeader = await screen.findByRole('button', { name: /loft bastille/i })
+    expect(screen.queryByText('Ticket résolu')).not.toBeInTheDocument()
+
+    await user.click(groupHeader)
+
+    const groupePanel = groupHeader.closest('li') as HTMLElement
+    expect(within(groupePanel).getByText('Ticket résolu')).toBeInTheDocument()
+    expect(within(groupePanel).getByText('Ticket en attente')).toBeInTheDocument()
+    expect(within(groupePanel).getByText('Ticket à refaire')).toBeInTheDocument()
+    expect(within(groupePanel).getByText('Résolu')).toBeInTheDocument()
+    expect(within(groupePanel).getByText('Résolu — en attente de validation')).toBeInTheDocument()
+    expect(within(groupePanel).getByText('À refaire')).toBeInTheDocument()
+  })
+
+  it('un groupe déplié reste pleinement interactif (ex. valider une résolution en attente)', async () => {
+    const user = userEvent.setup()
+    const ticket = ticketFixture({
+      statut: 'resolu_en_attente_validation',
+      photo_apres: 'tickets-maintenance/apres.jpg',
+      cout_reparation: '20',
+    })
+    globalThis.fetch = mockFetch([ticket], []) as typeof fetch
+    render(<TicketsMaintenanceSection appartements={APPARTEMENTS} />)
+    const fetchMock = globalThis.fetch as ReturnType<typeof mockFetch>
+
+    await user.click(screen.getByRole('tab', { name: /groupé par appartement/i }))
+    await user.click(await screen.findByRole('button', { name: /loft bastille/i }))
+    await expandTicket(user, 'Le robinet fuit.')
+    await user.click(screen.getByRole('button', { name: /^valider$/i }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/valider-resolution'))
+      expect(call).toBeDefined()
+    })
+  })
+
+  it('regroupe des appartements distincts dans des groupes séparés, triés par coût cumulé décroissant', async () => {
+    const user = userEvent.setup()
+    renderSection([
+      ticketFixture({ id: 1, statut: 'resolu', cout_reparation: '10', description: 'Petit coût' }),
+      ticketFixture({
+        id: 2,
+        statut: 'resolu',
+        cout_reparation: '500',
+        description: 'Gros coût',
+        appartement_id: 2,
+        appartement: APPARTEMENTS[1],
+      }),
+    ])
+
+    await screen.findByText('Petit coût')
+    await user.click(screen.getByRole('tab', { name: /groupé par appartement/i }))
+
+    const headers = await screen.findAllByRole('button', { expanded: false })
+    const groupHeaders = headers.filter((el) => el.textContent?.includes('Bastille') || el.textContent?.includes('Zenith'))
+    expect(groupHeaders[0].textContent).toContain('Zenith')
+    expect(groupHeaders[1].textContent).toContain('Bastille')
+  })
+
+  it('les filtres statut/appartement/date/recherche s\'appliquent aussi à la vue groupée', async () => {
+    const user = userEvent.setup()
+    renderSection([
+      ticketFixture({ id: 1, statut: 'ouvert' }),
+      ticketFixture({ id: 2, statut: 'resolu' }),
+    ])
+
+    await user.click(screen.getByRole('tab', { name: /groupé par appartement/i }))
+    await screen.findByRole('button', { name: /loft bastille/i })
+    expect(screen.getByText('2 tickets')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText(/^statut$/i), 'resolu')
+
+    await waitFor(() => expect(screen.getByText('1 ticket')).toBeInTheDocument())
   })
 })

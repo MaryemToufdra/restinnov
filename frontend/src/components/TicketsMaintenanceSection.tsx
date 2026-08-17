@@ -2,16 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import {
   assignerTicketMaintenance,
   fetchTicketsMaintenance,
+  fetchTicketsMaintenanceParAppartement,
   fetchUtilisateurs,
   refuserResolutionTicketMaintenance,
   resolveStorageUrl,
   validerResolutionTicketMaintenance,
   type RefuserInput,
 } from '../api'
-import type { Agent, Appartement, TicketMaintenance, TicketMaintenanceStatut } from '../types'
+import type { Agent, Appartement, TicketMaintenance, TicketMaintenanceParAppartement, TicketMaintenanceStatut } from '../types'
 import { STATUT_VALIDATION_STYLES } from '../utils/statutValidation'
 import { URGENCE_LABELS, URGENCE_STYLES } from '../utils/urgence'
 import { RefuserModal } from './RefuserModal'
+
+type Vue = 'liste' | 'groupe'
 
 type ExpressionMode = 'texte' | 'audio'
 
@@ -473,6 +476,71 @@ function TicketMaintenanceCard({
   )
 }
 
+function AppartementGroupeCard({
+  groupe,
+  agents,
+  onAssigner,
+  onValider,
+  onRefuser,
+}: {
+  groupe: TicketMaintenanceParAppartement
+  agents: Agent[]
+  onAssigner: (ticketId: number, values: AssignerValues) => Promise<void>
+  onValider: (ticketId: number) => Promise<void>
+  onRefuser: (ticketId: number, input: RefuserInput) => Promise<void>
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <li className="rounded-md border border-gray-200">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className="flex w-full flex-wrap items-start justify-between gap-2 p-4 text-left"
+      >
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 font-medium text-gray-900">
+            <span className="truncate">{groupe.appartement?.nom ?? 'Appartement inconnu'}</span>
+            {groupe.recurrent && (
+              <span
+                data-testid={`recurrent-badge-${groupe.appartement?.id}`}
+                className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800"
+              >
+                Récurrent
+              </span>
+            )}
+          </p>
+          <p className="truncate text-sm text-gray-500">{groupe.appartement?.adresse}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+            {groupe.tickets_count} ticket{groupe.tickets_count > 1 ? 's' : ''}
+          </span>
+          <span className="text-sm font-bold text-gray-900" data-testid={`cout-cumule-${groupe.appartement?.id}`}>
+            {groupe.cout_cumule.toFixed(2)} MAD
+          </span>
+        </div>
+      </button>
+
+      {expanded && (
+        <ul className="space-y-2 border-t border-gray-100 p-4 pt-3">
+          {groupe.tickets.map((ticket) => (
+            <TicketMaintenanceCard
+              key={ticket.id}
+              ticket={ticket}
+              agents={agents}
+              onAssigner={onAssigner}
+              onValider={onValider}
+              onRefuser={onRefuser}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
 export interface TicketsMaintenanceSectionProps {
   appartements: Appartement[]
   initialStatutFilter?: TicketMaintenanceStatut | ''
@@ -487,7 +555,9 @@ export interface TicketsMaintenanceSectionProps {
  * nothing to do yet).
  */
 export function TicketsMaintenanceSection({ appartements, initialStatutFilter }: TicketsMaintenanceSectionProps) {
+  const [vue, setVue] = useState<Vue>('liste')
   const [tickets, setTickets] = useState<TicketMaintenance[]>([])
+  const [groupes, setGroupes] = useState<TicketMaintenanceParAppartement[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -501,18 +571,23 @@ export function TicketsMaintenanceSection({ appartements, initialStatutFilter }:
   const load = () => {
     setLoading(true)
     setError(null)
+    const filtres = {
+      statut: statutFilter || undefined,
+      appartementId: appartementFilter ? Number(appartementFilter) : undefined,
+      dateDebut: dateDebut || undefined,
+      dateFin: dateFin || undefined,
+      search: search || undefined,
+    }
     Promise.all([
-      fetchTicketsMaintenance({
-        statut: statutFilter || undefined,
-        appartementId: appartementFilter ? Number(appartementFilter) : undefined,
-        dateDebut: dateDebut || undefined,
-        dateFin: dateFin || undefined,
-        search: search || undefined,
-      }),
+      vue === 'liste' ? fetchTicketsMaintenance(filtres) : fetchTicketsMaintenanceParAppartement(filtres),
       fetchUtilisateurs({ role: 'maintenance' }),
     ])
-      .then(([ticketsData, agentsData]) => {
-        setTickets(ticketsData)
+      .then(([data, agentsData]) => {
+        if (vue === 'liste') {
+          setTickets(data as TicketMaintenance[])
+        } else {
+          setGroupes(data as TicketMaintenanceParAppartement[])
+        }
         setAgents(agentsData)
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Impossible de charger les tickets.'))
@@ -522,7 +597,7 @@ export function TicketsMaintenanceSection({ appartements, initialStatutFilter }:
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statutFilter, appartementFilter, dateDebut, dateFin, search])
+  }, [vue, statutFilter, appartementFilter, dateDebut, dateFin, search])
 
   useEffect(() => {
     if (initialStatutFilter) setStatutFilter(initialStatutFilter)
@@ -551,14 +626,60 @@ export function TicketsMaintenanceSection({ appartements, initialStatutFilter }:
 
   const visibleTickets = urgenceFilter ? tickets.filter((ticket) => ticket.urgence === urgenceFilter) : tickets
 
+  // The urgence filter is client-side only (same as the flat list above),
+  // so a grouped appartement's ticket_count/cout_cumule are recomputed from
+  // its filtered tickets rather than the backend-reported (urgence-blind)
+  // totals -- an appartement with no ticket left at that urgence disappears
+  // entirely instead of showing an empty, misleadingly non-zero group.
+  const visibleGroupes = groupes
+    .map((groupe) => {
+      const filteredTickets = urgenceFilter
+        ? groupe.tickets.filter((ticket) => ticket.urgence === urgenceFilter)
+        : groupe.tickets
+      return {
+        ...groupe,
+        tickets: filteredTickets,
+        tickets_count: filteredTickets.length,
+        cout_cumule: filteredTickets.reduce((total, ticket) => total + (Number(ticket.cout_reparation) || 0), 0),
+      }
+    })
+    .filter((groupe) => groupe.tickets.length > 0)
+
+  const totalVisible = vue === 'liste' ? visibleTickets.length : visibleGroupes.reduce((total, g) => total + g.tickets_count, 0)
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
         Tickets de maintenance
         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-          {visibleTickets.length}
+          {totalVisible}
         </span>
       </h2>
+
+      <div className="mt-3 flex gap-1 rounded-lg bg-gray-100 p-1" role="tablist" aria-label="Mode d'affichage de l'historique">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={vue === 'liste'}
+          onClick={() => setVue('liste')}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+            vue === 'liste' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Vue chronologique
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={vue === 'groupe'}
+          onClick={() => setVue('groupe')}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+            vue === 'groupe' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Groupé par appartement
+        </button>
+      </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-6">
         <div>
@@ -655,16 +776,35 @@ export function TicketsMaintenanceSection({ appartements, initialStatutFilter }:
       {loading && <p className="mt-2 text-sm text-gray-500">Chargement...</p>}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-      {!loading && !error && visibleTickets.length === 0 && (
+      {!loading && !error && vue === 'liste' && visibleTickets.length === 0 && (
         <p className="mt-2 text-sm text-gray-500">Aucun ticket de maintenance.</p>
       )}
 
-      {!loading && !error && visibleTickets.length > 0 && (
+      {!loading && !error && vue === 'liste' && visibleTickets.length > 0 && (
         <ul className="mt-3 space-y-3">
           {visibleTickets.map((ticket) => (
             <TicketMaintenanceCard
               key={ticket.id}
               ticket={ticket}
+              agents={agents}
+              onAssigner={handleAssigner}
+              onValider={handleValider}
+              onRefuser={handleRefuser}
+            />
+          ))}
+        </ul>
+      )}
+
+      {!loading && !error && vue === 'groupe' && visibleGroupes.length === 0 && (
+        <p className="mt-2 text-sm text-gray-500">Aucun ticket de maintenance.</p>
+      )}
+
+      {!loading && !error && vue === 'groupe' && visibleGroupes.length > 0 && (
+        <ul className="mt-3 space-y-3">
+          {visibleGroupes.map((groupe) => (
+            <AppartementGroupeCard
+              key={groupe.appartement?.id ?? 'inconnu'}
+              groupe={groupe}
               agents={agents}
               onAssigner={handleAssigner}
               onValider={handleValider}
