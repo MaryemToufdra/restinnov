@@ -24,6 +24,7 @@ import type {
   Sejour,
   SejourStatut,
   TicketMaintenance,
+  TicketMaintenanceParAppartement,
   TicketMaintenanceStatut,
   Voyageur,
 } from './types'
@@ -774,6 +775,23 @@ export async function fetchTicketsMaintenance(
   params: FetchTicketsMaintenanceParams = {},
 ): Promise<TicketMaintenance[]> {
   const url = new URL(`${API_BASE_URL}/api/tickets-maintenance`)
+  if (params.statut) url.searchParams.set('statut', params.statut)
+  if (params.appartementId) url.searchParams.set('appartement_id', String(params.appartementId))
+  if (params.dateDebut) url.searchParams.set('date_debut', params.dateDebut)
+  if (params.dateFin) url.searchParams.set('date_fin', params.dateFin)
+  if (params.search) url.searchParams.set('search', params.search)
+
+  const response = await fetch(url, {
+    headers: authHeaders(),
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function fetchTicketsMaintenanceParAppartement(
+  params: FetchTicketsMaintenanceParams = {},
+): Promise<TicketMaintenanceParAppartement[]> {
+  const url = new URL(`${API_BASE_URL}/api/tickets-maintenance/par-appartement`)
   if (params.statut) url.searchParams.set('statut', params.statut)
   if (params.appartementId) url.searchParams.set('appartement_id', String(params.appartementId))
   if (params.dateDebut) url.searchParams.set('date_debut', params.dateDebut)

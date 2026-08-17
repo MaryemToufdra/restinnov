@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Appartement;
+use App\Models\MissionMenage;
 use App\Models\Sejour;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -183,10 +184,10 @@ class SejourListingTest extends TestCase
         $response->assertStatus(404);
     }
 
-    private function missionAvecRefusEtPreuve(): \App\Models\MissionMenage
+    private function missionAvecRefusEtPreuve(): MissionMenage
     {
         $sejour = $this->sejour(['statut' => 'termine']);
-        $mission = \App\Models\MissionMenage::create([
+        $mission = MissionMenage::create([
             'sejour_id' => $sejour->id,
             'statut' => 'non_conforme',
         ]);
