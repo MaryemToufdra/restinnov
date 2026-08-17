@@ -11,6 +11,7 @@ import type {
   HistoriqueMissionManager,
   HistoriqueTicketAgent,
   MissionMenage,
+  MissionMenagePhotoPreuve,
   ModeGestion,
   MonTicketMaintenance,
   NotificationsData,
@@ -169,6 +170,11 @@ export interface UpdateMissionMenageProduitsInput {
 
 export interface SignalerProduitInput {
   photo: File
+  note?: string | null
+}
+
+export interface AjouterPhotosPreuveInput {
+  photos: File[]
   note?: string | null
 }
 
@@ -680,6 +686,23 @@ export async function signalerProduit(
   if (input.note) formData.append('note', input.note)
 
   const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/produits-signales`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
+  })
+
+  return parseJsonOrThrow(response)
+}
+
+export async function ajouterPhotosPreuveMission(
+  missionMenageId: number,
+  input: AjouterPhotosPreuveInput,
+): Promise<MissionMenagePhotoPreuve[]> {
+  const formData = new FormData()
+  input.photos.forEach((photo) => formData.append('photos[]', photo))
+  if (input.note) formData.append('note', input.note)
+
+  const response = await fetch(`${API_BASE_URL}/api/mission-menages/${missionMenageId}/photos-preuve`, {
     method: 'POST',
     headers: authHeaders(),
     body: formData,

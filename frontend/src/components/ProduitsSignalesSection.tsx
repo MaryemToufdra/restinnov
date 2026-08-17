@@ -8,7 +8,7 @@ interface ProduitsSignalesSectionProps {
   onRejeter: (id: number) => Promise<void>
 }
 
-function ProduitSignaleCard({
+export function ProduitSignaleCard({
   produitSignale,
   onValider,
   onRejeter,

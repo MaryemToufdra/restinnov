@@ -91,6 +91,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/mission-menages/{missionMenage}/ouvrir', [MissionMenageController::class, 'ouvrir']);
         Route::patch('/mission-menages/{missionMenage}/terminer', [MissionMenageController::class, 'terminer']);
         Route::post('/mission-menages/{missionMenage}/produits-signales', [MissionMenageController::class, 'signalerProduit']);
+        Route::post('/mission-menages/{missionMenage}/photos-preuve', [MissionMenageController::class, 'ajouterPhotosPreuve']);
         Route::post('/mission-menages/{missionMenage}/signalements', [MissionMenageController::class, 'signalerProbleme']);
 
         Route::patch('/checklist-items/{checklistItem}', [ChecklistItemController::class, 'update']);

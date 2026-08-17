@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { RefuserInput } from '../api'
-import type { ProduitCatalogue, Sejour } from '../types'
+import { resolveStorageUrl, type RefuserInput } from '../api'
+import type { MissionMenage, ProduitCatalogue, Sejour } from '../types'
 import { FraisMaintenanceSection } from './FraisMaintenanceSection'
 import { FraisMenageSection } from './FraisMenageSection'
 import { MissionValidationDetail } from './MissionValidationDetail'
@@ -18,6 +18,39 @@ const STATUT_STYLES: Record<Sejour['statut'], string> = {
   termine: 'bg-green-100 text-green-800',
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function RefusHistoriqueMenage({ mission }: { mission: MissionMenage }) {
+  if (!mission.refus || mission.refus.length === 0) return null
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-gray-600">Historique des refus</p>
+      <ul className="mt-1 space-y-2">
+        {mission.refus.map((refus) => (
+          <li key={refus.id} className="space-y-1 rounded-md bg-red-50 p-2 text-sm text-red-700">
+            <p className="text-xs text-red-500">{formatDate(refus.created_at)}</p>
+            {refus.motif && <p>{refus.motif}</p>}
+            {refus.motif_audio_url && (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <audio controls src={resolveStorageUrl(refus.motif_audio_url)} className="w-full" />
+            )}
+            {refus.motif_photo_url && (
+              <img
+                src={resolveStorageUrl(refus.motif_photo_url)}
+                alt="Photo du motif de refus"
+                className="h-24 w-24 rounded object-cover"
+              />
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 interface SejourCardProps {
   sejour: Sejour
   catalogue: ProduitCatalogue[]
@@ -26,6 +59,8 @@ interface SejourCardProps {
   onRefuserMission: (missionMenageId: number, input: RefuserInput) => Promise<void>
   onUpdateMissionProduits: (missionMenageId: number, input: { frais_forfait: number; produit_ids: number[] }) => Promise<void>
   onSignalerProduit: (missionMenageId: number, input: { photo: File; note?: string | null }) => Promise<void>
+  onValiderProduitSignale: (id: number, input: { nom: string; prix: number }) => Promise<void>
+  onRejeterProduitSignale: (id: number) => Promise<void>
   onAddFraisMaintenance: (sejourId: number, input: { description: string; prix: number }) => Promise<void>
   onDeleteFraisMaintenance: (id: number) => Promise<void>
 }
@@ -38,6 +73,8 @@ export function SejourCard({
   onRefuserMission,
   onUpdateMissionProduits,
   onSignalerProduit,
+  onValiderProduitSignale,
+  onRejeterProduitSignale,
   onAddFraisMaintenance,
   onDeleteFraisMaintenance,
 }: SejourCardProps) {
@@ -113,7 +150,11 @@ export function SejourCard({
           {sejour.mission_menage.statut === 'en_attente_validation' && (
             <div className="mt-2">
               <p className="mb-2 font-medium text-purple-700">En attente de validation</p>
-              <MissionValidationDetail mission={sejour.mission_menage} />
+              <MissionValidationDetail
+                mission={sejour.mission_menage}
+                onValiderProduitSignale={onValiderProduitSignale}
+                onRejeterProduitSignale={onRejeterProduitSignale}
+              />
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
@@ -144,6 +185,14 @@ export function SejourCard({
                   }}
                 />
               )}
+            </div>
+          )}
+
+          {sejour.mission_menage.statut === 'non_conforme' && (
+            <div className="mt-2 space-y-2" data-testid="mission-non-conforme">
+              <p className="font-medium text-red-700">Refusée — en attente de correction par l'agent</p>
+              <MissionValidationDetail mission={sejour.mission_menage} />
+              <RefusHistoriqueMenage mission={sejour.mission_menage} />
             </div>
           )}
         </div>

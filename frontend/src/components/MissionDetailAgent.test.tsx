@@ -81,6 +81,23 @@ function mockFetch(mission: MissionMenage) {
       return new Response(JSON.stringify(updatedItem), { status: 200 })
     }
 
+    if (path === `/api/mission-menages/${mission.id}/photos-preuve` && method === 'POST') {
+      const formData = init?.body as FormData
+      const photos = formData.getAll('photos[]')
+      const note = formData.get('note')
+      return new Response(
+        JSON.stringify(
+          photos.map((_, index) => ({
+            id: 100 + index,
+            mission_menage_id: mission.id,
+            photo_url: 'missions-menage-photos-preuve/preuve.jpg',
+            note: note || null,
+          })),
+        ),
+        { status: 201 },
+      )
+    }
+
     if (path === `/api/mission-menages/${mission.id}/signalements` && method === 'POST') {
       const formData = init?.body as FormData
       return new Response(
@@ -303,6 +320,54 @@ describe('MissionDetailAgent', () => {
     await screen.findByText("Passer l'aspirateur")
 
     expect(screen.queryByText('Standard')).not.toBeInTheDocument()
+  })
+
+  it('affiche "Ajouter une photo de mon travail", distinct de "Signaler un problème"', async () => {
+    globalThis.fetch = mockFetch(missionFixture()) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText('Loft Bastille')
+    expect(screen.getByRole('button', { name: /ajouter une photo de mon travail/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /signaler un problème/i })).toBeInTheDocument()
+  })
+
+  it('met en avant "Ajouter une photo de mon travail" (déplié, message dédié) quand la mission est non_conforme', async () => {
+    globalThis.fetch = mockFetch(
+      missionFixture({
+        statut: 'non_conforme',
+        refus: [{ id: 1, motif: 'La salle de bain n\'est pas propre.', motif_audio_url: null, motif_photo_url: null, vu: true, created_at: '2026-08-11T10:00:00Z' }],
+      }),
+    ) as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText('Loft Bastille')
+    // misEnAvant auto-expands the form (rather than showing the collapsed
+    // big blue button), so its heading is visible immediately.
+    expect(screen.getByRole('heading', { name: /ajouter une photo de mon travail/i })).toBeInTheDocument()
+  })
+
+  it('envoie une photo de preuve de travail (flux indépendant du signalement de problème)', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockFetch(missionFixture())
+    globalThis.fetch = fetchMock as typeof fetch
+
+    render(<MissionDetailAgent missionId={10} catalogue={[]} onBack={vi.fn()} onMissionTerminee={vi.fn()} />)
+
+    await screen.findByText('Loft Bastille')
+    await user.click(screen.getByRole('button', { name: /ajouter une photo de mon travail/i }))
+    const photo = new File(['contenu'], 'travail.jpg', { type: 'image/jpeg' })
+    await user.upload(screen.getByLabelText(/photos de preuve de travail/i), photo)
+    await user.click(screen.getByRole('button', { name: /^envoyer$/i }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/mission-menages/10/photos-preuve'),
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+    expect(await screen.findByTestId('photo-preuve-confirmation')).toBeInTheDocument()
   })
 
   it('permet de marquer terminé une mission sans aucun item de checklist', async () => {

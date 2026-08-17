@@ -6,13 +6,16 @@ import {
   fetchSejour,
   fetchSejours,
   refuserMissionMenage,
+  rejeterProduitSignale,
   signalerProduit,
   updateMissionMenageProduits,
   validerMissionMenage,
+  validerProduitSignale,
   type NewFraisMaintenanceInput,
   type RefuserInput,
   type SignalerProduitInput,
   type UpdateMissionMenageProduitsInput,
+  type ValiderProduitSignaleInput,
 } from '../api'
 import type { Appartement, PlateformeOrigine, ProduitCatalogue, Sejour, SejourStatut } from '../types'
 import { SejourCard } from './SejourCard'
@@ -228,6 +231,38 @@ export function SejoursListeSection({
     await signalerProduit(missionMenageId, input)
   }
 
+  const handleValiderProduitSignale = async (id: number, input: ValiderProduitSignaleInput) => {
+    const updated = await validerProduitSignale(id, input)
+    applySejourUpdate(
+      (s) => s.mission_menage?.produits_signales?.some((p) => p.id === id) ?? false,
+      (s) => ({
+        ...s,
+        mission_menage: s.mission_menage
+          ? {
+              ...s.mission_menage,
+              produits_signales: (s.mission_menage.produits_signales ?? []).map((p) => (p.id === id ? updated : p)),
+            }
+          : s.mission_menage,
+      }),
+    )
+  }
+
+  const handleRejeterProduitSignale = async (id: number) => {
+    const updated = await rejeterProduitSignale(id)
+    applySejourUpdate(
+      (s) => s.mission_menage?.produits_signales?.some((p) => p.id === id) ?? false,
+      (s) => ({
+        ...s,
+        mission_menage: s.mission_menage
+          ? {
+              ...s.mission_menage,
+              produits_signales: (s.mission_menage.produits_signales ?? []).map((p) => (p.id === id ? updated : p)),
+            }
+          : s.mission_menage,
+      }),
+    )
+  }
+
   const handleAddFraisMaintenance = async (sejourId: number, input: NewFraisMaintenanceInput) => {
     const created = await createFraisMaintenance(sejourId, input)
     applySejourUpdate(
@@ -270,6 +305,8 @@ export function SejoursListeSection({
             onRefuserMission={handleRefuserMission}
             onUpdateMissionProduits={handleUpdateMissionProduits}
             onSignalerProduit={handleSignalerProduit}
+            onValiderProduitSignale={handleValiderProduitSignale}
+            onRejeterProduitSignale={handleRejeterProduitSignale}
             onAddFraisMaintenance={handleAddFraisMaintenance}
             onDeleteFraisMaintenance={handleDeleteFraisMaintenance}
           />
