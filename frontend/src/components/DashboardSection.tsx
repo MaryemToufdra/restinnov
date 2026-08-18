@@ -29,12 +29,6 @@ const STATUT_BADGE_STYLES: Record<SejourStatut, string> = {
   termine: 'bg-green-100 text-green-800',
 }
 
-const STATUT_CARD_STYLES: Record<SejourStatut, string> = {
-  a_venir: 'border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100',
-  en_cours: 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100',
-  termine: 'border-green-200 bg-green-50 text-green-800 hover:bg-green-100',
-}
-
 // Appartement statut labels/colors, kept identical to AppartementsListeSection.tsx.
 const APPARTEMENT_STATUT_LABELS: Record<string, string> = {
   disponible: 'Disponible',
@@ -218,44 +212,44 @@ export function DashboardSection({
     <div className="space-y-6">
       <DepartsAujourdhuiBanner departs={data.departs_aujourdhui} onCheckout={onCheckout} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-              <CurrencyIcon className="h-5 w-5" />
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
+              <CurrencyIcon className="h-6 w-6" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">Revenus totaux</p>
-              <p className="mt-0.5 text-xl font-semibold text-gray-900" data-testid="dashboard-revenus-totaux">
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Revenus totaux</p>
+              <p className="mt-1 text-3xl font-bold text-gray-900" data-testid="dashboard-revenus-totaux">
                 {formatMad(data.revenus_totaux)}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-lg border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
-              <SparklesIcon className="h-5 w-5" />
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-orange-600 text-white">
+              <SparklesIcon className="h-6 w-6" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">Frais de ménage totaux</p>
-              <p className="mt-0.5 text-xl font-semibold text-gray-900" data-testid="dashboard-frais-menage-totaux">
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Frais de ménage</p>
+              <p className="mt-1 text-3xl font-bold text-gray-900" data-testid="dashboard-frais-menage-totaux">
                 {formatMad(data.frais_menage_totaux)}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-lg border border-red-200 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-              <WrenchIcon className="h-5 w-5" />
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
+              <WrenchIcon className="h-6 w-6" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">Frais de maintenance totaux</p>
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Frais de maintenance</p>
               <p
-                className="mt-0.5 text-xl font-semibold text-gray-900"
+                className="mt-1 text-3xl font-bold text-gray-900"
                 data-testid="dashboard-frais-maintenance-totaux"
               >
                 {formatMad(data.frais_maintenance_totaux)}
@@ -264,67 +258,78 @@ export function DashboardSection({
           </div>
         </div>
 
-        <div className="rounded-lg border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-              <ScaleIcon className="h-5 w-5" />
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <ScaleIcon className="h-6 w-6" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">Résultat net</p>
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Résultat net</p>
               <p
-                className={`mt-0.5 text-xl font-semibold ${data.resultat_net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}
+                className={`mt-1 text-3xl font-bold ${data.resultat_net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}
                 data-testid="dashboard-resultat-net"
               >
                 {formatMad(data.resultat_net)}
               </p>
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-400">Hors commission propriétaire (non incluse pour le moment)</p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-semibold text-gray-700">Séjours par statut</h3>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">Séjours par statut</h3>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {STATUT_ORDER.map((statut) => (
             <button
               key={statut}
               type="button"
               onClick={() => onNavigateToSejoursListe?.(statut)}
-              className={`rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${STATUT_CARD_STYLES[statut]}`}
+              className="flex items-center gap-4 p-5 rounded-xl border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left shadow-sm"
             >
-              <p className="text-2xl font-bold">{data.sejours_par_statut[statut]}</p>
-              <p className="text-sm font-medium">{STATUT_LABELS[statut]}</p>
+              <span className={`h-12 w-12 flex items-center justify-center rounded-lg ${statut === 'a_venir' ? 'bg-blue-600' : statut === 'en_cours' ? 'bg-amber-600' : 'bg-green-600'} text-white`}>
+                <span className="text-xl">
+                  {statut === 'a_venir' ? '📅' : statut === 'en_cours' ? '⏳' : '✅'}
+                </span>
+              </span>
+              <div>
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{STATUT_LABELS[statut]}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-0.5">{data.sejours_par_statut[statut]}</p>
+              </div>
             </button>
           ))}
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700">Séjours récents</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Séjours récents</h3>
           {data.sejours_recents.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">Aucun séjour pour le moment.</p>
+            <div className="py-8 text-center text-sm text-gray-500">Aucun séjour pour le moment.</div>
           ) : (
-            <ul className="mt-3 divide-y divide-gray-100">
+            <ul className="space-y-1">
               {data.sejours_recents.map((sejour) => (
                 <li key={sejour.id}>
                   <button
                     type="button"
                     onClick={() => onNavigateToSejour?.(sejour.id)}
-                    className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-gray-50"
+                    className="flex w-full items-center justify-between gap-4 rounded-lg px-4 py-3 text-left transition-colors hover:bg-gray-50 group cursor-pointer"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">{sejour.nom_voyageur}</p>
-                      <p className="truncate text-xs text-gray-500">
+                      <p className="text-sm font-semibold text-gray-900">{sejour.nom_voyageur}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
                         {sejour.appartement?.nom ?? 'Appartement supprimé'} · {formatDate(sejour.date_arrivee)}
                       </p>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUT_BADGE_STYLES[sejour.statut]}`}
-                    >
-                      {STATUT_LABELS[sejour.statut]}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${STATUT_BADGE_STYLES[sejour.statut]}`}
+                      >
+                        {STATUT_LABELS[sejour.statut]}
+                      </span>
+                      <svg className="h-4 w-4 text-gray-300 group-hover:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
                   </button>
                 </li>
               ))}
@@ -333,50 +338,55 @@ export function DashboardSection({
           <button
             type="button"
             onClick={() => onNavigateToSejoursListe?.()}
-            className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+            className="mt-6 text-sm font-medium text-indigo-600 hover:text-indigo-800"
           >
             Voir tous les séjours →
           </button>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700">Appartements</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Appartements</h3>
           {data.appartements.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">Aucun appartement pour le moment.</p>
+            <div className="py-8 text-center text-sm text-gray-500">Aucun appartement pour le moment.</div>
           ) : (
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs font-medium uppercase text-gray-500">
-                    <th className="py-2 pr-4">Nom</th>
-                    <th className="py-2 pr-4">Statut</th>
-                    <th className="py-2 pr-4">Séjours</th>
-                    <th className="py-2 pr-4">Dernier séjour</th>
+                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                    <th className="pb-4 px-4">Nom</th>
+                    <th className="pb-4 px-4">Statut</th>
+                    <th className="pb-4 px-4 text-right">Séjours</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {data.appartements.map((appartement) => (
                     <tr
                       key={appartement.id}
                       onClick={() => onNavigateToAppartements?.()}
                       className={
                         onNavigateToAppartements
-                          ? 'cursor-pointer transition-colors hover:bg-gray-50'
+                          ? 'cursor-pointer transition-colors hover:bg-gray-50 group'
                           : undefined
                       }
                     >
-                      <td className="py-2 pr-4 text-gray-900">{appartement.nom}</td>
-                      <td className="py-2 pr-4">
+                      <td className="px-4 py-4 text-gray-900 font-medium">{appartement.nom}</td>
+                      <td className="px-4 py-4">
                         <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
                             APPARTEMENT_STATUT_STYLES[appartement.statut] ?? 'bg-gray-100 text-gray-600'
                           }`}
                         >
                           {APPARTEMENT_STATUT_LABELS[appartement.statut] ?? appartement.statut}
                         </span>
                       </td>
-                      <td className="py-2 pr-4 text-gray-700">{appartement.sejours_count}</td>
-                      <td className="py-2 pr-4 text-gray-700">{formatDate(appartement.dernier_sejour)}</td>
+                      <td className="px-4 py-4 text-right text-gray-700 font-medium">
+                        {appartement.sejours_count}
+                        <span className="inline-block ml-3">
+                          <svg className="h-4 w-4 text-gray-300 group-hover:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -387,27 +397,32 @@ export function DashboardSection({
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700">Problèmes signalés</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Problèmes signalés</h3>
           {data.problemes_signales.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">Aucun problème signalé.</p>
+            <div className="py-8 text-center text-sm text-gray-500">Aucun problème signalé.</div>
           ) : (
-            <ul className="mt-3 divide-y divide-gray-100">
+            <ul className="space-y-1">
               {data.problemes_signales.map((probleme) => (
                 <li key={probleme.id}>
                   <button
                     type="button"
                     onClick={() => onNavigateToTicketsMaintenance?.()}
-                    className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-gray-50"
+                    className="flex w-full items-center justify-between gap-4 rounded-lg px-4 py-3 text-left transition-colors hover:bg-gray-50 group cursor-pointer"
                   >
-                    <p className="truncate text-sm font-medium text-gray-900">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
                       {probleme.appartement?.adresse ?? 'Appartement supprimé'}
                     </p>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${URGENCE_STYLES[probleme.urgence]}`}
-                    >
-                      {URGENCE_LABELS[probleme.urgence]}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${URGENCE_STYLES[probleme.urgence]}`}
+                      >
+                        {URGENCE_LABELS[probleme.urgence]}
+                      </span>
+                      <svg className="h-4 w-4 text-gray-300 group-hover:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
                   </button>
                 </li>
               ))}
@@ -415,25 +430,28 @@ export function DashboardSection({
           )}
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700">Ménages à valider</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Ménages à valider</h3>
           {data.menages_a_valider.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">Aucun ménage en attente.</p>
+            <div className="py-8 text-center text-sm text-gray-500">Aucun ménage en attente.</div>
           ) : (
-            <ul className="mt-3 divide-y divide-gray-100">
+            <ul className="space-y-1">
               {data.menages_a_valider.map((menage) => (
                 <li key={menage.id}>
                   <button
                     type="button"
                     onClick={() => onNavigateToSejour?.(menage.sejour_id)}
-                    className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-gray-50"
+                    className="flex w-full items-center justify-between gap-4 rounded-lg px-4 py-3 text-left transition-colors hover:bg-gray-50 group cursor-pointer"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
                         {menage.appartement?.adresse ?? 'Appartement supprimé'}
                       </p>
-                      <p className="truncate text-xs text-gray-500">{menage.nom_voyageur}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{menage.nom_voyageur}</p>
                     </div>
+                    <svg className="h-4 w-4 text-gray-300 group-hover:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </button>
                 </li>
               ))}
@@ -441,27 +459,30 @@ export function DashboardSection({
           )}
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700">Résolutions à valider</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Résolutions à valider</h3>
           {data.resolutions_a_valider.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">Aucune résolution en attente.</p>
+            <div className="py-8 text-center text-sm text-gray-500">Aucune résolution en attente.</div>
           ) : (
-            <ul className="mt-3 divide-y divide-gray-100">
+            <ul className="space-y-1">
               {data.resolutions_a_valider.map((resolution) => (
                 <li key={resolution.id}>
                   <button
                     type="button"
                     onClick={() => onNavigateToResolutionsAValider?.()}
-                    className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-gray-50"
+                    className="flex w-full items-center justify-between gap-4 rounded-lg px-4 py-3 text-left transition-colors hover:bg-gray-50 group cursor-pointer"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
                         {resolution.appartement?.adresse ?? 'Appartement supprimé'}
                       </p>
                       {resolution.cout_reparation != null && (
-                        <p className="truncate text-xs text-gray-500">{resolution.cout_reparation} MAD</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{resolution.cout_reparation} MAD</p>
                       )}
                     </div>
+                    <svg className="h-4 w-4 text-gray-300 group-hover:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </button>
                 </li>
               ))}
